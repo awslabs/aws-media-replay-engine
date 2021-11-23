@@ -1,4 +1,4 @@
-![mre-header](mre-header-1.png)
+[![Header](../assets/images/mre-header-1.png)](../../MRE-Developer-Guide.md)
 
 # Developers Guide - Extending MRE Functionality
 
@@ -19,5 +19,3 @@ Examples where these events can be applied are:
 - Export the list of segments found for an event as the live event occurs
 - Export an entire event list at the completion of the event and import into an existing media management solution to provide valuable tags in editing workflows
 - Add the video segment that was not segmented correctly to an A2I or AWS Sagemaker Ground Truth pipeline for review and labeling in a ML process
-
-  

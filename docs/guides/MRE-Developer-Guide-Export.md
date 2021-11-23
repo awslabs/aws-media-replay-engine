@@ -7,6 +7,12 @@ Media Replay Engine (MRE) provides the capability to export Event and Replay dat
 
 ## Event data export schema
 
+The API to request an event specific export is here:
+
+[GET /export/data/event/{event}/program/{program}](https://htmlpreview.github.io/?../source/output/api/controlplane.html#get-event-export-data)
+
+Here's an example of the JSON formatted export data.
+
 ```json
 {
   "Event": {
@@ -107,7 +113,11 @@ Media Replay Engine (MRE) provides the capability to export Event and Replay dat
 
 ## Replay data export schema
 
+The API to request a replay specific export is here:
 
+[GET /export/data/replay/{id}/event/{event}/program/{program}](https://htmlpreview.github.io/?../source/output/api/controlplane.html#get-replay-export-data)
+
+Here's an example of the JSON formatted export data.
 
 ```json
 {

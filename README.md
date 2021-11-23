@@ -137,6 +137,10 @@ While MRE deploys all the relevant AWS resources to facilitate automated video c
 
 ## Option 1: Uninstall using AWS CDK
 ```
+# Delete the Frontend stack
+cd aws-media-replay-engine/source/frontend/cdk
+cdk destroy [--profile <aws-profile>]
+
 # Delete the Dataplane stack
 cd aws-media-replay-engine/source/dataplaneapi/infrastructure
 cdk destroy [--profile <aws-profile>]
@@ -148,13 +152,17 @@ cdk destroy [--profile <aws-profile>]
 
 ## Option 2: Uninstall using the AWS Management Console
 1. Sign in to the AWS CloudFormation console.
-2. Select the MRE Dataplane stack.
+2. Select the MRE Frontend stack.
 3. Choose Delete.
-4. Select the MRE Controlplane stack.
+4. Select the MRE Dataplane stack.
 5. Choose Delete.
+6. Select the MRE Controlplane stack.
+7. Choose Delete.
 
 ## Option 3: Uninstall using AWS Command Line Interface
 ```
+aws cloudformation delete-stack --stack-name <frontend-stack-name> --region <aws-region>
+
 aws cloudformation delete-stack --stack-name <dataplane-stack-name> --region <aws-region>
 
 aws cloudformation delete-stack --stack-name <controlplane-stack-name> --region <aws-region>

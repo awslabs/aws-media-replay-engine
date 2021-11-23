@@ -1,4 +1,4 @@
-![mre-header](mre-header-1.png)
+[![Header](../assets/images/mre-header-1.png)](../../MRE-Developer-Guide.md)
 
 # Developers Guide - Plugin Development
 

@@ -37,7 +37,7 @@ MRE refers to several elements of the solution using terms that may be familiar.
 - [Profile Configuration](docs/guides/MRE-Developer-Guide-Profiles.md)
 - [Event Creation](docs/guides/MRE-Developer-Guide-Events.md)
 - [Source Video Integration](docs/guides/MRE-Developer-Guide-Video.md)
-- [Replay Creation](docs/guides/MRE-Developer-Guide-Replay.md)
+- [Replay Creation](docs/guides/MRE-Developer-Guide-Replays.md)
 - [Exporting](docs/guides/MRE-Developer-Guide-Export.md)
 - [Security](docs/guides/MRE-Developer-Guide-APIAuth.md)
 - [Extending MRE](docs/guides/MRE-Developer-Guide-Extension.md)

@@ -1,0 +1,110 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "create_event",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Name": {
+            "$id": "#/properties/Name",
+            "type": "string",
+            "title": "The Name Schema",
+            "pattern": "^(.*)$"
+        },
+        "Program": {
+            "$id": "#/properties/Program",
+            "type": "string",
+            "title": "The Program Schema",
+            "pattern": "^(.*)$"
+        },
+        "Description": {
+            "$id": "#/properties/Description",
+            "type": "string",
+            "title": "The Description Schema",
+            "pattern": "^(.*)$"
+        },
+        "Channel": {
+            "$id": "#/properties/Channel",
+            "type": "string",
+            "title": "The Channel Schema",
+            "pattern": "^(.*)$"
+        },
+        "ProgramId": {
+            "$id": "#/properties/ProgramId",
+            "type": "string",
+            "title": "The ProgramId Schema"
+        },
+        "SourceVideoUrl": {
+            "$id": "#/properties/SourceVideoUrl",
+            "type": "string",
+            "title": "The SourceVideoUrl Schema"
+        },
+        "SourceVideoAuth": {
+            "$id": "#/properties/SourceVideoAuth",
+            "type": "object",
+            "title": "The SourceVideoAuth Schema",
+            "minProperties": 1
+        },
+        "SourceVideoMetadata": {
+            "$id": "#/properties/SourceVideoMetadata",
+            "type": "object",
+            "title": "The SourceVideoMetadata Schema",
+            "minProperties": 1
+        },
+        "BootstrapTimeInMinutes": {
+            "$id": "#/properties/BootstrapTimeInMinutes",
+            "type": "integer",
+            "title": "The BootstrapTimeInMinutes Schema"
+        },
+        "Profile": {
+            "$id": "#/properties/Profile",
+            "type": "string",
+            "title": "The Profile Schema",
+            "pattern": "^(.*)$"
+        },
+        "ContentGroup": {
+            "$id": "#/properties/ContentGroup",
+            "type": "string",
+            "title": "The ContentGroup Schema",
+            "pattern": "^(.*)$"
+        },
+        "Start": {
+            "$id": "#/properties/Start",
+            "type": "string",
+            "format": "date-time",
+            "title": "The Start Schema"
+        },
+        "DurationMinutes": {
+            "$id": "#/properties/DurationMinutes",
+            "type": "integer",
+            "title": "The DurationMinutes Schema"
+        },
+        "Archive": {
+            "$id": "#/properties/Archive",
+            "type": "boolean",
+            "title": "The Archive Schema"
+        }
+    },
+    "additionalProperties": true,
+    "oneOf": [
+        {
+            "required": [
+                "Channel"
+            ]
+        },
+        {
+            "required": [
+                "SourceVideoUrl"
+            ]
+        }
+    ],
+    "required": [
+        "Name",
+        "Program",
+        "Profile",
+        "ContentGroup",
+        "Start",
+        "DurationMinutes",
+        "Archive"
+    ]
+}

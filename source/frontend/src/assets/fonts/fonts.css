@@ -1,0 +1,104 @@
+/*
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@font-face {
+  font-family: 'AmazonEmberMedium';
+  src: url('amazon-ember-medium-webfont.woff2') format('woff2'),
+  url('amazon-ember-medium-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberItalic';
+  src: url('amazon-ember-mediumitalic-webfont.woff2') format('woff2'),
+  url('amazon-ember-mediumitalic-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberBold';
+  src: url('amazonember_bd-webfont.woff2') format('woff2'),
+  url('amazonember_bd-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberBoldItalic';
+  src: url('amazonember_bdit-webfont.woff2') format('woff2'),
+  url('amazonember_bdit-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberHeavy';
+  src: url('amazonember_he-webfont.woff2') format('woff2'),
+  url('amazonember_he-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberHeavyItalic';
+  src: url('amazonember_heit-webfont.woff2') format('woff2'),
+  url('amazonember_heit-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberLight';
+  src: url('amazonember_lt-webfont.woff2') format('woff2'),
+  url('amazonember_lt-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmberLightItalic';
+  src: url('amazonember_ltit-webfont.woff2') format('woff2'),
+  url('amazonember_ltit-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AmazonEmber';
+  src: url('amazonember_rg-webfont.woff2') format('woff2'),
+  url('amazonember_rg-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+
+}
+
+@font-face {
+  font-family: 'AmazonEmberItalic';
+  src: url('amazonember_rgit-webfont.woff2') format('woff2'),
+  url('amazonember_rgit-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+
+}
+
+@font-face {
+  font-family: 'AmazonEmberThin';
+  src: url('amazonember_th-webfont.woff2') format('woff2'),
+  url('amazonember_th-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+
+}
+
+@font-face {
+  font-family: 'AmazonEmberThinItalic';
+  src: url('amazonember_thit-webfont.woff2') format('woff2'),
+  url('amazonember_thit-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+
+}

@@ -1,0 +1,44 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "update_model",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Description": {
+            "$id": "#/properties/Description",
+            "type": "string",
+            "title": "The Description Schema",
+            "pattern": "^(.*)$"
+        },
+        "ContentGroups": {
+            "$id": "#/properties/ContentGroups",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "title": "The ContentGroups Schema",
+            "examples": [
+                [
+                    "Tennis",
+                    "Soccer"
+                ]
+            ]
+        },
+        "Endpoint": {
+            "$id": "#/properties/Endpoint",
+            "type": "string",
+            "title": "The Endpoint Schema",
+            "pattern": "^(.*)$"
+        },
+        "PluginClass": {
+            "$id": "#/properties/PluginClass",
+            "type": "string",
+            "title": "The PluginClass Schema",
+            "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
+        }
+    },
+    "additionalProperties": false
+}

@@ -1,0 +1,44 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "store_frame",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Program": {
+            "$id": "#/properties/Program",
+            "type": "string",
+            "title": "The Program Schema",
+            "pattern": "^(.*)$"
+        },
+        "Event": {
+            "$id": "#/properties/Event",
+            "type": "string",
+            "title": "The Event Schema",
+            "pattern": "^(.*)$"
+        },
+        "Filename": {
+            "$id": "#/properties/Filename",
+            "type": "string",
+            "title": "The Filename Schema",
+            "pattern": "^(.*)$"
+        },
+        "Frames": {
+            "$id": "#/properties/Frames",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "minProperties": 1
+            },
+            "minItems": 1,
+            "title": "The Frames Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Program",
+        "Event",
+        "Filename",
+        "Frames"
+    ]
+}

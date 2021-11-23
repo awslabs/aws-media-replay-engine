@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "put_system_configuration",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Name": {
+            "$id": "#/properties/Name",
+            "type": "string",
+            "title": "The Name Schema"
+        },
+        "Value": {
+            "$id": "#/properties/Value",
+            "type": ["array", "boolean", "integer", "number", "object", "string"],
+            "title": "The Value Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Name",
+        "Value"
+    ]
+}

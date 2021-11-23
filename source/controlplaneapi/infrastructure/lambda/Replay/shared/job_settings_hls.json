@@ -1,0 +1,127 @@
+{
+  "OutputGroups": [
+    {
+      "Name": "Apple HLS",
+      "Outputs": [
+        {
+          "ContainerSettings": {
+            "Container": "M3U8",
+            "M3u8Settings": {}
+          },
+          "VideoDescription": {
+            "Width": 3840,
+            "Height": 2160,
+            "CodecSettings": {
+              "Codec": "H_264",
+              "H264Settings": {
+                "MaxBitrate": 3000000,
+                "RateControlMode": "QVBR",
+                "SceneChangeDetect": "TRANSITION_DETECTION"
+              }
+            }
+          },
+          "AudioDescriptions": [
+            {
+              "CodecSettings": {
+                "Codec": "AAC",
+                "AacSettings": {
+                  "Bitrate": 96000,
+                  "CodingMode": "CODING_MODE_2_0",
+                  "SampleRate": 48000
+                }
+              }
+            }
+          ],
+          "OutputSettings": {
+            "HlsSettings": {}
+          },
+          "NameModifier": "Part1"
+        }
+      ],
+      "OutputGroupSettings": {
+        "Type": "HLS_GROUP_SETTINGS",
+        "HlsGroupSettings": {
+          "SegmentLength": 10,
+          "Destination": "",
+          "MinSegmentLength": 0,
+          "AdditionalManifests": [
+            {
+              "ManifestNameModifier": "Batch1",
+              "SelectedOutputs": [
+                "Part1"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "CustomName": "hls-thumbnail",
+      "Name": "mre-hls-thumbnail",
+      "Outputs": [
+        {
+          "ContainerSettings": {
+            "Container": "RAW"
+          },
+          "VideoDescription": {
+            "Width": 1280,
+            "Height": 720,
+            "CodecSettings": {
+              "Codec": "FRAME_CAPTURE",
+              "FrameCaptureSettings": {
+                "FramerateNumerator": 1,
+                "FramerateDenominator": 25,
+                "MaxCaptures": 1,
+                "Quality": 100
+              }
+            }
+          }
+        }
+      ],
+      "OutputGroupSettings": {
+        "Type": "FILE_GROUP_SETTINGS",
+        "FileGroupSettings": {
+          "Destination": "TODO"
+        }
+      }
+    }
+  ],
+  "Inputs": [
+    {
+      "InputClippings": [
+        {
+          "EndTimecode": "00:00:20:00",
+          "StartTimecode": "00:00:00:00"
+        }
+      ],
+      "AudioSelectors": {
+        "Audio Selector 1": {
+          "DefaultSelection": "DEFAULT"
+        }
+      },
+      "VideoSelector": {},
+      "TimecodeSource": "ZEROBASED",
+      "FileInput": ""
+    },
+    {
+      "InputClippings": [
+        {
+          "EndTimecode": "00:00:20:00",
+          "StartTimecode": "00:00:00:00"
+        }
+      ],
+      "AudioSelectors": {
+        "Audio Selector 1": {
+          "DefaultSelection": "DEFAULT"
+        }
+      },
+      "VideoSelector": {},
+      "TimecodeSource": "ZEROBASED",
+      "FileInput": ""
+    }
+  ],
+  "TimecodeConfig": {
+    "Source": "ZEROBASED"
+  }
+  
+}

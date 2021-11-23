@@ -1,0 +1,76 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "get_segment_state_for_optimization",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Program": {
+            "$id": "#/properties/Program",
+            "type": "string",
+            "title": "The Program Schema",
+            "pattern": "^(.*)$"
+        },
+        "Event": {
+            "$id": "#/properties/Event",
+            "type": "string",
+            "title": "The Event Schema",
+            "pattern": "^(.*)$"
+        },
+        "ChunkNumber": {
+            "$id": "#/properties/ChunkNumber",
+            "type": "integer",
+            "title": "The ChunkNumber Schema"
+        },
+        "Classifier": {
+            "$id": "#/properties/Classifier",
+            "type": "string",
+            "title": "The Classifier Schema"
+        },
+        "Detectors": {
+            "$id": "#/properties/Detectors",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Name": {
+                        "$id": "#/properties/Detectors/properties/Name",
+                        "type": "string",
+                        "title": "The Name Schema"
+                    },
+                    "SupportedMediaType": {
+                        "$id": "#/properties/Detectors/properties/SupportedMediaType",
+                        "type": "string",
+                        "title": "The SupportedMediaType Schema",
+                        "enum": ["Video", "Audio"]
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "Name",
+                    "SupportedMediaType"
+                ]
+            },
+            "uniqueItems": true,
+            "title": "The Detectors Schema"
+        },
+        "AudioTrack": {
+            "$id": "#/properties/AudioTrack",
+            "type": "integer",
+            "title": "The AudioTrack Schema"
+        },
+        "SearchWindowSeconds": {
+            "$id": "#/properties/SearchWindowSeconds",
+            "type": "integer",
+            "title": "The SearchWindowSeconds Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Program",
+        "Event",
+        "ChunkNumber",
+        "Classifier",
+        "SearchWindowSeconds"
+    ]
+}

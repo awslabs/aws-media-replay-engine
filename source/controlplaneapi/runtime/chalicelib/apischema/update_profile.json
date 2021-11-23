@@ -1,0 +1,408 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "update_profile",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Description": {
+            "$id": "#/properties/Description",
+            "type": "string",
+            "title": "The Description Schema",
+            "pattern": "^(.*)$"
+        },
+        "ContentGroups": {
+            "$id": "#/properties/ContentGroups",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "title": "The ContentGroups Schema",
+            "examples": [
+                [
+                    "Tennis",
+                    "Soccer"
+                ]
+            ]
+        },
+        "ChunkSize": {
+            "$id": "#/properties/ChunkSize",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "title": "The ChunkSize Schema"
+        },
+        "MaxSegmentLengthSeconds": {
+            "$id": "#/properties/MaxSegmentLengthSeconds",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "title": "The MaxSegmentLengthSeconds Schema"
+        },
+        "ProcessingFrameRate": {
+            "$id": "#/properties/ProcessingFrameRate",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "title": "The ProcessingFrameRate Schema"
+        },
+        "Classifier": {
+            "$id": "#/properties/Classifier",
+            "type": "object",
+            "title": "The Classifier Schema",
+            "properties": {
+                "Name": {
+                    "$id": "#/properties/Classifier/properties/Name",
+                    "type": "string",
+                    "title": "The Name Schema"
+                },
+                "ModelEndpoint": {
+                    "$id": "#/properties/Classifier/properties/ModelEndpoint",
+                    "type": "object",
+                    "properties": {
+                        "Name": {
+                            "$id": "#/properties/Classifier/properties/ModelEndpoint/properties/Name",
+                            "type": "string",
+                            "title": "The Name Schema"
+                        },
+                        "Version": {
+                            "$id": "#/properties/Classifier/properties/ModelEndpoint/properties/Version",
+                            "type": "string",
+                            "title": "The Version Schema"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Version"
+                    ],
+                    "title": "The ModelEndpoint Schema"
+                },
+                "Configuration": {
+                    "$id": "#/properties/Classifier/properties/Configuration",
+                    "type": "object",
+                    "title": "The Configuration Schema"
+                },
+                "DependentPlugins": {
+                    "$id": "#/properties/Classifier/properties/DependentPlugins",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Name": {
+                                "$id": "#/properties/Classifier/properties/DependentPlugins/properties/Name",
+                                "type": "string",
+                                "title": "The Name Schema"
+                            },
+                            "ModelEndpoint": {
+                                "$id": "#/properties/Classifier/properties/DependentPlugins/properties/ModelEndpoint",
+                                "type": "object",
+                                "properties": {
+                                    "Name": {
+                                        "$id": "#/properties/Classifier/properties/DependentPlugins/properties/ModelEndpoint/properties/Name",
+                                        "type": "string",
+                                        "title": "The Name Schema"
+                                    },
+                                    "Version": {
+                                        "$id": "#/properties/Classifier/properties/DependentPlugins/properties/ModelEndpoint/properties/Version",
+                                        "type": "string",
+                                        "title": "The Version Schema"
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "required": [
+                                    "Name",
+                                    "Version"
+                                ],
+                                "title": "The ModelEndpoint Schema"
+                            },
+                            "Configuration": {
+                                "$id": "#/properties/Classifier/properties/DependentPlugins/properties/Configuration",
+                                "type": "object",
+                                "title": "The Configuration Schema"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "Name"
+                        ]
+                    },
+                    "uniqueItems": true,
+                    "title": "The DependentPlugins Schema"
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "Name"
+            ]
+        },
+        "Optimizer": {
+            "$id": "#/properties/Optimizer",
+            "type": "object",
+            "title": "The Optimizer Schema",
+            "properties": {
+                "Name": {
+                    "$id": "#/properties/Optimizer/properties/Name",
+                    "type": "string",
+                    "title": "The Name Schema"
+                },
+                "ModelEndpoint": {
+                    "$id": "#/properties/Optimizer/properties/ModelEndpoint",
+                    "type": "object",
+                    "properties": {
+                        "Name": {
+                            "$id": "#/properties/Optimizer/properties/ModelEndpoint/properties/Name",
+                            "type": "string",
+                            "title": "The Name Schema"
+                        },
+                        "Version": {
+                            "$id": "#/properties/Optimizer/properties/ModelEndpoint/properties/Version",
+                            "type": "string",
+                            "title": "The Version Schema"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Version"
+                    ],
+                    "title": "The ModelEndpoint Schema"
+                },
+                "Configuration": {
+                    "$id": "#/properties/Optimizer/properties/Configuration",
+                    "type": "object",
+                    "title": "The Configuration Schema"
+                },
+                "DependentPlugins": {
+                    "$id": "#/properties/Optimizer/properties/DependentPlugins",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Name": {
+                                "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/Name",
+                                "type": "string",
+                                "title": "The Name Schema"
+                            },
+                            "ModelEndpoint": {
+                                "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/ModelEndpoint",
+                                "type": "object",
+                                "properties": {
+                                    "Name": {
+                                        "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/ModelEndpoint/properties/Name",
+                                        "type": "string",
+                                        "title": "The Name Schema"
+                                    },
+                                    "Version": {
+                                        "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/ModelEndpoint/properties/Version",
+                                        "type": "string",
+                                        "title": "The Version Schema"
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "required": [
+                                    "Name",
+                                    "Version"
+                                ],
+                                "title": "The ModelEndpoint Schema"
+                            },
+                            "Configuration": {
+                                "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/Configuration",
+                                "type": "object",
+                                "title": "The Configuration Schema"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "Name"
+                        ]
+                    },
+                    "uniqueItems": true,
+                    "title": "The DependentPlugins Schema"
+                }
+            },
+            "additionalProperties": false
+        },
+        "Labeler": {
+            "$id": "#/properties/Labeler",
+            "type": "object",
+            "title": "The Labeler Schema",
+            "properties": {
+                "Name": {
+                    "$id": "#/properties/Labeler/properties/Name",
+                    "type": "string",
+                    "title": "The Name Schema"
+                },
+                "ModelEndpoint": {
+                    "$id": "#/properties/Labeler/properties/ModelEndpoint",
+                    "type": "object",
+                    "properties": {
+                        "Name": {
+                            "$id": "#/properties/Labeler/properties/ModelEndpoint/properties/Name",
+                            "type": "string",
+                            "title": "The Name Schema"
+                        },
+                        "Version": {
+                            "$id": "#/properties/Labeler/properties/ModelEndpoint/properties/Version",
+                            "type": "string",
+                            "title": "The Version Schema"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Version"
+                    ],
+                    "title": "The ModelEndpoint Schema"
+                },
+                "Configuration": {
+                    "$id": "#/properties/Labeler/properties/Configuration",
+                    "type": "object",
+                    "title": "The Configuration Schema"
+                },
+                "DependentPlugins": {
+                    "$id": "#/properties/Labeler/properties/DependentPlugins",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Name": {
+                                "$id": "#/properties/Labeler/properties/DependentPlugins/properties/Name",
+                                "type": "string",
+                                "title": "The Name Schema"
+                            },
+                            "ModelEndpoint": {
+                                "$id": "#/properties/Labeler/properties/DependentPlugins/properties/ModelEndpoint",
+                                "type": "object",
+                                "properties": {
+                                    "Name": {
+                                        "$id": "#/properties/Labeler/properties/DependentPlugins/properties/ModelEndpoint/properties/Name",
+                                        "type": "string",
+                                        "title": "The Name Schema"
+                                    },
+                                    "Version": {
+                                        "$id": "#/properties/Labeler/properties/DependentPlugins/properties/ModelEndpoint/properties/Version",
+                                        "type": "string",
+                                        "title": "The Version Schema"
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "required": [
+                                    "Name",
+                                    "Version"
+                                ],
+                                "title": "The ModelEndpoint Schema"
+                            },
+                            "Configuration": {
+                                "$id": "#/properties/Labeler/properties/DependentPlugins/properties/Configuration",
+                                "type": "object",
+                                "title": "The Configuration Schema"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "Name"
+                        ]
+                    },
+                    "uniqueItems": true,
+                    "title": "The DependentPlugins Schema"
+                }
+            },
+            "additionalProperties": false
+        },
+        "Featurers": {
+            "$id": "#/properties/Featurers",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Name": {
+                        "$id": "#/properties/Featurers/properties/Name",
+                        "type": "string",
+                        "title": "The Name Schema"
+                    },
+                    "ModelEndpoint": {
+                        "$id": "#/properties/Featurers/properties/ModelEndpoint",
+                        "type": "object",
+                        "properties": {
+                            "Name": {
+                                "$id": "#/properties/Featurers/properties/ModelEndpoint/properties/Name",
+                                "type": "string",
+                                "title": "The Name Schema"
+                            },
+                            "Version": {
+                                "$id": "#/properties/Featurers/properties/ModelEndpoint/properties/Version",
+                                "type": "string",
+                                "title": "The Version Schema"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "Name",
+                            "Version"
+                        ],
+                        "title": "The ModelEndpoint Schema"
+                    },
+                    "Configuration": {
+                        "$id": "#/properties/Featurers/properties/Configuration",
+                        "type": "object",
+                        "title": "The Configuration Schema"
+                    },
+                    "DependentPlugins": {
+                        "$id": "#/properties/Featurers/properties/DependentPlugins",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "Name": {
+                                    "$id": "#/properties/Featurers/properties/DependentPlugins/properties/Name",
+                                    "type": "string",
+                                    "title": "The Name Schema"
+                                },
+                                "ModelEndpoint": {
+                                    "$id": "#/properties/Featurers/properties/DependentPlugins/properties/ModelEndpoint",
+                                    "type": "object",
+                                    "properties": {
+                                        "Name": {
+                                            "$id": "#/properties/Featurers/properties/DependentPlugins/properties/ModelEndpoint/properties/Name",
+                                            "type": "string",
+                                            "title": "The Name Schema"
+                                        },
+                                        "Version": {
+                                            "$id": "#/properties/Featurers/properties/DependentPlugins/properties/ModelEndpoint/properties/Version",
+                                            "type": "string",
+                                            "title": "The Version Schema"
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "Name",
+                                        "Version"
+                                    ],
+                                    "title": "The ModelEndpoint Schema"
+                                },
+                                "Configuration": {
+                                    "$id": "#/properties/Featurers/properties/DependentPlugins/properties/Configuration",
+                                    "type": "object",
+                                    "title": "The Configuration Schema"
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "Name"
+                            ]
+                        },
+                        "uniqueItems": true,
+                        "title": "The DependentPlugins Schema"
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "Name"
+                ]
+            },
+            "uniqueItems": true,
+            "title": "The Featurers Schema"
+        }
+    },
+    "additionalProperties": false
+}

@@ -1,0 +1,190 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://json-schema.org/draft-07/schema#",
+  "title": "add_replay",
+  "type": "object",
+  "definitions": {},
+  "properties": {
+    "Program": {
+      "$id": "#/properties/Program",
+      "type": "string",
+      "title": "The Program Schema"
+    },
+    "Event": {
+      "$id": "#/properties/Event",
+      "type": "string",
+      "title": "The Event Schema"
+    },
+    "AudioTrack": {
+      "$id": "#/properties/AudioTrack",
+      "type": "number",
+      "title": "The AudioTrack Schema"
+    },
+    "Description": {
+      "$id": "#/properties/Description",
+      "type": "string",
+      "title": "The Description Schema"
+    },
+    "UxLabel": {
+      "$id": "#/properties/UxLabel",
+      "type": "string",
+      "title": "The UxLabel Schema"
+    },
+    "Requester": {
+      "$id": "#/properties/Requester",
+      "type": "string",
+      "title": "The Requester Schema"
+    },
+    "DurationbasedSummarization": {
+      "$id": "#/properties/DurationbasedSummarization",
+      "type": "object",
+      "title": "The DurationbasedSummarization Schema",
+      "properties": {
+        "Duration": {
+          "$id": "#/properties/DurationbasedSummarization/Duration",
+          "type": "number",
+          "title": "The Duration Schema"
+        },
+        "FillToExact": {
+          "$id": "#/properties/DurationbasedSummarization/FillToExact",
+          "type": "boolean",
+          "title": "The FillToExact Schema"
+        },
+        "EqualDistribution": {
+          "$id": "#/properties/DurationbasedSummarization/EqualDistribution",
+          "type": "boolean",
+          "title": "The EqualDistribution Schema"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["Duration"]
+    },
+    "Priorities": {
+      "$id": "#/properties/Priorities",
+      "type": "object",
+      "title": "The Priorities Schema",
+      "properties": {
+        "Clips": {
+          "$id": "#/properties/Priorities/Clips",
+          "type": "array",
+          "title": "The Clips Schema",
+          "items": {
+            "type": "object",
+            "properties": {
+              "Name": {
+                "$id": "#/properties/Priorities/Clips/Name",
+                "type": "string",
+                "title": "The Name Schema"
+              },
+              "Weight": {
+                "$id": "#/properties/Priorities/Clips/Weight",
+                "type": "number",
+                "title": "The Weight Schema"
+              },
+              "Include": {
+                "$id": "#/properties/Priorities/Clips/Include",
+                "type": "boolean",
+                "title": "The Include Schema"
+              },
+              "Duration": {
+                "$id": "#/properties/Priorities/Clips/Duration",
+                "type": "string",
+                "title": "The Duration Schema"
+              },
+              "AttribValue": {
+                "$id": "#/properties/Priorities/Clips/AttribValue",
+                "type": "string",
+                "title": "The AttribValue Schema"
+              },
+              "AttribName": {
+                "$id": "#/properties/Priorities/Clips/AttribName",
+                "type": "string",
+                "title": "The AttribName Schema"
+              },
+              "PluginName": {
+                "$id": "#/properties/Priorities/Clips/PluginName",
+                "type": "string",
+                "title": "The PluginName Schema"
+              }
+            },
+            "additionalProperties": true,
+            "required": ["Name"]
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": ["Clips"]
+    },
+    "ClipfeaturebasedSummarization": {
+      "$id": "#/properties/ClipfeaturebasedSummarization",
+      "type": "boolean",
+      "title": "The ClipfeaturebasedSummarization Schema"
+    },
+    "Resolutions": {
+      "$id": "#/properties/Resolutions",
+      "type": "array",
+      "title": "The Resolutions Schema"
+    },
+    "Catchup": {
+        "$id": "#/properties/Catchup",
+        "type": "boolean",
+        "title": "The Catchup Schema"
+    },
+    "CreateHls": {
+      "$id": "#/properties/CreateHls",
+      "type": "boolean",
+      "title": "The CreateHls Schema"
+    },
+    "CreateMp4": {
+      "$id": "#/properties/CreateHls",
+      "type": "boolean",
+      "title": "The CreateMp4 Schema"
+    },
+    "MediaTailorChannel" : {
+        "$id": "#/properties/CreateHls/MediaTailorChannel",
+        "type": "object",
+        "title": "The MediaTailorChannel Schema",
+        "properties": {
+            "ChannelName" : {
+                "$id": "#/properties/CreateHls/MediaTailorChannel/ChannelName",
+                "type": "string",
+                "title": "The ChannelName Schema"
+            },
+            "AdInsertionConfig" : {
+                "$id": "#/properties/CreateHls/MediaTailorChannel/AdInsertionConfig",
+                "type": "string",
+                "title": "The AdInsertionConfig Schema"
+            },
+            "PositionAtBeginning" : {
+                "$id": "#/properties/CreateHls/MediaTailorChannel/PositionAtBeginning",
+                "type": "boolean",
+                "title": "The PositionAtBeginning Schema"
+            },
+            "AdSetting" : {
+                "$id": "#/properties/CreateHls/MediaTailorChannel/AdSetting",
+                "type": "object",
+                "title": "The AdSetting Schema",
+                "properties": {
+                    "ScheduleInMins" : {
+                        "$id": "#/properties/CreateHls/MediaTailorChannel/AdSetting/ScheduleInMins",
+                        "type": "number",
+                        "title": "The ChannelName Schema"
+                    },
+                    "ScheduleDimensionInMins" : {
+                        "$id": "#/properties/CreateHls/MediaTailorChannel/AdSetting/ScheduleDimensionInMins",
+                        "type": "boolean",
+                        "title": "The ScheduleDimensionInMins Schema"
+                    }
+                },
+                "additionalProperties": false,
+                "required": ["ScheduleInMins", "ScheduleDimensionInMins"]
+            }
+        },
+        "additionalProperties": false,
+        "required": ["ChannelName", "AdInsertionConfig", "PositionAtBeginning", "AdSetting"]
+    }
+  },
+    "additionalProperties": false,
+    "required": ["Program", "Event", "AudioTrack", "Description", "UxLabel", "Requester"]
+}

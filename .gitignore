@@ -1,0 +1,35 @@
+*.swp
+*__pycache__/
+.pytest_cache
+*.egg-info
+chalice.out
+**/.chalice/deployments/
+**/.chalice/venv/
+venv/
+.aws-sam
+.idea/
+.vscode
+*.DS_Store
+node_modules/
+source/frontend/build/
+source/frontend/mre-frontend/
+.env
+*.py-e
+ffmpeg.zip
+ffprobe.zip
+timecode.zip
+
+# Lambda helper layer builds
+source/lib/MediaReplayEnginePluginHelper/Media_Replay_Engine_Plugin_Helper.egg-info
+source/lib/MediaReplayEnginePluginHelper/build/
+source/lib/MediaReplayEngineWorkflowHelper/Media_Replay_Engine_Workflow_Helper.egg-info
+source/lib/MediaReplayEngineWorkflowHelper/build/
+source/lib/*/dist/
+deployment/lambda_layer_factory/*.whl
+deployment/lambda_layer_factory/*.zip
+deployment/lambda_layer_factory/requirements.txt
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+cdk-outputs.json

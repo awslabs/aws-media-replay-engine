@@ -1,17 +1,200 @@
-## My Project
+![MRE Logo](docs/assets/images/MRE_Logo.png)
 
-TODO: Fill this README out!
+Media Replay Engine (MRE) is a framework for building automated video clipping and replay (highlight) generation pipelines using AWS services for live and video-on-demand (VOD) content. With MRE, you can focus on building the business logic around video clipping without worrying about pipeline orchestration, data movement and persistence.
 
-Be sure to:
+MRE supports the following features:
 
-* Change the title in this README
-* Edit your repository description on GitHub
+* Catchup Replay generation
+* After event Replay generation
+* Integration with MediaLive for processing live or VOD content
+* Event and Replay video export in MP4 and HLS formats
+* Event and Replay data export in EDL and JSON formats
+
+This repository contains the core `MRE Framework` which is a set of secure REST APIs that you can interact with directly. It also contains the `MRE Frontend` application built using React if you are someone who prefers the ease-of-use of a graphical user interface (GUI) to interact with the APIs.
+
+# Install
+
+## Prerequisites
+
+* python >= 3.8
+* aws-cli
+* aws-cdk < 2.0
+* docker
+* node >= 8.1
+* npm >= 5.6
+* git
+
+## Build from scratch and deploy using AWS CDK
+
+Run the following commands to build and deploy MRE from scratch. Be sure to define values for `REGION` and `VERSION` first.
+
+```
+REGION=[specify a region in a format like us-east-1]
+VERSION=1.0.0
+git clone https://github.com/awslabs/aws-media-replay-engine
+cd aws-media-replay-engine
+cd deployment
+./build-and-deploy.sh --version $VERSION --region $REGION [--profile <aws-profile>]
+```
+
+## Outputs
+
+If you choose to interact with the MRE framework using the REST APIs directly, you will need the below information from the **Outputs** tab of the Controlplane CloudFormation stack:
+
+* **EndpointURL** is the endpoint for accessing the APIs to create, read, update, delete (CRUD) Plugins, Models, Profiles, and schedule Events, Replays for processing.
+
+
+# Architecture Overview
+
+![MRE_Architecture](docs/assets/images/MRE_Architecture.png)
+
+## Architecture Components
+
+### Control plane
+The control plane is an API Gateway endpoint that includes APIs to create and manage different components of the video clipping and highlights generation process. These include:
+
+* `Segmentation and Detection Pipeline` - An AWS Step Functions state machine generated dynamically with one or more user-defined Plugins (Lambda functions) to identify the mark-in (start) and mark-out (end) timestamp of the segments (clips) as well as detect interesting actions happening within those segments. To help decide the outcome of its analysis, a Plugin can optionally depend on a user-defined AI/ML model hosted either in AWS using services such as Rekognition, SageMaker, etc. or outside AWS. The pipeline is also configured to automatically publish different segmentation event notifications to an EventBridge event bus monitored by MRE for event-based downstream processing.
+* `Clip Generation` - A pre-defined AWS Step Functions state machine that is invoked as a part of the Segmentation and Detection pipeline to generate MP4 preview clips (for the GUI) and HLS manifest using the mark-in and mark-out timestamps of the identified segments. Clip generation, like the Segmentation and Detection pipeline, sends clip related event notifications to the MRE EventBridge event bus. 
+* `Replay Generation` - Another pre-defined AWS Step Functions state machine which automatically selects segments containing key events to create Replay (Highlight) in various resolutions in popular video formats such as HLS and MP4. Replays can be chosen to be created in Catchup mode or after an Event is fully streamed and is completely event driven via Amazon EventBridge rules.
+* `Data Export` - Exports Event and Replay data into popular formats such as EDL and JSON via clip generation events triggered through Amazon EventBridge. This data can be optionally enriched (via a custom process) and ingested into video editing systems to create engaging fan user experience by overlaying video and other key event data on a timeline.
+
+### Data plane
+The data plane is an API Gateway endpoint that includes APIs using which the Plugins within the Segmentation and Detection pipeline can store and retrieve media assets as well as the processing metadata. There are also quite a few helper APIs available in the data plane that the Plugins can use for performing complex data queries and manipulations.
+
+## Code Layout
+
+| Path | Description |
+|:---  |:------------|
+| deployment/ |	shell scripts and Dockerfile |
+| deployment/build-and-deploy.sh | shell script to build and deploy the solution using AWS CDK |
+| deployment/lambda_layer_factory/Dockerfile | install dependencies and create a container image |
+| deployment/lambda_layer_factory/docker-entrypoint.sh | shell script to build and package the Lambda layers as zip files within the container |
+| deployment/lambda_layer_factory/build-lambda-layer.sh | shell script to run docker for building and packaging the Lambda layers |
+| docs/	| shell scripts and code to build and deploy the API docs from source |
+| source/ | source code folder |
+| source/frontend/ | source code folder for the Frontend application |
+| source/controlplaneapi/ | source code folder for the control plane |
+| source/controlplaneapi/infrastructure/ | control plane CDK application |
+| source/controlplaneapi/runtime/ | control plane Chalice application |
+| source/dataplaneapi/ | source code folder for the data plane |
+| source/dataplaneapi/infrastructure/ | data plane CDK application |
+| source/dataplaneapi/runtime/ | data plane Chalice application |
+| source/lib/ | source code folder for the custom Lambda layers |
+| source/lib/MediaReplayEnginePluginHelper/	| source code for the MediaReplayEnginePluginHelper library |
+| source/lib/MediaReplayEngineWorkflowHelper/ | source code for the MediaReplayEngineWorkflowHelper library |
+
+
+# Developers
+
+To know more about how MRE works and for instructions on how to build a  video clipping application with MRE, refer to the [Developer Guide](MRE-Developer-Guide.md).
 
 ## Security
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+MRE uses AWS_IAM to authorize REST API requests for both the Control and Data planes. The following screenshot shows how to test authentication to the MRE Control plane API using Postman. Be sure to specify the `AccessKey` and `SecretKey` for your own AWS environment.
 
-## License
+![Postman_Sample](docs/assets/images/Postman_Sample.png)
 
-This project is licensed under the Apache-2.0 License.
+## Run the MRE Frontend application locally
 
+1. Navigate to `source/frontend` folder.
+2. Duplicate `env.template` and rename the duplicated file to `.env`.
+3. Update the keys in `.env` with values from the **Outputs** tab of `mre-frontend` stack in AWS CloudFormation console.
+4. Once the values are updated, run the below commands:
+```
+npm install
+
+npm start
+```
+
+# Cost
+
+You are responsible for the cost of the AWS services used while running this solution.
+
+### Approximate cost (excluding free tiers):
+
+| AWS Service | Quantity | Cost |
+| --- | --- | --- |
+| Amazon API Gateway | 150000 requests | $0.16 |
+| Amazon DynamoDB | 750000 writes, 146250 reads, 0.30 GB storage | $1.18 |
+| AWS Lambda | 12000 invocations, 2-minute avg. duration, 256 MB memory | $6 |
+| AWS Step Functions | 92400 state transitions | $2.21 |
+| Amazon S3 | 10 GB storage, 4000 PUT requests, 4000 GET requests | $0.26 |
+| AWS Elemental MediaConvert | 240 minutes | $4.08 |
+| Amazon Rekognition | 9000 Image analysis, 3 Custom Label inference units | $22.32 |
+| Amazon SageMaker | 2 inference endpoints | $5.13 |
+
+These cost estimates are for a video clipping and replay (highlight) generation pipeline built using MRE to segment a Tennis game with a duration of 3 hours. This specific pipeline had a total of 4 plugins included in the profile (with 2 of those plugins using Machine Learning models hosted in Rekognition and SageMaker). At the end of the game, the pipeline outputted a total of 282 Tennis clips.
+
+> **NOTE:** For tips on how to reduce the processing cost of a pipeline built using MRE, please refer to the Developer Guide.
+
+
+# Limitations
+
+While MRE deploys all the relevant AWS resources to facilitate automated video clipping and replay generation pipelines, you are still responsible for managing the service limits of those AWS resources via either [AWS Service Quotas](https://console.aws.amazon.com/servicequotas/home) or [AWS Support Center](https://console.aws.amazon.com/support/home).
+
+
+# Uninstall
+
+## Option 1: Uninstall using AWS CDK
+```
+# Delete the Dataplane stack
+cd aws-media-replay-engine/source/dataplaneapi/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+# Delete the Controlplane stack
+cd aws-media-replay-engine/source/controlplaneapi/infrastructure
+cdk destroy [--profile <aws-profile>]
+```
+
+## Option 2: Uninstall using the AWS Management Console
+1. Sign in to the AWS CloudFormation console.
+2. Select the MRE Dataplane stack.
+3. Choose Delete.
+4. Select the MRE Controlplane stack.
+5. Choose Delete.
+
+## Option 3: Uninstall using AWS Command Line Interface
+```
+aws cloudformation delete-stack --stack-name <dataplane-stack-name> --region <aws-region>
+
+aws cloudformation delete-stack --stack-name <controlplane-stack-name> --region <aws-region>
+```
+
+## Deleting S3 buckets created by MRE
+MRE creates 5 S3 buckets that are not automatically deleted. To delete these buckets, follow the steps below:
+
+1. Sign in to the Amazon S3 console.
+2. Select the `LambdaLayerBucket` bucket.
+3. Choose Empty.
+4. Choose Delete.
+5. Select the `MediaLiveDestinationBucket` bucket.
+6. Choose Empty.
+7. Choose Delete.
+8. Select the `MreMediaOutputBucket` bucket.
+9. Choose Empty.
+10. Choose Delete.
+11. Select the `MreDataExportBucket` bucket.
+12. Choose Empty.
+13. Choose Delete.
+14. Select the `MreAccessLogsBucket` bucket.
+15. Choose Empty.
+16. Choose Delete.
+
+To delete the S3 bucket using AWS CLI, run the following command:
+```
+aws s3 rb s3://<bucket-name> --force
+```
+
+
+# Contributing
+
+See the [CONTRIBUTING](CONTRIBUTING.md) file for how to contribute.
+
+
+# License
+
+See the [LICENSE](LICENSE) file for our project's licensing.
+
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 

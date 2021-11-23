@@ -1,0 +1,5 @@
+chalice
+boto3<2.0.0
+jsonschema==3.2.0
+PyJWT==2.1.0
+rsa==4.7.2

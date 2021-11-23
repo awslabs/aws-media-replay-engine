@@ -1,1 +1,28 @@
-Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Media Replay Engine
+
+Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+**********************
+THIRD PARTY COMPONENTS
+**********************
+This software includes third party software subject to the following copyrights:
+
+aws-amplify under the Apache License Version 2.0
+aws-cloudfront-sign under the Massachusetts Institute of Technology license
+boto3 under the Apache License Version 2.0
+botocore under the Apache License Version 2.0
+chalice under the Apache License Version 2.0
+docker under the Apache License Version 2.0
+ffmpeg under the GNU Lesser General Public License version 2.1 or later
+ffmpeg_python under the Apache License Version 2.0
+ffprobe under the GNU Lesser General Public License version 2.1 or later
+jsonschema under the Massachusetts Institute of Technology license
+pyjwt under the Massachusetts Institute of Technology license
+python-rsa under the Apache License Version 2.0
+randomColor under the Creative Commons Zero v1.0 Universal license
+react under the Massachusetts Institute of Technology license
+react-hls-player under the Massachusetts Institute of Technology license
+requests under the Apache License Version 2.0
+requests_aws4auth under the Massachusetts Institute of Technology license
+timecode under the Massachusetts Institute of Technology license
+urllib3 under the Massachusetts Institute of Technology license

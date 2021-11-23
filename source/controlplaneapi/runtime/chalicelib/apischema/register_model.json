@@ -1,0 +1,60 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "register_model",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Name": {
+            "$id": "#/properties/Name",
+            "type": "string",
+            "title": "The Name Schema",
+            "examples": [
+                "Model A - Version 1",
+                "Model B - Version 2"
+            ],
+            "pattern": "^(.*)$"
+        },
+        "Description": {
+            "$id": "#/properties/Description",
+            "type": "string",
+            "title": "The Description Schema",
+            "pattern": "^(.*)$"
+        },
+        "ContentGroups": {
+            "$id": "#/properties/ContentGroups",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "title": "The ContentGroups Schema",
+            "examples": [
+                [
+                    "Tennis",
+                    "Soccer"
+                ]
+            ]
+        },
+        "Endpoint": {
+            "$id": "#/properties/Endpoint",
+            "type": "string",
+            "title": "The Endpoint Schema",
+            "pattern": "^(.*)$"
+        },
+        "PluginClass": {
+            "$id": "#/properties/PluginClass",
+            "type": "string",
+            "title": "The PluginClass Schema",
+            "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Name",
+        "ContentGroups",
+        "Endpoint",
+        "PluginClass"
+    ]
+}

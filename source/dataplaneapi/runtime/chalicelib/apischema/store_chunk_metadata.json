@@ -1,0 +1,70 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "store_chunk_metadata",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Program": {
+            "$id": "#/properties/Program",
+            "type": "string",
+            "title": "The Program Schema",
+            "pattern": "^(.*)$"
+        },
+        "Event": {
+            "$id": "#/properties/Event",
+            "type": "string",
+            "title": "The Event Schema",
+            "pattern": "^(.*)$"
+        },
+        "Profile": {
+            "$id": "#/properties/Profile",
+            "type": "string",
+            "title": "The Profile Schema",
+            "pattern": "^(.*)$"
+        },
+        "Filename": {
+            "$id": "#/properties/Filename",
+            "type": "string",
+            "title": "The Filename Schema",
+            "pattern": "^(.*)$"
+        },
+        "Start": {
+            "$id": "#/properties/Start",
+            "type": "number",
+            "title": "The Start Schema"
+        },
+        "StartPts": {
+            "$id": "#/properties/StartPts",
+            "type": "number",
+            "title": "The StartPts Schema"
+        },
+        "Duration": {
+            "$id": "#/properties/Duration",
+            "type": "number",
+            "title": "The Duration Schema"
+        },
+        "S3Bucket": {
+            "$id": "#/properties/S3Bucket",
+            "type": "string",
+            "title": "The S3Bucket Schema"
+        },
+        "S3Key": {
+            "$id": "#/properties/S3Key",
+            "type": "string",
+            "title": "The S3Key Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Program",
+        "Event",
+        "Profile",
+        "Filename",
+        "Start",
+        "StartPts",
+        "Duration",
+        "S3Bucket",
+        "S3Key"
+    ]
+}

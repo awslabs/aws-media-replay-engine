@@ -1,0 +1,94 @@
+{
+  "OutputGroups": [
+    {
+      "Name": "Apple HLS",
+      "Outputs": [
+        {
+          "ContainerSettings": {
+            "Container": "M3U8",
+            "M3u8Settings": {}
+          },
+          "VideoDescription": {
+            "Width": 1920,
+            "Height": 1080,  
+            "CodecSettings": {
+              "Codec": "H_264",
+              "H264Settings": {
+                "Bitrate": 2479196,
+                "RateControlMode": "CBR",
+                "QualityTuningLevel": "SINGLE_PASS_HQ"
+              }
+            }
+          },
+          "AudioDescriptions": [
+            {
+              "CodecSettings": {
+                "Codec": "AAC",
+                "AacSettings": {
+                  "Bitrate": 96000,
+                  "CodingMode": "CODING_MODE_2_0",
+                  "SampleRate": 48000
+                }
+              }
+            }
+          ],
+          "OutputSettings": {
+            "HlsSettings": {}
+          },
+          "NameModifier": "Part1"
+        }
+      ],
+      "OutputGroupSettings": {
+        "Type": "HLS_GROUP_SETTINGS",
+        "HlsGroupSettings": {
+          "SegmentLength": 10,
+          "Destination": "",
+          "MinSegmentLength": 0,
+          "AdditionalManifests": [
+            {
+              "ManifestNameModifier": "Batch1",
+              "SelectedOutputs": [
+                "Part1"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "Inputs": [
+    {
+      "InputClippings": [
+        {
+          "EndTimecode": "00:00:20:00",
+          "StartTimecode": "00:00:00:00"
+        }
+      ],
+      "AudioSelectors": {
+        "Audio Selector 1": {
+          "DefaultSelection": "DEFAULT"
+        }
+      },
+      "VideoSelector": {},
+      "TimecodeSource": "ZEROBASED",
+      "FileInput": ""
+    },
+    {
+      "InputClippings": [
+        {
+          "EndTimecode": "00:00:20:00",
+          "StartTimecode": "00:00:00:00"
+        }
+      ],
+      "AudioSelectors": {
+        "Audio Selector 1": {
+          "DefaultSelection": "DEFAULT"
+        }
+      },
+      "VideoSelector": {},
+      "TimecodeSource": "ZEROBASED",
+      "FileInput": ""
+    }
+  ]
+  
+}

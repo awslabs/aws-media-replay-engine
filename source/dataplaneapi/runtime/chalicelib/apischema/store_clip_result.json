@@ -1,0 +1,88 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "store_clip_result",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Program": {
+            "$id": "#/properties/Program",
+            "type": "string",
+            "title": "The Program Schema",
+            "pattern": "^(.*)$"
+        },
+        "Event": {
+            "$id": "#/properties/Event",
+            "type": "string",
+            "title": "The Event Schema",
+            "pattern": "^(.*)$"
+        },
+        "Classifier": {
+            "$id": "#/properties/Classifier",
+            "type": "string",
+            "title": "The Classifier Schema"
+        },
+        "Results": {
+            "$id": "#/properties/Results",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Start": {
+                        "$id": "#/properties/Results/properties/Start",
+                        "type": "number",
+                        "title": "The Start Schema"
+                    },
+                    "End": {
+                        "$id": "#/properties/Results/properties/End",
+                        "type": "number",
+                        "title": "The End Schema"
+                    },
+                    "OriginalClipStatus": {
+                        "$id": "#/properties/Results/properties/OriginalClipStatus",
+                        "type": "string",
+                        "title": "The OriginalClipStatus Schema"
+                    },
+                    "OriginalClipLocation": {
+                        "$id": "#/properties/Results/properties/OriginalClipLocation",
+                        "type": "string",
+                        "title": "The OriginalClipLocation Schema"
+                    },
+                    "OptoStart": {
+                        "$id": "#/properties/Results/properties/OptoStart",
+                        "type": "number",
+                        "title": "The OptoStart Schema"
+                    },
+                    "OptoEnd": {
+                        "$id": "#/properties/Results/properties/OptoEnd",
+                        "type": "number",
+                        "title": "The OptoEnd Schema"
+                    },
+                    "OptimizedClipStatus": {
+                        "$id": "#/properties/Results/properties/OptimizedClipStatus",
+                        "type": "string",
+                        "title": "The OptimizedClipStatus Schema"
+                    },
+                    "OptimizedClipLocation": {
+                        "$id": "#/properties/Results/properties/OptimizedClipLocation",
+                        "type": "string",
+                        "title": "The OptimizedClipLocation Schema"
+                    }
+                },
+                "additionalProperties": true,
+                "required": [
+                    "Start"
+                ]
+            },
+            "minItems": 1,
+            "title": "The Results Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Program",
+        "Event",
+        "Classifier",
+        "Results"
+    ]
+}

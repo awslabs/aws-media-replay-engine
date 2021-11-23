@@ -1,0 +1,161 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "store_plugin_result",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Program": {
+            "$id": "#/properties/Program",
+            "type": "string",
+            "title": "The Program Schema",
+            "pattern": "^(.*)$"
+        },
+        "Event": {
+            "$id": "#/properties/Event",
+            "type": "string",
+            "title": "The Event Schema",
+            "pattern": "^(.*)$"
+        },
+        "ProfileName": {
+            "$id": "#/properties/ProfileName",
+            "type": "string",
+            "title": "The ProfileName Schema",
+            "pattern": "^(.*)$"
+        },
+        "ChunkSize": {
+            "$id": "#/properties/ChunkSize",
+            "type": "integer",
+            "title": "The ChunkSize Schema"
+        },
+        "ProcessingFrameRate": {
+            "$id": "#/properties/ProcessingFrameRate",
+            "type": "integer",
+            "title": "The ProcessingFrameRate Schema"
+        },
+        "Classifier": {
+            "$id": "#/properties/Classifier",
+            "type": "string",
+            "title": "The Classifier Schema"
+        },
+        "ExecutionId": {
+            "$id": "#/properties/ExecutionId",
+            "type": "string",
+            "title": "The ExecutionId Schema",
+            "pattern": "^(.*)$"
+        },
+        "AudioTrack": {
+            "$id": "#/properties/AudioTrack",
+            "type": "integer",
+            "title": "The AudioTrack Schema"
+        },
+        "Filename": {
+            "$id": "#/properties/Filename",
+            "type": "string",
+            "title": "The Filename Schema",
+            "pattern": "^(.*)$"
+        },
+        "ChunkNumber": {
+            "$id": "#/properties/ChunkNumber",
+            "type": "integer",
+            "title": "The ChunkNumber Schema"
+        },
+        "PluginName": {
+            "$id": "#/properties/PluginName",
+            "type": "string",
+            "title": "The PluginName Schema",
+            "pattern": "^(.*)$"
+        },
+        "PluginClass": {
+            "$id": "#/properties/PluginClass",
+            "type": "string",
+            "title": "The PluginClass Schema",
+            "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
+        },
+        "ModelEndpoint": {
+            "$id": "#/properties/ModelEndpoint",
+            "type": "string",
+            "title": "The ModelEndpoint Schema",
+            "pattern": "^(.*)$"
+        },
+        "Configuration": {
+            "$id": "#/properties/Configuration",
+            "type": "object",
+            "title": "The Configuration Schema"
+        },
+        "OutputAttributesNameList": {
+            "$id": "#/properties/OutputAttributesNameList",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "uniqueItems": true,
+            "title": "The OutputAttributesNameList Schema"
+        },
+        "Location": {
+            "$id": "#/properties/Location",
+            "type": "object",
+            "title": "The Location Schema",
+            "properties": {
+                "S3Bucket": {
+                    "$id": "#/properties/Location/properties/S3Bucket",
+                    "type": "string",
+                    "title": "The S3Bucket Schema",
+                    "pattern": "^(.*)$"
+                },
+                "S3Key": {
+                    "$id": "#/properties/Location/properties/S3Key",
+                    "type": "string",
+                    "title": "The S3Key Schema",
+                    "pattern": "^(.*)$"
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "S3Bucket",
+                "S3Key"
+            ]
+        },
+        "Results": {
+            "$id": "#/properties/Results",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Start": {
+                        "$id": "#/properties/Results/properties/Start",
+                        "type": "number",
+                        "title": "The Start Schema"
+                    },
+                    "End": {
+                        "$id": "#/properties/Results/properties/End",
+                        "type": "number",
+                        "title": "The End Schema"
+                    }
+                },
+                "additionalProperties": true,
+                "required": [
+                    "Start"
+                ]
+            },
+            "minItems": 1,
+            "title": "The Results Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Program",
+        "Event",
+        "ProfileName",
+        "ChunkSize",
+        "ProcessingFrameRate",
+        "Classifier",
+        "ExecutionId",
+        "Filename",
+        "ChunkNumber",
+        "PluginName",
+        "PluginClass",
+        "Location",
+        "Results"
+    ]
+}

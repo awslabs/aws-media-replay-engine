@@ -18,4 +18,4 @@ By default, replay requests are calculated at the completion of the event. Howev
 
 The payload to the **replay** API takes a payload that is described here:
 
-[POST /replay](https://htmlpreview.github.io/?../source/output/api/controlplane.html#add-replay)
+[POST /replay](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#add-replay)

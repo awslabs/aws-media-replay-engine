@@ -117,8 +117,8 @@ export const EventList = () => {
                 <TableCell align="left">Status</TableCell>,
                 <TableCell align="left">Actions</TableCell>
             ]}
-            emptyTableMessage={<>You don't have any events schedules yet. <Link>Learn more</Link> about creating an
-                event using MRE.</>}
+            emptyTableMessage={<>You don't have any events schedules yet. <Link href="https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/guides/MRE-Developer-Guide-Events.md" target="_blank">Learn more</Link> about creating an
+                Event in MRE.</>}
             rows={{
                 actions: {
                     delete: {

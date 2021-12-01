@@ -240,7 +240,7 @@ export const ListRenderer = (props) => {
             else
                 downloadBlob(result.data, `${row.Name}-event-export.json`);
     };
-    
+
 
     const handleExportHls = async (row, track) => {
         let exportPathTemplate = _.get(props, "rows.actions.Hls.path");

@@ -83,8 +83,7 @@ export const PluginList = () => {
                 <TableCell align="left">Class</TableCell>,
                 <TableCell align="left">Actions</TableCell>
             ]}
-            emptyTableMessage={<>You don't have any plugins created yet. <Link>Learn more</Link> about creating a
-                plugin using MRE.</>}
+            emptyTableMessage={<>You don't have any plugins created yet. <Link href="https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/guides/MRE-Developer-Guide-Plugins.md" target="_blank">Learn more</Link> about Plugin Development in MRE.</>}
             rows={{
                 actions: {
                     delete: {

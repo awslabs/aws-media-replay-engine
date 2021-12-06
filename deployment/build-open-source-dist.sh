@@ -69,6 +69,8 @@ echo "cp $orig_deployment_dir/../CODE_OF_CONDUCT.md $dist_dir"
 cp $orig_deployment_dir/../CODE_OF_CONDUCT.md $dist_dir
 echo "cp $orig_deployment_dir/../CONTRIBUTING.md $dist_dir"
 cp $orig_deployment_dir/../CONTRIBUTING.md $dist_dir
+echo "cp $orig_deployment_dir/../MRE-Developer-Guide.md $dist_dir"
+cp $orig_deployment_dir/../MRE-Developer-Guide.md $dist_dir
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Remove compiled python and node.js files"

@@ -1,17 +1,17 @@
-![mre-header](mre-header-1.png)
+[![Header](../assets/images/mre-header-1.png)](../../MRE-Developer-Guide.md)
 
 # Developers Guide - Plugin Development
 
 MRE Plugins are essential to processing the type of content you have as they are what allows for customization. Four classes of plugins exist in MRE:
 
-- Featurer - Detects useful data within the video frames MRE processes
-- Segmenter - Determines the start and end of segments in the video stream
-- Optimizer - Optionally improves the segmenter result to be more polished
-- Labeler - Optionally formats available segment data with a desirable label
+- [Featurer](MRE-Developer-Guide-Featurer.md) - Detects useful data within the video frames MRE processes
+- [Segmenter](MRE-Developer-Guide-Segmenter.md) - Determines the start and end of segments in the video stream
+- [Optimizer](MRE-Developer-Guide-Optimizer.md) - Optionally improves the segmenter result to be more polished
+- [Labeler](MRE-Developer-Guide-Labeler.md) - Optionally formats available segment data with a desirable label
 
 The four plugin classes are orchestrated by the MRE automation to pass derrived results from Featurer to Segmenter. Then the Segmenter class plugins to both the Optimizer and Labeler class plugins in parallel. This is done to allow the plugins to depend on the availability of earlier plugin results.
 
-![plugin-classes](plugin-classes.png)
+![plugin-classes](../assets/images/devguide-plugin-classes.png)
 
 Let's look at an example with tennis. It would be common to see several Featurer class plugins running in parallel to detect key data (tennis scene, ace shot detection) in the video chunk and then make that available to the Segmenter class plugin. Currently only one Segmenter class plugin (Segment Tennis) can be configured per profile. The Segmenter plugin can use the data from the Featurer class plugins (Detect Scene) combined with business logic to determine the beginning and end of a segment.
 
@@ -19,7 +19,7 @@ Optionally we've included an Optimizer class plugin called Optimize Tennis. This
 
 Also optional is the use of a Labeler class plugin. In this example, the Label Tennis plugin will use the extract tennis score data from the scorebox in a video frame to format a string that will be the label for new segments that are found. Labels are useful when reviewing results in the MRE console or can be used to provide a title for a segment when displayed to a viewer of the clips.
 
-![profile-example](profile-example.png)
+![profile-example](../assets/images/devguide-profile-example.png)
 
 Plugins are written as AWS Lambda Functions. They **must** use the provided MRE Plugin Helper library which has been tested with Python 3.8 and is provided as a AWS Lambda Layer. Include this layer in all AWS Lambda functions that are intended to be MRE Plugins. It is called: **MediaReplayEnginePluginHelper**
 
@@ -186,7 +186,7 @@ def lambda_handler(event, context):
 
 Each plugin you want to use with MRE needs to be registered using the **plugin** API described here:
 
-[POST /plugin](https://htmlpreview.github.io/?../source/output/api/controlplane.html#register-plugin)
+[POST /plugin](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#register-plugin)
 
 Plugin registration provides the follow:
 - context for the referenced AWS Lambda function

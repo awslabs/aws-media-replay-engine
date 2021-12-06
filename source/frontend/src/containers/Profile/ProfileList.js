@@ -86,8 +86,7 @@ export const ProfileList = () => {
                 <TableCell align="left">Content Groups</TableCell>,
                 <TableCell align="left">Actions</TableCell>
             ]}
-            emptyTableMessage={<>You don't have any Profiles created yet. <Link>Learn more</Link> about creating a
-                Profile using MRE.</>}
+            emptyTableMessage={<>You don't have any Profiles created yet. <Link href="https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/guides/MRE-Developer-Guide-Profiles.md" target="_blank">Learn more</Link> about Profiles in MRE.</>}
             rows={{
                 actions: {
                     delete: {

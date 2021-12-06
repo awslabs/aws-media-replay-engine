@@ -84,8 +84,7 @@ export const ModelList = () => {
                 <TableCell align="left">Plugin Class</TableCell>,
                 <TableCell align="left">Actions</TableCell>
             ]}
-            emptyTableMessage={<>You don't have any models created yet. <Link>Learn more</Link> about creating a
-                model using MRE.</>}
+            emptyTableMessage={<>You don't have any Models created yet. <Link href="https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/guides/MRE-Developer-Guide-Models.md" target="_blank">Learn more</Link> about Models in MRE.</>}
             rows={{
                 actions: {
                     delete: {

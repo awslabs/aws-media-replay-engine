@@ -34,7 +34,7 @@ if [ $? -ne 0 ]; then
 fi
 VENV=$(mktemp -d)
 python3 -m venv $VENV
-source $VENV/bin/activate.fish
+source $VENV/bin/activate
 pip3 install sphinx boto3 chalice chalicedoc autodoc jsonschema PyJWT==2.1.0 rsa==4.7.2
 
 if [ $? -ne 0 ]; then

@@ -20,7 +20,8 @@ This repository contains the core `MRE Framework` which is a set of secure REST 
 * aws-cli
 * aws-cdk < 2.0
 * docker
-* node >= 8.1
+* node >= 10.13.0
+  - ⚠️ versions `13.0.0` to `13.6.0` are not supported due to compatibility issues with the CDK dependencies.
 * npm >= 5.6
 * git
 

@@ -25,6 +25,8 @@ This repository contains the core `MRE Framework` which is a set of secure REST 
 * npm >= 5.6
 * git
 
+> **NOTE:** If using an AWS Cloud9 environment to install MRE, please be aware that by default the Cloud9 environment comes with an EBS volume sized at 10 GB out of which only ~2 GB is usable. To avoid errors during installation, please resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).
+
 ## Build from scratch and deploy using AWS CDK
 
 Run the following commands to build and deploy MRE from scratch. Be sure to define values for `REGION` and `VERSION` first.

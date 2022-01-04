@@ -143,7 +143,7 @@ export const ClipPreview = () => {
             const pluginNamesWithColors = _.map(plugins, (plugin, index) => {
                 return {
                     "PluginName": plugin.Name,
-                    "Color": AWS_COLOR_PALETTE[index].hex
+                    "Color": index >= AWS_COLOR_PALETTE.length ? AWS_COLOR_PALETTE[0].hex : AWS_COLOR_PALETTE[index].hex
                 }
             })
             console.log(pluginNamesWithColors);

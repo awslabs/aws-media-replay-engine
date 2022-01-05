@@ -4,7 +4,6 @@
  */
 
 import React from 'react';
-import {makeStyles} from '@material-ui/core/styles';
 import Button from "@material-ui/core/Button";
 import Box from "@material-ui/core/Box";
 import Fab from '@material-ui/core/Fab';
@@ -25,32 +24,10 @@ import _ from "lodash";
 import DialogTitle from "@material-ui/core/DialogTitle";
 
 
-const useStyles = makeStyles((theme) => ({
-    root: {
-        flexGrow: 1,
-    },
-    tableContainer: {
-        height: 250
-    },
-    input: {
-        display: 'none',
-    },
-    disabledButton: {
-        "&.MuiFab-root:hover": {
-            cursor: "default"
-        },
-        ".MuiButtonBase-root": {
-            cursor: "default"
-        }
-    }
-}));
-
 export const ConfigurationModal = (props) => {
-    const classes = useStyles();
     const [open, setOpen] = React.useState(false);
-    const [isLoading, setIsLoading] = React.useState(false);
     const [plugin, setPlugin] = React.useState(undefined);
-    const [profileConfigValues, setProfileConfigValues] = React.useState({});
+    const [profileConfigValues, setProfileConfigValues] = React.useState([]);
     const [originalConfig, setOriginalConfig] = React.useState({});
 
 
@@ -62,12 +39,24 @@ export const ConfigurationModal = (props) => {
         setOriginalConfig(_.get(selectedPlugin, "Configuration"));
 
         let existingProfileConfiguration = _.get(props.values, "Configuration");
+        let tempList = [];
+        let initValues;
+
         if (existingProfileConfiguration) {
-            setProfileConfigValues(existingProfileConfiguration);
+            initValues = existingProfileConfiguration;
         }
         else {
-            setProfileConfigValues(_.get(selectedPlugin, "Configuration"));
+            initValues = _.get(selectedPlugin, "Configuration")
         }
+
+        _.forOwn(initValues, (value, key) => {
+            let item = {};
+            item[key] = value;
+            tempList.push(item);
+        })
+
+        setProfileConfigValues(tempList);
+
     };
 
     const resetModal = () => {
@@ -79,28 +68,35 @@ export const ConfigurationModal = (props) => {
     };
 
     const handleSubmit = () => {
-        props.updateValues(profileConfigValues, props.updatePath, props.parentComponentName);
+        let profileConfigValuesObject = {};
+
+        _.forEach(profileConfigValues, item => {
+            const key = _.keys(item)[0];
+            profileConfigValuesObject[key] = _.values(item)[0];
+        });
+
+        props.updateValues(profileConfigValuesObject, props.updatePath, props.parentComponentName);
         handleClose();
     };
 
-    const handleParameterValueChange = (paramKey, paramValue) => {
-        let profileConfigValuesCopy = _.cloneDeep(profileConfigValues);
-        profileConfigValuesCopy[paramKey] = paramValue;
-        setProfileConfigValues(profileConfigValuesCopy);
+    const handleParameterValueChange = (index, key, event) => {
+        let items = profileConfigValues.slice();
+        items[index][key] = event.target.value;
+        setProfileConfigValues(items);
     };
 
     const dialogBody = (
         <>
-            {plugin && <Box className={classes.root}>
+            {plugin && <Box>
                 <Box p={2}>
                     <Grid container direction="column" spacing={2}>
 
                         {_.isEmpty(_.get(plugin, 'Configuration')) === true ?
-                            <Grid item className={classes.tableContainer}>
+                            <Grid item>
                                 <Typography>No Parameters associated.</Typography>
                             </Grid> :
                             <Grid item>
-                                <TableContainer className={classes.tableContainer}>
+                                <TableContainer>
                                     <Table aria-label="plugin configuration table">
                                         <TableHead>
                                             <TableRow>
@@ -111,21 +107,24 @@ export const ConfigurationModal = (props) => {
                                         </TableHead>
                                         <TableBody>
                                             {
-                                                _.map(profileConfigValues, (paramValue, paramKey) => {
-                                                    return <TableRow key={`${paramValue}-${paramKey}`}>
-                                                        <TableCell align="left">{paramKey}</TableCell>
+                                                _.map(profileConfigValues, (item, index) => {
+                                                    let key = _.keys(item)[0];
+
+                                                    return <TableRow key={index}>
+                                                        <TableCell align="left">{key}</TableCell>
                                                         <TableCell align="left">
-                                                            <TextField fullWidth
-                                                                       value={profileConfigValues[paramKey]}
-                                                                       onChange={(e) => {
-                                                                           handleParameterValueChange(paramKey, e.target.value)
-                                                                       }}
+                                                            <TextField
+                                                                fullWidth
+                                                                value={item[key]}
+                                                                onChange={(e) => {
+                                                                    handleParameterValueChange(index, key, e)
+                                                                }}
                                                             >
 
                                                             </TextField>
                                                         </TableCell>
                                                         <TableCell
-                                                            align="left">{_.get(originalConfig, paramKey)}</TableCell>
+                                                            align="left">{_.get(originalConfig, key)}</TableCell>
                                                     </TableRow>
                                                 })
                                             }
@@ -150,7 +149,7 @@ export const ConfigurationModal = (props) => {
                             <SettingsIcon/>
                         </Tooltip>
                     </Fab> :
-                    <Fab size="small" style={{color: "light-grey"}} className={classes.disabledButton}>
+                    <Fab size="small" style={{color: "light-grey"}}>
                         <Tooltip
                             title="No Plugin Selected">
                             <SettingsIcon/>

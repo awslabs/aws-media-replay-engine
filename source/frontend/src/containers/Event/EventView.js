@@ -386,7 +386,7 @@ export const EventView = () => {
                                                 }
                                             </Grid>}
                                             {
-                                                eventData.BootstrapTimeInMinutes && eventData.SourceVideoUrl &&
+                                                eventData.SourceVideoUrl &&
                                                 <Grid item>
                                                     <Typography variant="subtitle2">Bootstrap Time
                                                         (minutes):</Typography>

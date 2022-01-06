@@ -1648,25 +1648,11 @@ def get_event_segment_metadata(name, program, classifier, tracknumber):
                         origClipLocation = create_signed_url(res['OriginalClipLocation'][tracknumber])
                         break
 
-            score = res['Score'] if 'Score' in res else 'TBD'
-            try:
-                if score != 'TBD':
-                    score = score.replace('"', "")
-                    score = score.replace("'", '"')
-                    score = json.loads(score)
-                    score[0].pop('Player', None)
-                    score[1].pop('Player', None)
-                    score = str(score)
-                    if 'BreakPoint' in res:
-                        score += f", Breakpt={str(res['BreakPoint'])},"
-                    if 'GamePoint' in res:
-                        score += f" GamePt={str(res['GamePoint'])}"
-                    if 'SetPoint' in res:
-                        score += f" SetPt={str(res['SetPoint'])}"
-                    if 'MatchPoint' in res:
-                        score += f" MatchPt={str(res['MatchPoint'])}"
-            except Exception as e:
-                print(f'Error calculating score ..ignoring - {e}')
+            label = ''
+            if 'Label' in res:
+                label = res['Label']
+                if str(label) == "":
+                    label = '<no label plugin configured>'
 
             clip_info.append({
                 'OriginalClipLocation': origClipLocation,
@@ -1676,7 +1662,7 @@ def get_event_segment_metadata(name, program, classifier, tracknumber):
                 'OptimizedThumbnailLocation': create_signed_url(
                     res['OptimizedThumbnailLocation']) if 'OptimizedThumbnailLocation' in res else '',
                 'StartTime': res['Start'],
-                'Label': score,
+                'Label': label,
                 'FeatureCount': 'TBD',
                 'OrigLength': 0 if 'Start' not in res else res['End'] - res['Start'],
                 'OptoLength': optoLength,
@@ -1926,25 +1912,12 @@ def populate_segment_data_matching(segment_response_data, tracknumber):
                 origClipLocation = create_signed_url(segment_response_data['OriginalClipLocation'][tracknumber])
                 break
 
-    score = segment_response_data['Score'] if 'Score' in segment_response_data else 'TBD'
-    try:
-        if score != 'TBD':
-            score = score.replace('"', "")
-            score = score.replace("'", '"')
-            score = json.loads(score)
-            score[0].pop('Player', None)
-            score[1].pop('Player', None)
-            score = str(score)
-            if 'BreakPoint' in segment_response_data:
-                score += f", Breakpt={str(segment_response_data['BreakPoint'])},"
-            if 'GamePoint' in segment_response_data:
-                score += f" GamePt={str(segment_response_data['GamePoint'])}"
-            if 'SetPoint' in segment_response_data:
-                score += f" SetPt={str(segment_response_data['SetPoint'])}"
-            if 'MatchPoint' in segment_response_data:
-                score += f" MatchPt={str(segment_response_data['MatchPoint'])}"
-    except Exception as e:
-        print(f'Error calculating score ..ignoring - {e}')
+    
+    label = ''
+    if 'Label' in segment_response_data:
+        label = segment_response_data['Label']
+        if str(label) == "":
+            label = '<no label plugin configured>'
 
     result = {
         'OriginalClipLocation': origClipLocation,
@@ -1956,7 +1929,7 @@ def populate_segment_data_matching(segment_response_data, tracknumber):
             segment_response_data[
                 'OptimizedThumbnailLocation']) if 'OptimizedThumbnailLocation' in segment_response_data else '',
         'StartTime': segment_response_data['Start'],
-        'Label': score,
+        'Label': label,
         'FeatureCount': 'TBD',
         'OrigLength': 0 if 'Start' not in segment_response_data else segment_response_data['End'] -
                                                                      segment_response_data['Start'],

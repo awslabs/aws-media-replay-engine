@@ -201,11 +201,11 @@ export const SummaryView = (props) => {
                                                 })}
                                             </Grid> :
                                             inputFieldValue.type === "keyValuePairs" ?
-                                                <Grid container item direction="column" sm={4}>
+                                                <Grid container item direction="column" sm={5}>
                                                     {_.map(stateParams.data[inputFieldValue.name], (value, key) => {
                                                         return <Grid item>
                                                             <Typography variant={"body1"}>Key: {key},
-                                                                value: {value}</Typography>
+                                                                Value: {value}</Typography>
                                                         </Grid>
                                                     })}
                                                 </Grid> :

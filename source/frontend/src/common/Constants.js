@@ -61,7 +61,7 @@ export const PLUGIN_SUMMARY_FORM = {
     },
     Configuration: {
         name: "Configuration",
-        label: "Configuration Parameters",
+        label: "Default Configuration Parameters",
         type: "keyValuePairs"
     },
     OutputAttributes: {

@@ -10,10 +10,12 @@ venv/
 .idea/
 .vscode
 *.DS_Store
+
 node_modules/
-package-lock.json
 source/frontend/build/
 source/frontend/mre-frontend/
+source/frontend/package-lock.json
+
 .env
 *.py-e
 ffmpeg.zip

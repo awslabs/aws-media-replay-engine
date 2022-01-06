@@ -1773,6 +1773,11 @@ class ChaliceApp(cdk.Stack):
                 action="describeEndpoints",
                 service="MediaConvert",
                 physical_resource_id=cr.PhysicalResourceId.of(id="MediaConvertCustomResourceAwsSdkCall")
+            ),
+            on_update=cr.AwsSdkCall(
+                action="describeEndpoints",
+                service="MediaConvert",
+                physical_resource_id=cr.PhysicalResourceId.of(id="MediaConvertCustomResourceAwsSdkCall")
             )
         )
 

@@ -384,12 +384,12 @@ export const EventView = () => {
                                                             {eventData.SourceVideoUrl}
                                                         </Link>
                                                 }
-                                            </Grid>}
+                                            </Grid>
+                                            }
                                             {
                                                 eventData.SourceVideoUrl &&
                                                 <Grid item>
-                                                    <Typography variant="subtitle2">Bootstrap Time
-                                                        (minutes):</Typography>
+                                                    <Typography variant="subtitle2">Bootstrap Time(minutes):</Typography>
                                                     <Typography>{eventData.BootstrapTimeInMinutes}</Typography>
                                                 </Grid>
                                             }

@@ -150,13 +150,13 @@ def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin
             elif plugin_supported_media_type == "Audio":
                 is_audio_media_type = True
 
-                plugin_definition_parameters = plugin_definition.pop("Parameters", None)
-                plugin_lambda_function = plugin_definition_parameters["FunctionName"]
-                plugin_definition["Resource"] = plugin_lambda_function
-                plugin_definition.pop("OutputPath", None)
+                map_parameters = {
+                    "Event.$": "$.Event",
+                    "Input.$": "$.Input",
+                    "TrackNumber.$": "$$.Map.Item.Value"
+                }
 
-                map_parameters = plugin_definition_parameters["Payload"]
-                map_parameters["TrackNumber.$"] = "$$.Map.Item.Value"
+                plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
 
                 child_branch = {
                     "StartAt": f"{plugin_name}MapTask{random_string}",
@@ -177,7 +177,8 @@ def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin
                                         "Type": "Pass",
                                         "Parameters": {
                                             "Event.$": "$[0].Event",
-                                            "Input.$": "$[0].Input"
+                                            "Input.$": "$[0].Input",
+                                            "TrackNumber.$": "$[0].TrackNumber"
                                         },
                                         "Next": f"{plugin_name}{random_string}"
                                     },
@@ -192,42 +193,64 @@ def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin
         else:
             random_string = "_" + "".join(random.choices(string.ascii_letters + string.digits, k = 5))
 
-            if is_dependent_plugins or plugin_supported_media_type == "Video":
-                child_branch = {
-                    "StartAt": f"{plugin_name}{random_string}",
-                    "States": {
-                        f"{plugin_name}{random_string}": plugin_definition
-                    }
-                }
-
-            elif plugin_supported_media_type == "Audio":
-                is_audio_media_type = True
-
-                plugin_definition_parameters = plugin_definition.pop("Parameters", None)
-                plugin_lambda_function = plugin_definition_parameters["FunctionName"]
-                plugin_definition["Resource"] = plugin_lambda_function
-                plugin_definition.pop("OutputPath", None)
-
-                map_parameters = plugin_definition_parameters["Payload"]
-                map_parameters["TrackNumber.$"] = "$$.Map.Item.Value"
-
-                child_branch = {
-                    "StartAt": f"{plugin_name}MapTask{random_string}",
-                    "States": {
-                        f"{plugin_name}MapTask{random_string}": {
-                            "Type": "Map",
-                            "ItemsPath": "$.Event.AudioTracks",
-                            "Parameters": map_parameters,
-                            "Iterator": {
-                                "StartAt": f"{plugin_name}{random_string}",
-                                "States": {
-                                    f"{plugin_name}{random_string}": plugin_definition
-                                }
-                            },
-                            "End": True
+            if is_dependent_plugins:
+                if plugin_supported_media_type == "Video":
+                    child_branch = {
+                        "StartAt": f"{plugin_name}{random_string}",
+                        "States": {
+                            f"{plugin_name}{random_string}": plugin_definition
                         }
                     }
-                }
+
+                elif plugin_supported_media_type == "Audio":
+                    is_audio_media_type = True
+
+                    plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
+
+                    child_branch = {
+                        "StartAt": f"{plugin_name}{random_string}",
+                        "States": {
+                            f"{plugin_name}{random_string}": plugin_definition
+                        }
+                    }
+
+            else:
+                if plugin_supported_media_type == "Video":
+                    child_branch = {
+                        "StartAt": f"{plugin_name}{random_string}",
+                        "States": {
+                            f"{plugin_name}{random_string}": plugin_definition
+                        }
+                    }
+
+                elif plugin_supported_media_type == "Audio":
+                    is_audio_media_type = True
+
+                    map_parameters = {
+                        "Event.$": "$.Event",
+                        "Input.$": "$.Input",
+                        "TrackNumber.$": "$$.Map.Item.Value"
+                    }
+
+                    plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
+
+                    child_branch = {
+                        "StartAt": f"{plugin_name}MapTask{random_string}",
+                        "States": {
+                            f"{plugin_name}MapTask{random_string}": {
+                                "Type": "Map",
+                                "ItemsPath": "$.Event.AudioTracks",
+                                "Parameters": map_parameters,
+                                "Iterator": {
+                                    "StartAt": f"{plugin_name}{random_string}",
+                                    "States": {
+                                        f"{plugin_name}{random_string}": plugin_definition
+                                    }
+                                },
+                                "End": True
+                            }
+                        }
+                    }
 
         branch_list.append(child_branch)
     

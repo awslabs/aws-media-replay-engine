@@ -1514,7 +1514,8 @@ def get_dependent_plugins_output():
             "Program": string,
             "Event": string,
             "ChunkNumber": integer,
-            "DependentPlugins": list
+            "DependentPlugins": list,
+            "AudioTrack": integer
         }
 
     Returns:
@@ -1536,33 +1537,50 @@ def get_dependent_plugins_output():
         event = request["Event"]
         chunk_number = request["ChunkNumber"]
         dependent_plugins = request["DependentPlugins"]
+        audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
         output = {}
 
         for d_plugin in dependent_plugins:
+            d_plugin_name = d_plugin["Name"]
+            d_plugin_media_type = d_plugin["SupportedMediaType"]
+            
             print(
-                f"Getting the output of dependent plugin '{d_plugin}' for program '{program}', event '{event}' and chunk number '{chunk_number}'")
+                f"Getting the output of dependent plugin '{d_plugin_name}' for program '{program}', event '{event}' and chunk number '{chunk_number}'")
 
+            if d_plugin_media_type == "Audio":
+                if audio_track is None:
+                    raise BadRequestError(
+                        f"Unable to get the output of dependent plugin '{d_plugin_name}' with an audio track of 'None'")
+
+                pk = f"{program}#{event}#{d_plugin_name}#{audio_track}"
+            else:
+                pk = f"{program}#{event}#{d_plugin_name}"
+            
             response = plugin_result_table.query(
-                KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{d_plugin}"),
+                KeyConditionExpression=Key("PK").eq(pk),
                 FilterExpression=Attr("ChunkNumber").eq(chunk_number),
                 ConsistentRead=True
             )
 
-            output[d_plugin] = response["Items"]
+            output[d_plugin_name] = response["Items"]
 
             while "LastEvaluatedKey" in response:
                 response = plugin_result_table.query(
                     ExclusiveStartKey=response["LastEvaluatedKey"],
-                    KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{d_plugin}"),
+                    KeyConditionExpression=Key("PK").eq(pk),
                     FilterExpression=Attr("ChunkNumber").eq(chunk_number),
                     ConsistentRead=True
                 )
 
-                output[d_plugin].extend(response["Items"])
+                output[d_plugin_name].extend(response["Items"])
 
+    except BadRequestError as e:
+        print(f"Got chalice BadRequestError: {str(e)}")
+        raise
+    
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
@@ -1912,7 +1930,6 @@ def populate_segment_data_matching(segment_response_data, tracknumber):
                 origClipLocation = create_signed_url(segment_response_data['OriginalClipLocation'][tracknumber])
                 break
 
-    
     label = ''
     if 'Label' in segment_response_data:
         label = segment_response_data['Label']

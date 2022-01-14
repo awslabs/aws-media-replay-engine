@@ -26,11 +26,33 @@
             "$id": "#/properties/DependentPlugins",
             "type": "array",
             "items": {
-                "type": "string"
+                "type": "object",
+                "properties": {
+                    "Name": {
+                        "$id": "#/properties/DependentPlugins/properties/Name",
+                        "type": "string",
+                        "title": "The Name Schema"
+                    },
+                    "SupportedMediaType": {
+                        "$id": "#/properties/DependentPlugins/properties/SupportedMediaType",
+                        "type": "string",
+                        "title": "The SupportedMediaType Schema",
+                        "enum": ["Video", "Audio"]
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "Name",
+                    "SupportedMediaType"
+                ]
             },
-            "minItems": 1,
             "uniqueItems": true,
             "title": "The DependentPlugins Schema"
+        },
+        "AudioTrack": {
+            "$id": "#/properties/AudioTrack",
+            "type": "integer",
+            "title": "The AudioTrack Schema"
         }
     },
     "additionalProperties": false,

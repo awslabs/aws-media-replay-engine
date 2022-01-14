@@ -94,6 +94,8 @@ class OutputHelper:
         self.event = event["Event"]["Name"]
         self.event_start = event["Event"]["Start"] if "Start" in event["Event"] else None
         self.audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
+        
+        self.audio_track = event["TrackNumber"] if "TrackNumber" in event else None
 
         self.execution_id = event["Input"]["ExecutionId"]
         self.media = event["Input"]["Media"]
@@ -173,7 +175,7 @@ class OutputHelper:
         if self.event_start:
             new_event["Start"] = self.event_start
 
-        return {
+        output = {
             "Event": new_event,
             "Input": {
                 "ExecutionId": self.execution_id,
@@ -192,6 +194,11 @@ class OutputHelper:
                 "Results": self.results
             }
         }
+
+        if self.audio_track:
+            output["TrackNumber"] = self.audio_track
+
+        return output
         
 
 class PluginHelper:
@@ -903,12 +910,43 @@ class DataPlane:
             "Content-Type": "application/json"
         }
 
+        dep_plugins = []
+        dep_plugins_obj_list = []
+
+        if self.plugin_class == "Classifier":
+            if "DependentPlugins" in self.classifier:
+                dep_plugins = self.classifier["DependentPlugins"]
+
+        elif self.plugin_class == "Optimizer":
+            if "DependentPlugins" in self.optimizer:
+                dep_plugins = self.optimizer["DependentPlugins"]
+
+        elif self.plugin_class == "Featurer":
+            for featurer in self.featurers:
+                if featurer["Name"] == self.plugin_name and "DependentPlugins" in featurer:
+                    dep_plugins = featurer["DependentPlugins"]
+
+        elif self.plugin_class == "Labeler":
+            if "DependentPlugins" in self.labeler:
+                dep_plugins = self.labeler["DependentPlugins"]
+
+        for d_plugin in dep_plugins:
+            dep_plugins_obj_list.append(
+                {
+                    "Name": d_plugin["Name"],
+                    "SupportedMediaType": d_plugin["SupportedMediaType"]
+                }
+            )
+
         body = {
             "Program": self.program,
             "Event": self.event,
             "ChunkNumber": self.get_chunk_number(self.filename),
-            "DependentPlugins": self.dependent_plugins
+            "DependentPlugins": dep_plugins_obj_list
         }
+
+        if self.audio_track:
+            body["AudioTrack"] = self.audio_track
 
         api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
         

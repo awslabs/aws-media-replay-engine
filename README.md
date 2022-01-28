@@ -12,6 +12,8 @@ MRE supports the following features:
 
 This repository contains the core `MRE Framework` which is a set of secure REST APIs that you can interact with directly. It also contains the `MRE Frontend` application built using React if you are someone who prefers the ease-of-use of a graphical user interface (GUI) to interact with the APIs.
 
+To get a head start building automated video clipping pipelines using the MRE framework, check out the [MRE Samples](https://github.com/aws-samples/aws-media-replay-engine-samples) repository which contains sample Plugins and ML Model Notebooks for performing feature detection for clip selection and prioritization.
+
 # Install
 
 ## Prerequisites

@@ -68,7 +68,6 @@ export const ListRenderer = (props) => {
     const [originalTableData, setOriginalTableData] = React.useState(undefined);
     const [contentGroupFilter, setContentGroupFilter] = React.useState(contentGroupFilterInit);
     const [eventFilter, setEventFilter] = React.useState(props.eventFilterInitValue || "ALL");
-
     const [programFilter, setProgramFilter] = React.useState(props.programFilterInitValue || "ALL");
     const [pluginClassFilter, setPluginClassFilter] = React.useState(pluginClassInit);
     const [nextToken, setNextToken] = React.useState(undefined);
@@ -109,7 +108,7 @@ export const ListRenderer = (props) => {
     const initFilters = (tableData) => {
         setContentGroupFilter(_.get(props, 'header.contentGroupFilter') === true ? "ALL" : undefined);
         if (eventFilter || programFilter) {
-            handleAllFilters(undefined, undefined, true);
+            handleAllFilters(undefined, undefined);
         }
     };
 
@@ -151,6 +150,14 @@ export const ListRenderer = (props) => {
 
     const handleRefresh = async () => {
         setShouldRefresh(!shouldRefresh);
+    };
+
+    const handleClearFilters = async () => {
+        setEventFilter("ALL");
+        setProgramFilter("ALL");
+        setPluginClassFilter("ALL");
+        setContentGroupFilter("ALL");
+        handleRefresh();
     };
 
     const handleChangePage = async (event, newPage) => {
@@ -407,10 +414,10 @@ export const ListRenderer = (props) => {
         }
     }
 
-    const handleAllFilters = async (currentFilterName, valueToFilterBy, isReplaysFilters) => {
+    const handleAllFilters = async (currentFilterName, valueToFilterBy) => {
         let tableDataCopyToFilter = _.cloneDeep(originalTableData);
 
-        if (isReplaysFilters) {
+        if (props.header.replayFilter != null) {
             if (currentFilterName === FILTERS.contentGroupFilter.name) {
                 await FILTERS.contentGroupFilter.replaysHandler(valueToFilterBy);
             }
@@ -516,7 +523,7 @@ export const ListRenderer = (props) => {
                             {props.header.contentGroupFilter &&
                             <Grid item sm={3}>
                                 <ContentGroupDropdown handleChange={(e) => {
-                                    handleAllFilters(FILTERS.contentGroupFilter.name, e.target.value, props.header.replayFilter != null)
+                                    handleAllFilters(FILTERS.contentGroupFilter.name, e.target.value)
                                 }}
                                                       selected={FILTERS.contentGroupFilter.value}
                                 />
@@ -529,7 +536,7 @@ export const ListRenderer = (props) => {
                                 <Grid item sm={3}>
                                     <ProgramDropdown
                                         handleChange={(e) => {
-                                            handleAllFilters(FILTERS.programFilter.name, e.target.value, true)
+                                            handleAllFilters(FILTERS.programFilter.name, e.target.value)
                                         }}
                                         selected={FILTERS.programFilter.value}
                                     />
@@ -541,7 +548,7 @@ export const ListRenderer = (props) => {
                                     <EventDropdown
                                         initValue={props.eventFilterInitValue}
                                         handleChange={(e) => {
-                                            handleAllFilters(FILTERS.eventFilter.name, e.target.value, true)
+                                            handleAllFilters(FILTERS.eventFilter.name, e.target.value)
                                         }}
                                         selected={FILTERS.eventFilter.value}
                                     />
@@ -552,7 +559,7 @@ export const ListRenderer = (props) => {
                           spacing={1}>
                         {props.header.hideRemoveFilters !== true &&
                         <Grid item>
-                            <IconButton size="small" onClick={handleRefresh}>
+                            <IconButton size="small" onClick={handleClearFilters}>
                                 <Tooltip title="Clear filters">
                                     <DeleteForeverIcon className={classes.iconSize}/>
                                 </Tooltip>

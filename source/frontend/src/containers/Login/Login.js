@@ -75,7 +75,7 @@ export const Login = (props) => {
               direction="column"
               alignItems="center"
               style={{
-                  minHeight: '100vh',
+                  minHeight: '75vh',
                   justifyContent: 'center'
               }}>
             <Grid className={classes.paper} item>

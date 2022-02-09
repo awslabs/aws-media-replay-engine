@@ -107,7 +107,7 @@ export const ListRenderer = (props) => {
 
     const initFilters = (tableData) => {
         setContentGroupFilter(_.get(props, 'header.contentGroupFilter') === true ? "ALL" : undefined);
-        if (eventFilter || programFilter) {
+        if (eventFilter !== "ALL" || programFilter !== "ALL") {
             handleAllFilters(undefined, undefined);
         }
     };

@@ -83,7 +83,6 @@ def main(region, profile=None):
             "REACT_APP_USER_POOL_ID": user_pool_id,
             "REACT_APP_APP_CLIENT_ID": app_client_id,
             "REACT_APP_IDENTITY_POOL_ID": identity_pool_id,
-            "REACT_APP_CLOUDFRONT_PREFIX": "replace_with_url"
         },
         customRules=[
             {

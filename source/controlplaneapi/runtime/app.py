@@ -23,7 +23,7 @@ from jsonschema import validate, ValidationError, FormatChecker
 from botocore.signers import CloudFrontSigner
 from chalicelib import DecimalEncoder
 from chalicelib import generate_plugin_state_definition, generate_profile_state_definition, load_api_schema, \
-    replace_decimals
+    replace_decimals, replace_floats
 
 app = Chalice(app_name='aws-mre-controlplane-api')
 
@@ -4382,7 +4382,7 @@ def create_event():
         print(f"Creating the event '{name}' in program '{program}'")
 
         event_table.put_item(
-            Item=event,
+            Item=replace_floats(event),
             ConditionExpression="attribute_not_exists(#Name) AND attribute_not_exists(#Program)",
             ExpressionAttributeNames={
                 "#Name": "Name",

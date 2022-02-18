@@ -745,6 +745,16 @@ def load_api_schema():
 
     return api_schema
 
+def replace_floats(obj):
+    if isinstance(obj, list):
+        return [replace_floats(o) for o in obj]
+    elif isinstance(obj, dict):
+        return {k: replace_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, float):
+        return Decimal(obj)
+    else:
+        return obj
+
 def replace_decimals(obj):
     if isinstance(obj, list):
         return [replace_decimals(o) for o in obj]

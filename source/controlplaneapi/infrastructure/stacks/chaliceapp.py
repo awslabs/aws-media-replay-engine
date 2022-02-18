@@ -272,7 +272,7 @@ class ChaliceApp(cdk.Stack):
 
         ##### END: DYNAMODB TABLES AND INDEXES #####
 
-        ##### START: S3 BUCKETS #####
+        ##### START: S3 BUCKETS AND CF DISTRIBUTION #####
 
         # MRE Access Log Bucket
         self.access_log_bucket = s3.Bucket(
@@ -350,7 +350,7 @@ class ChaliceApp(cdk.Stack):
                                                                }
                                                                )
 
-        ##### END: S3 BUCKETS #####
+        ##### END: S3 BUCKETS AND CF DISTRIBUTION #####
 
         ##### START: LAMBDA LAYERS #####
 
@@ -2470,4 +2470,14 @@ class ChaliceApp(cdk.Stack):
             parameter_name="/MRE/ControlPlane/MediaOutputBucket",
             tier=ssm.ParameterTier.INTELLIGENT_TIERING,
             description="[DO NOT DELETE] Parameter contains the AWS MRE MediaOutput Bucket Name"
+        )
+
+        # Required for the Fan Experience Frontend
+        ssm.StringParameter(
+            self,
+            "MREMediaOutputDistribution",
+            string_value=self.mre_media_output_distro.domain_name,
+            parameter_name="/MRE/ControlPlane/MediaOutputDistribution",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the AWS MRE MediaOutput CloudFront Distribution domain name"
         )

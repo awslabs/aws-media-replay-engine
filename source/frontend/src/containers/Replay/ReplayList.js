@@ -82,13 +82,13 @@ export const ReplayList = () => {
                         showAudioTrackDialog: false
                     },
                     Hls: {
-                        path: `program/#Program/event/#Event/hls/replaymanifest/replayid/#ReplayId`,
+                        path: `replay/program/#Program/event/#Event/hls/replaymanifest/replayid/#ReplayId`,
                         showAudioTrackDialog: false,
                         tooltip: "Export to HLS"
                     },
                     downloadMetadata: {
                         tooltip: "Download Replay data",
-                        path: `export/data/replay/#ReplayId/event/#Event/program/#Program`,
+                        path: `replay/export/data/#ReplayId/event/#Event/program/#Program`,
                         showAudioTrackDialog: false
                     }
 

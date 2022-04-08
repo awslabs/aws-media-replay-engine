@@ -36,15 +36,12 @@ export const ProfilePluginsForm = (props) => {
             DependentPlugins: getPluginDependenciesDataByName(pluginName)
         }
 
-        let selectedPluginCopy = _.cloneDeep(selectedPlugin);
-        await setSelectedPlugin({});
-
         if(_.isArray(pluginData) === true) {
-            selectedPluginCopy[props.index] = pluginData;
-            await setSelectedPlugin(pluginData[props.index]);
+            selectedPlugin[props.index] = pluginData;
+            setSelectedPlugin(pluginData[props.index]);
         }
         else {
-            await setSelectedPlugin(pluginData);
+            setSelectedPlugin(pluginData);
         }
 
         if (!isMultiple) {
@@ -117,7 +114,7 @@ export const ProfilePluginsForm = (props) => {
         return result
     }
 
-    const getMainPluginRow = (props) => {
+    const getMainPluginRow = () => {
         let valuesPassed = isMultiple ? props.values[props.index] : props.values;
         let currentSelectedPlugin = _.isArray(selectedPlugin) === true ? selectedPlugin[props.index] : selectedPlugin;
 
@@ -157,7 +154,7 @@ export const ProfilePluginsForm = (props) => {
                                 isRequired: true,
                                 displayName: (selectedModelEndpoint) => {
                                     return `${selectedModelEndpoint.Name}:${selectedModelEndpoint.Version}`;
-                                }
+                                },
                             }}
                             values={valuesPassed}
                         /> :
@@ -212,7 +209,7 @@ export const ProfilePluginsForm = (props) => {
                         <FormSelect
                             details={{
                                 label: "Associated Model",
-                                name: `DependentPlugins[${dependentPluginIndex}].ModelEndpoint`,
+                                name: "ModelEndpoint",
                                 options: valuesPassed.ModelEndpointOptions,
                                 onChange: true,
                                 isRequired: true,
@@ -220,7 +217,7 @@ export const ProfilePluginsForm = (props) => {
                                     return `${selectedModelEndpoint.Name}:${selectedModelEndpoint.Version}`;
                                 }
                             }}
-                            values={props.values}
+                            values={valuesPassed}
                         /> :
                         <Typography variant={"body2"}>No Models Associated</Typography>
                     }
@@ -229,17 +226,21 @@ export const ProfilePluginsForm = (props) => {
         )
     }
 
+    const getCurrentPlugin = () => {
+        return _.isArray(selectedPlugin) === true ? selectedPlugin[props.index] : selectedPlugin;
+    }
+
     return (
         <Grid container direction="column" spacing={3}>
-            {getMainPluginRow(props)}
+            {getMainPluginRow()}
 
-            {_.isEmpty(selectedPlugin.DependentPlugins) !== true &&
+            {_.isEmpty(_.get(getCurrentPlugin(), 'DependentPlugins')) === false &&
             <>
                 <Grid item>
                     <FormLabel>Dependent Plugins</FormLabel>
                     <Divider/>
                 </Grid>
-                {_.map(selectedPlugin.DependentPlugins, (dependentPlugin, index) => {
+                {_.map(_.get(getCurrentPlugin(), 'DependentPlugins'), (dependentPlugin, index) => {
                     return getDependencyPluginRow(props, dependentPlugin, index);
                 })}
             </>

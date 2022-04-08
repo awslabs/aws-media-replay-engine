@@ -115,6 +115,42 @@ parse_params() {
   return 0
 }
 
+deploy_cdk_app() {
+  stack_name=$1
+  stack_dir=$2
+  is_header=${3:-true}
+
+  if [ "$is_header" = true ]; then
+    echo "------------------------------------------------------------------------------"
+    echo "$stack_name stack"
+    echo "------------------------------------------------------------------------------"
+  fi
+
+  echo "Building the $stack_name stack"
+  cd "$stack_dir" || exit 1
+
+  # Remove cdk.out and chalice deployments in the CDK project to force redeploy when there are changes to configuration
+  [ -e cdk.out ] && rm -rf cdk.out
+  [ -e infrastructure/cdk.out ] && rm -rf infrastructure/cdk.out
+  [ -e infrastructure/chalice.out ] && rm -rf infrastructure/chalice.out
+  [ -e runtime/.chalice/deployments ] && rm -rf runtime/.chalice/deployments
+
+  echo "Installing Python dependencies"
+  pip3 install -q -r requirements.txt
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to install required Python dependencies for the $stack_name stack."
+      exit 1
+  fi
+  echo "Deploying the $stack_name stack"
+  cd "$stack_dir"/infrastructure
+  cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to deploy the $stack_name stack."
+      exit 1
+  fi
+  echo "Finished deploying the $stack_name stack"
+}
+
 parse_params "$@"
 msg "Build parameters:"
 msg "- Version: ${version}"
@@ -199,10 +235,13 @@ fi
 # Get reference for all important folders
 build_dir="$PWD"
 source_dir="$build_dir/../source"
-control_plane_dir="$source_dir"/controlplaneapi
-data_plane_dir="$source_dir"/dataplaneapi
-frontend_dir="$source_dir"/frontend
-lambda_layers_dir="$control_plane_dir/infrastructure/lambda_layers"
+api_dir="$source_dir/api"
+gateway_dir="$source_dir/gateway"
+backend_dir="$source_dir/backend"
+frontend_dir="$source_dir/frontend"
+lambda_layers_dir="$source_dir/layers"
+service_disc_dir="$source_dir/service-discovery"
+shared_dir="$source_dir/shared"
 
 # Create and activate a temporary Python environment for this script
 echo "------------------------------------------------------------------------------"
@@ -231,7 +270,7 @@ fi
 export PYTHONPATH="$PYTHONPATH:$source_dir/lib/MediaReplayEnginePluginHelper/:$source_dir/lib/MediaReplayEngineWorkflowHelper/"
 
 echo "------------------------------------------------------------------------------"
-echo "Building MediaReplayEnginePluginHelper package"
+echo "Validating MediaReplayEnginePluginHelper package"
 echo "------------------------------------------------------------------------------"
 
 cd "$source_dir"/lib/MediaReplayEnginePluginHelper || exit 1
@@ -244,7 +283,7 @@ find "$source_dir"/lib/MediaReplayEnginePluginHelper/dist/
 cd "$build_dir"/ || exit 1
 
 echo "------------------------------------------------------------------------------"
-echo "Building MediaReplayEngineWorkflowHelper package"
+echo "Validating MediaReplayEngineWorkflowHelper package"
 echo "------------------------------------------------------------------------------"
 
 cd "$source_dir"/lib/MediaReplayEngineWorkflowHelper || exit 1
@@ -340,12 +379,6 @@ else
 fi
 
 echo "------------------------------------------------------------------------------"
-echo "Updating Framework version to $version"
-echo "------------------------------------------------------------------------------"
-# Update the CDK stack in place
-sed -i -e "s/%%FRAMEWORK_VERSION%%/$version/" "$control_plane_dir/infrastructure/stacks/chaliceapp.py"
-
-echo "------------------------------------------------------------------------------"
 echo "Bootstrapping CDK"
 echo "------------------------------------------------------------------------------"
 # Get account id
@@ -357,66 +390,81 @@ fi
 cdk bootstrap aws://$account_id/$region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
 
 echo "------------------------------------------------------------------------------"
-echo "Controlplane API stack"
+echo "Updating Framework version to $version"
 echo "------------------------------------------------------------------------------"
+# Update in place
+sed -i -e "s/%%FRAMEWORK_VERSION%%/$version/" "$shared_dir/infrastructure/helpers/constants.py"
 
-echo "Building Controlplane stack"
-cd "$control_plane_dir" || exit 1
+echo "------------------------------------------------------------------------------"
+echo "Shared Resources stack"
+echo "------------------------------------------------------------------------------"
+deploy_cdk_app "Shared Resources" "$shared_dir" false
 
-# Remove cdk.out and chalice deployments in the CDK project to force redeploy when there are changes to configuration
-[ -e cdk.out ] && rm -rf cdk.out
-[ -e infrastructure/cdk.out ] && rm -rf infrastructure/cdk.out
-[ -e infrastructure/chalice.out ] && rm -rf infrastructure/chalice.out
-[ -e runtime/.chalice/deployments ] && rm -rf runtime/.chalice/deployments
+echo "------------------------------------------------------------------------------"
+echo "Backend stacks"
+echo "------------------------------------------------------------------------------"
+# Clip Generation stack
+deploy_cdk_app "Clip Generation" "$backend_dir/clipgeneration"
 
-echo "Installing Python dependencies"
-pip3 install -q -r requirements.txt
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to install required Python dependencies for the Controlplane stack."
-    exit 1
-fi
-echo "Deploying the Controlplane stack"
-cd "$control_plane_dir"/infrastructure
-cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to deploy the Controlplane stack."
-    exit 1
-fi
-control_plane=true
-echo "Finished deploying the Controlplane stack"
+# Data Export stack
+deploy_cdk_app "Data Export" "$backend_dir/data_export"
+
+# Event Completion Handler stack
+deploy_cdk_app "Event Completion Handler" "$backend_dir/event_completion_handler"
+
+# Event Scheduler stack
+deploy_cdk_app "Event Scheduler" "$backend_dir/event_scheduler"
+
+# Replay Handler stack
+deploy_cdk_app "Replay Handler" "$backend_dir/replay"
+
+# Workflow Trigger stack
+deploy_cdk_app "Workflow Trigger" "$backend_dir/workflow_trigger"
+
+echo "------------------------------------------------------------------------------"
+echo "Controlplane API stacks"
+echo "------------------------------------------------------------------------------"
+# Program stack
+deploy_cdk_app "Program" "$api_dir/controlplane/program"
+
+# ContentGroup stack
+deploy_cdk_app "ContentGroup" "$api_dir/controlplane/contentgroup"
+
+# System stack
+deploy_cdk_app "System" "$api_dir/controlplane/system"
+
+# Model stack
+deploy_cdk_app "Model" "$api_dir/controlplane/model"
+
+# Plugin stack
+deploy_cdk_app "Plugin" "$api_dir/controlplane/plugin"
+
+# Profile stack
+deploy_cdk_app "Profile" "$api_dir/controlplane/profile"
+
+# Workflow stack
+deploy_cdk_app "Workflow" "$api_dir/controlplane/workflow"
+
+# Event stack
+deploy_cdk_app "Event" "$api_dir/controlplane/event"
+
+# Replay stack
+deploy_cdk_app "Replay" "$api_dir/controlplane/replay"
 
 echo "------------------------------------------------------------------------------"
 echo "Dataplane API stack"
 echo "------------------------------------------------------------------------------"
+deploy_cdk_app "Dataplane API" "$api_dir/dataplane" false
 
-echo "Building Dataplane stack"
-cd "$data_plane_dir" || exit 1
+echo "------------------------------------------------------------------------------"
+echo "Service Discovery stack"
+echo "------------------------------------------------------------------------------"
+deploy_cdk_app "Service Discovery" "$service_disc_dir" false
 
-# Remove cdk.out and chalice deployments in the CDK project to force redeploy when there are changes to configuration
-[ -e cdk.out ] && rm -rf cdk.out
-[ -e infrastructure/cdk.out ] && rm -rf infrastructure/cdk.out
-[ -e infrastructure/chalice.out ] && rm -rf infrastructure/chalice.out
-[ -e runtime/.chalice/deployments ] && rm -rf runtime/.chalice/deployments
-
-echo "Installing Python dependencies"
-pip3 install -q -r requirements.txt
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to install required Python dependencies for the Dataplane stack."
-    exit 1
-fi
-echo "Deploying the Dataplane stack"
-cd "$data_plane_dir"/infrastructure
-cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to deploy the Dataplane stack."
-    if [ ! -z $control_plane ]; then
-      echo "Destroying the Controlplane stack"
-      cd "$control_plane_dir"/infrastructure
-      cdk destroy $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    fi
-    exit 1
-fi
-echo "Finished deploying the Dataplane stack"
+echo "------------------------------------------------------------------------------"
+echo "Gateway API stack"
+echo "------------------------------------------------------------------------------"
+deploy_cdk_app "Gateway API" "$gateway_dir" false
 
 if [[ ! -z "${NO_GUI}" ]]; then
   echo "------------------------------------------------------------------------------"
@@ -463,8 +511,8 @@ else
   git clone "codecommit::$region://$(if [ ! -z $profile ]; then echo "$profile@"; fi)mre-frontend"
   rsync -r --exclude 'mre-frontend' --exclude 'node_modules' --exclude 'cdk' . mre-frontend
   cd "$frontend_dir"/mre-frontend
-  # git config user.name mre-frontend-user
-  # git config user.email $ADMIN_EMAIL
+  git config user.name mre-frontend-user
+  git config user.email $ADMIN_EMAIL
   git add .
   git commit -m "Initial commit"
   git push

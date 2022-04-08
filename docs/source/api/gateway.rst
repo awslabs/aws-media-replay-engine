@@ -1,0 +1,1 @@
+.. chalice:project:: ../../source/gateway/runtime

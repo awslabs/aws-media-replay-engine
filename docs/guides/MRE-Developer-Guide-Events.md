@@ -24,7 +24,7 @@ Before creating an event, consider two attributes that are helpful to organize t
 
 The payload to the **event** API takes a payload that is described here:
 
-[POST /event](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#create-event)
+[POST /event](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-event.html#create-event)
 
 Below are Python code snippets that are useful to perform the  
 

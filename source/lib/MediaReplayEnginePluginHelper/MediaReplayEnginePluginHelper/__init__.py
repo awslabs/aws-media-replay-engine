@@ -94,7 +94,6 @@ class OutputHelper:
         self.event = event["Event"]["Name"]
         self.event_start = event["Event"]["Start"] if "Start" in event["Event"] else None
         self.audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
-        
         self.audio_track = event["TrackNumber"] if "TrackNumber" in event else None
 
         self.execution_id = event["Input"]["ExecutionId"]

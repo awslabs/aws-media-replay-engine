@@ -9,9 +9,36 @@ Documentation
 API Reference
 -------------
 
+**Gateway API**
+
 .. toctree::
    :maxdepth: 1
 
-   api/controlplane
-   api/dataplane
+   Gateway <api/gateway>
+
+
+**Dataplane API**
+
+.. toctree::
+   :maxdepth: 1
+
+   Dataplane <api/dataplane>
+   
+
+
+**Controlplane API**
+
+.. toctree::
+   :maxdepth: 1
+
+   
+   ContentGroup <api/controlplane-contentgroup>
+   Event <api/controlplane-event>
+   Model <api/controlplane-model>
+   Plugin <api/controlplane-plugin>
+   Profile <api/controlplane-profile>
+   Program <api/controlplane-program>
+   Replay <api/controlplane-replay>
+   System <api/controlplane-system>
+   Workflow <api/controlplane-workflow>
 

@@ -28,7 +28,7 @@ export const ProfilePluginsFormWrapper = (props) => {
     const [isFeatureLoading, setIsFeatureLoading] = React.useState(undefined);
 
     const handleAddPlugin = async () => {
-        await setIsFeatureLoading(true);
+        setIsFeatureLoading(true);
 
         let newPluginInitialValues = {
             Name: "",
@@ -46,7 +46,7 @@ export const ProfilePluginsFormWrapper = (props) => {
     };
 
     const handleRemoveFeaturer = async (index) => {
-        await setIsFeatureLoading(true);
+        setIsFeatureLoading(true);
 
         let featurerCopy = _.cloneDeep(props.values);
         featurerCopy.splice(index, 1);

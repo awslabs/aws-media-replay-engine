@@ -148,7 +148,7 @@ export const ReplayCreate = () => {
 
             let clip = {}
             let clipinfo = _.split(f[Object.keys(f)[0]], '^')
-            console.log('clipinfo: ', clipinfo);
+            //console.log('clipinfo: ', clipinfo);
 
             clip['Name'] = Object.keys(f)[0]
 
@@ -156,7 +156,7 @@ export const ReplayCreate = () => {
                 // Consider features whose Weight is more than Zero , which means they are included in the replay
                 if (parseInt(clipinfo[0]) > 0) {
                     clip['Weight'] = parseInt(clipinfo[0])
-                    clip['AttribValue'] = clipinfo[3].trim()
+                    clip['AttribValue'] = clipinfo[3].trim() === "false" ? false : true
                     clip['AttribName'] = clipinfo[4].trim()
                     clip['PluginName'] = clipinfo[5].trim()
 
@@ -170,7 +170,7 @@ export const ReplayCreate = () => {
                 _.forEach(pluginNamePlusAttribValues, (feature) => {
                     const featureValues = feature.split('|')
                     if (feature === clip['Name']) {
-                        clip['AttribValue'] = featureValues[2].trim()
+                        clip['AttribValue'] = featureValues[2].trim() === "false" ? false : true
                         clip['AttribName'] = featureValues[1].trim()
                         clip['PluginName'] = featureValues[0].trim()
                     }
@@ -184,7 +184,7 @@ export const ReplayCreate = () => {
             "Clips": clips
         }
 
-        console.log(formValues);
+        //console.log(formValues);
 
         return formValues
 
@@ -343,7 +343,7 @@ export const ReplayCreate = () => {
         //     const featValue = featuresObject[i][Object.keys(key)[0]]
         //     ++i
         //     const weight = featValue.split('^')[0]
-        //     console.log('weight: ', weight);
+        //     //console.log('weight: ', weight);
 
         //     if (parseInt(weight) >= 0){
         //         res = true
@@ -353,7 +353,7 @@ export const ReplayCreate = () => {
     }
 
     React.useEffect(() => {
-        console.log(replayMode);
+        //console.log(replayMode);
         if (selectedProgram === '-NA-' || selectedEvent === '-NA-' || selectedAudioTrack === '-NA-' || replayDescription.trim() === '' || uxlabel.trim() === '')
             setFormInvalid(true)
         else {
@@ -416,13 +416,13 @@ export const ReplayCreate = () => {
 
     const getAttributeValue = async (feature) => {
         const pluginName = (feature.split('|')[0]).trim()
-        console.log('pluginName: ', pluginName);
+        //console.log('pluginName: ', pluginName);
         const pluginOutputAttribName = (feature.split('|')[1]).trim()
-        console.log('pluginOutputAttribName: ', pluginOutputAttribName);
+        //console.log('pluginOutputAttribName: ', pluginOutputAttribName);
         try {
-            console.log(`replay/feature/program/${selectedProgram}/event/${selectedEvent}/outputattribute/${pluginOutputAttribName}/plugin/${pluginName}`);
+            //console.log(`replay/feature/program/${selectedProgram}/event/${selectedEvent}/outputattribute/${pluginOutputAttribName}/plugin/${pluginName}`);
             let response = await API.get('api-data-plane', `replay/feature/program/${selectedProgram}/event/${selectedEvent}/outputattribute/${pluginOutputAttribName}/plugin/${pluginName}`);
-            console.log(response)
+            //console.log(response)
             return response
         }
         catch (error) {
@@ -446,45 +446,56 @@ export const ReplayCreate = () => {
         
         (async () => {
             const pluginAttribValues = await getAttributeValues()
-            console.log('pluginAttribValues: ', pluginAttribValues);
+            //console.log('pluginAttribValues: ', pluginAttribValues);
 
             let featuresobjs = []
             let pluginNameAndValues = []
 
             // feature = TennisSegmentation - SetPoint
             _.forEach(availableFeatures, (feature) => {
-                console.log('feature: ', feature);
+                //console.log('feature: ', feature);
 
                 //pluginAttrValues = False, True
                 const filteredPlugins =  _.filter(pluginAttribValues, (ftr) => {
                     return ftr[feature]
                 });
+                //console.log(filteredPlugins);
 
-                const pluginAttrValues = _.get(filteredPlugins, '[0][feature]', []);
-
+                const pluginAttrValues = _.get(filteredPlugins, `[0]${[feature]}`, []);
+                //console.log(pluginAttrValues);
+                
                 _.forEach(pluginAttrValues, (pluginAttrVal) => {
-                    // { TennisSegmentation - SetPoint - False: "0^false^TBD^-" }
-                    featuresobjs.push({[feature + ' | ' + pluginAttrVal]: "0^false^TBD^-"})
+                    //console.log('pluginAttrVal: ', pluginAttrVal);
 
-                    // TennisSegmentation - SetPoint - False
-                    pluginNameAndValues.push(feature + ' | ' + pluginAttrVal)
+                    if (pluginAttrVal.toString() === 'False' || pluginAttrVal.toString() === 'false' || 
+                            pluginAttrVal.toString() === 'True' || pluginAttrVal.toString() === 'true'){
+                        
+                        if (featuresobjs.filter(f => f[feature + ' | ' + pluginAttrVal.toString()]).length === 0)
+                            featuresobjs.push({[feature + ' | ' + pluginAttrVal.toString()]: "0^false^TBD^-"})
+
+                        // TennisSegmentation - SetPoint - False
+                        if (!pluginNameAndValues.includes(feature + ' | ' + pluginAttrVal.toString()))
+                            pluginNameAndValues.push(feature + ' | ' + pluginAttrVal.toString())
+                    }
                 })
 
                 // If pluginAttrValues is Empty, then fall back on the default value for each Feature.
                 // However if We get pluginAttrValues from PluginResults, include both
                 //if (pluginAttrValues.length === 0){
-                const pluginAttrVal = 'True' // Default Output Attr Result
+                // const pluginAttrVal = 'True' // Default Output Attr Result
 
-                // Make sure we dont add duplicates
-                if (featuresobjs.filter(f => f[feature + ' | ' + pluginAttrVal]).length === 0)
-                    featuresobjs.push({[feature + ' | ' + pluginAttrVal]: "0^false^TBD^-"})
+                // // Make sure we dont add duplicates
+                // if (featuresobjs.filter(f => f[feature + ' | ' + pluginAttrVal]).length === 0)
+                //     featuresobjs.push({[feature + ' | ' + pluginAttrVal]: "0^false^TBD^-"})
 
-                if (!pluginNameAndValues.includes(feature + ' | ' + pluginAttrVal))
-                    pluginNameAndValues.push(feature + ' | ' + pluginAttrVal)
+                // if (!pluginNameAndValues.includes(feature + ' | ' + pluginAttrVal))
+                //     pluginNameAndValues.push(feature + ' | ' + pluginAttrVal)
+
+                   
                 //}
 
             })
-            console.log(featuresobjs);
+            //console.log(featuresobjs);
             setFeaturesObject(featuresobjs)
 
             setPluginNamePlusAttribValues(pluginNameAndValues)

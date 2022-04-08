@@ -1,0 +1,287 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Aws-Mre-Gateway-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
+    
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/default.css" />
+    <link rel="stylesheet" href="../_static/custom-tabs.css" type="text/css" />
+    
+
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="_static/aws-sdk-2.826.0.min.js"></script>
+    <script type="text/javascript">
+        function _scroll(subjectId) {
+            var subjectElement = $(subjectId);
+            var actualSubjectHeight = subjectElement.height();
+            var startingPosition = subjectElement[0].getBoundingClientRect().top;
+            return function() {
+                var availableHeight = $(window).height() - startingPosition;
+                // Subtract the scroll position to account for sticky movement.
+                availableHeight += Math.min($(window).scrollTop(), 40);
+                var cappedHeight = Math.min(actualSubjectHeight, availableHeight);
+                if (subjectElement.css("height") !== cappedHeight) {
+                    subjectElement.css("height", cappedHeight);
+                }
+            };
+        }
+
+        // Scroll and resize the the columns when scrolled.
+        $(function() {
+            var rightScroll = _scroll("#right-column > .column-body");
+            var scrollFn = function() {
+                rightScroll.call(this, arguments);
+            };
+            scrollFn();
+            $(window).scroll(scrollFn);
+            $(window).resize(scrollFn);
+        });
+
+        // Scroll spy to change highlighted navigation element.
+        $(function() {
+            var section = document.querySelectorAll(".section");
+            var sections = {};
+            var i = 0;
+            Array.prototype.forEach.call(section, function(e) {
+                sections[e.id] = e.offsetTop;
+            });
+            var scrollSpy = function() {
+                var scrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+                for (i in sections) {
+                    if (sections[i] <= scrollPosition) {
+                        $('#right-column .current').removeClass('current');
+                        $("#right-column a[href='#" + i + "']").addClass('current');
+                    }
+                }
+            };
+            $(window).scroll(scrollSpy);
+            scrollSpy();
+        });
+        
+        $(function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+                }
+            );
+        });
+
+        $(function sendAnonVistorId() {
+            FingerprintJS.load().then(fp => {
+                // The FingerprintJS agent is ready.
+                // Get a visitor identifier when you'd like to.
+                fp.get().then(result => {
+                    AWS.config.region = 'us-west-2'; 
+                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: 'us-west-2:a2573bbc-f734-4ef9-84ba-30b702b5b958'});
+                    var pinpoint = new AWS.Pinpoint({apiVersion: '2016-12-01'});
+                    
+                    // This is the anonymous visitor identifier:
+                    const anonVisitorId = result.visitorId;
+                    var param = {
+                    ApplicationId: 'fea7ddb98ab9411787a3cf43d835a0d7',
+                    EventsRequest: {
+                        BatchItem: {}
+                        }
+                    };
+
+                    /* create the event parameter */
+                    var eventParam = {
+                        Endpoint: {
+                            Address: anonVisitorId,
+                            ChannelType: 'CUSTOM',
+                            }
+                        };
+
+                    /* attach the event values */
+                    eventParam['Events'] = [{
+                        EventType: 'mre_docs_page_view',
+                        Timestamp: (new Date()).toISOString()
+                    }];
+
+                    var endpointId = eventParam.Endpoint.Address + 'DOCS'
+                    param.EventsRequest.BatchItem[endpointId] = eventParam; 
+
+                    pinpoint.putEvents(param, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else     console.log(data);
+                    });
+                        });
+                    });
+        });
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"
+        onload="sendAnonVistorId()"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Aws-Mre-Dataplane-Api" href="dataplane.html" />
+    <link rel="prev" title="Documentation" href="../index.html" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  </head><body>
+    <header>
+        <div class="header-flex width-wrapper">
+            <div class="site-logo">
+                
+		  <span class="logo-icon"><img src="../_static/img/MRE_Color.png" style="width:55px;height:50px"/></span>
+                </a>
+            </div>
+
+            <ul id="page-navigation">
+                
+                <li class="site-page"><a href="../main.html">Documentation</a></li>
+                
+                <li class="site-search hidden-sm">
+                    <form action="../search.html" method="get">
+                        <input type="hidden" name="check_keywords" value="yes" />
+                        <input type="hidden" name="area" value="default" />
+                        <input class="search-input" autocomplete="off" type="search" name="q" placeholder="Search" />
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </header>
+    
+        
+        
+        <section id="page-container">
+            <div class="width-wrapper flex">
+                <article id="document-body">
+                    
+                    
+  <section class="chalice-app" id="aws-mre-gateway-api">
+<h1 class="chalice-appname">Aws-Mre-Gateway-Api<a class="headerlink" href="#aws-mre-gateway-api" title="Permalink to this headline">¶</a></h1>
+<section class="chalice-route" id="delete-payload">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/external/{proxy+}</span><a class="headerlink" href="#delete-payload" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a DELETE request. This API is meant for integration with external systems
+that send Bearer JWT tokens for authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="get-payload">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/external/{proxy+}</span><a class="headerlink" href="#get-payload" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a GET request. This API is meant for integration with external systems
+that send Bearer JWT tokens for authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="post-payload">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/external/{proxy+}</span><a class="headerlink" href="#post-payload" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a POST request. This API is meant for integration with external systems
+that send Bearer JWT tokens for authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="put-payload">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/external/{proxy+}</span><a class="headerlink" href="#put-payload" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a PUT request. This API is meant for integration with external systems
+that send Bearer JWT tokens for authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="proxy">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#proxy" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a DELETE request. Supports IAM Authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="id1">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a GET request. Supports IAM Authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="id2">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a POST request. Supports IAM Authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="id3">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a PUT request. Supports IAM Authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+</section>
+
+
+                    
+                    <section class="relations">
+                        
+                        <a href="../index.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Documentation</a>
+                        
+                        <a href="dataplane.html" title="next chapter" class="next-page clearfix">Aws-Mre-Dataplane-Api →</a>
+                    </section>
+                    
+                </article><aside id="right-column" class="side-column hidden-sm" >
+                    <div class="column-body" style="width: 600px">
+                        <section class="sidebar">
+                            
+                            <section class="next-previous">
+                                
+                                <a href="../index.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Prev</a>
+                                
+                                <a href="dataplane.html" title="next chapter" class="next-page clearfix">Next →</a>
+                            </section>
+                            
+                            <ul>
+<li><a class="reference internal" href="#">Aws-Mre-Gateway-Api</a><ul>
+<li><a class="reference internal" href="#delete-payload"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/external/{proxy+}</span></a></li>
+<li><a class="reference internal" href="#get-payload"><p>Duplicate implicit target name: “/external/{proxy+}”.</p>
+</a></li>
+<li><a class="reference internal" href="#post-payload"><p>Duplicate implicit target name: “/external/{proxy+}”.</p>
+</a></li>
+<li><a class="reference internal" href="#put-payload"><p>Duplicate implicit target name: “/external/{proxy+}”.</p>
+</a></li>
+<li><a class="reference internal" href="#proxy"><p>Duplicate implicit target name: “delete_payload”.</p>
+</a></li>
+<li><a class="reference internal" href="#id1"><p>Duplicate implicit target name: “get_payload”.</p>
+</a></li>
+<li><a class="reference internal" href="#id2"><p>Duplicate implicit target name: “post_payload”.</p>
+</a></li>
+<li><a class="reference internal" href="#id3"><p>Duplicate implicit target name: “put_payload”.</p>
+</a></li>
+</ul>
+</li>
+</ul>
+
+                        </section>
+                    </div>
+                </aside></div>
+        </section>
+        
+    
+<footer id="footer">
+    <div class="width-wrapper">
+        <div class="copyright">
+            <p>©2022, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
+  </body>
+</html>

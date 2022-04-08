@@ -1,1 +1,1 @@
-.. chalice:project:: ../../source/dataplaneapi/runtime
+.. chalice:project:: ../../source/api/dataplane/runtime

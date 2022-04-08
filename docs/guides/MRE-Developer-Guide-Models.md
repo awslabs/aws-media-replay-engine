@@ -15,6 +15,6 @@ Models are registered with MRE to keep associations with Plugins clear for other
 
 Models you want to use with MRE should be registered using the **model** API described here:
 
-[POST /model](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#register-model)
+[POST /model](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-model.html#register-model)
 
 While model endpoints could be specified within the plugin lambda code explicitly, this model registry helps with A/B comparisons as needs change.

@@ -1,1 +1,0 @@
-.. chalice:project:: ../../source/controlplaneapi/runtime

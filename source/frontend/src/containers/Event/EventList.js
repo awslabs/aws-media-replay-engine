@@ -127,18 +127,18 @@ export const EventList = () => {
                     },
                     Edl: {
 
-                        path: `program/#Program/event/#Name/edl/track/#Track`, //replace #Name and #Program with row.Name and row.Program in child,
+                        path: `event/#Name/edl/track/#Track/program/#Program/`, //replace #Name and #Program with row.Name and row.Program in child,
                         tooltip: "Export to EDL",
                         showAudioTrackDialog: true
                     },
                     Hls: {
-                        path: `program/#Program/event/#Name/hls/eventmanifest/track/#Track`, //replace #Name and #Program with row.Name and row.Program in child,
+                        path: `event/#Name/hls/eventmanifest/program/#Program/track/#Track`, //replace #Name and #Program with row.Name and row.Program in child,
                         tooltip: "Export to HLS",
                         showAudioTrackDialog: true
                     },
                     downloadMetadata: {
                         tooltip: "Download Event data",
-                        path: `export/data/event/#Name/program/#Program`,
+                        path: `event/#Name/export/data/program/#Program`,
                         showAudioTrackDialog: false
                     }
                 }

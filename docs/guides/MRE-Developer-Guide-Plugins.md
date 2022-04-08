@@ -186,7 +186,7 @@ def lambda_handler(event, context):
 
 Each plugin you want to use with MRE needs to be registered using the **plugin** API described here:
 
-[POST /plugin](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#register-plugin)
+[POST /plugin](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-plugin.html#register-plugin)
 
 Plugin registration provides the follow:
 - context for the referenced AWS Lambda function

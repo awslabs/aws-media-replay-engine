@@ -106,16 +106,16 @@ rm -rf "$dist_source_dir"/lib/MediaReplayEngineWorkflowHelper/build
 echo 'rm -rf "$dist_source_dir"/lib/MediaReplayEngineWorkflowHelper/Media_Replay_Engine_Workflow_Helper*.egg-info'
 rm -rf "$dist_source_dir"/lib/MediaReplayEngineWorkflowHelper/Media_Replay_Engine_Workflow_Helper*.egg-info
 
-echo 'rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/ffmpeg/ffmpeg*.zip'
-rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/ffmpeg/ffmpeg*.zip
-echo 'rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/ffprobe/ffprobe*.zip'
-rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/ffprobe/ffprobe*.zip
-echo 'rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/timecode/timecode*.zip'
-rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/timecode/timecode*.zip
-echo 'rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/MediaReplayEnginePluginHelper/MediaReplayEnginePluginHelper*.zip'
-rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/MediaReplayEnginePluginHelper/MediaReplayEnginePluginHelper*.zip
-echo 'rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/MediaReplayEngineWorkflowHelper/MediaReplayEngineWorkflowHelper*.zip'
-rm -rf "$dist_source_dir"/controlplaneapi/infrastructure/lambda_layers/MediaReplayEngineWorkflowHelper/MediaReplayEngineWorkflowHelper*.zip
+echo 'rm -rf "$dist_source_dir"/layers/ffmpeg/ffmpeg*.zip'
+rm -rf "$dist_source_dir"/layers/ffmpeg/ffmpeg*.zip
+echo 'rm -rf "$dist_source_dir"/layers/ffprobe/ffprobe*.zip'
+rm -rf "$dist_source_dir"/layers/ffprobe/ffprobe*.zip
+echo 'rm -rf "$dist_source_dir"/layers/timecode/timecode*.zip'
+rm -rf "$dist_source_dir"/layers/timecode/timecode*.zip
+echo 'rm -rf "$dist_source_dir"/layers/MediaReplayEnginePluginHelper/MediaReplayEnginePluginHelper*.zip'
+rm -rf "$dist_source_dir"/layers/MediaReplayEnginePluginHelper/MediaReplayEnginePluginHelper*.zip
+echo 'rm -rf "$dist_source_dir"/layers/MediaReplayEngineWorkflowHelper/MediaReplayEngineWorkflowHelper*.zip'
+rm -rf "$dist_source_dir"/layers/MediaReplayEngineWorkflowHelper/MediaReplayEngineWorkflowHelper*.zip
 
 echo 'rm -f "$dist_deployment_dir"/lambda_layer_factory/ffmpeg*'
 rm -f "$dist_deployment_dir"/lambda_layer_factory/ffmpeg*

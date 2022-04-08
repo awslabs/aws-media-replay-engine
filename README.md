@@ -78,15 +78,31 @@ The data plane is an API Gateway endpoint that includes APIs using which the Plu
 | docs/	| shell scripts and code to build and deploy the API docs from source |
 | source/ | source code folder |
 | source/frontend/ | source code folder for the Frontend application |
-| source/controlplaneapi/ | source code folder for the control plane |
-| source/controlplaneapi/infrastructure/ | control plane CDK application |
-| source/controlplaneapi/runtime/ | control plane Chalice application |
-| source/dataplaneapi/ | source code folder for the data plane |
-| source/dataplaneapi/infrastructure/ | data plane CDK application |
-| source/dataplaneapi/runtime/ | data plane Chalice application |
+| source/api/controlplane/ | source code folder for the control plane |
+| source/api/controlplane/*/infrastructure/ | control plane CDK application |
+| source/api/controlplane/*/runtime/ | control plane Chalice application |
+| source/api/dataplane/ | source code folder for the data plane |
+| source/api/dataplane/infrastructure/ | data plane CDK application |
+| source/api/dataplane/runtime/ | data plane Chalice application |
 | source/lib/ | source code folder for the custom Lambda layers |
 | source/lib/MediaReplayEnginePluginHelper/	| source code for the MediaReplayEnginePluginHelper library |
 | source/lib/MediaReplayEngineWorkflowHelper/ | source code for the MediaReplayEngineWorkflowHelper library |
+| source/gateway/infrastructure/ | API Gateway CDK application|
+| source/gateway/runtime/ | API Gateway Chalice application|
+| source/service-discovery/infrastructure/ | Service Discovery CDK application|
+| source/shared/infrastructure/ | Shared resources CDK application|
+| source/backend/clipgeneration/infrastructure/ | ClipGeneration CDK application|
+| source/backend/clipgeneration/runtime/ | ClipGeneration related Lambda functions|
+| source/backend/data_export/infrastructure/ | Data Export CDK application|
+| source/backend/data_export/runtime/ | Data Export related Lambda functions|
+| source/backend/event_completion_handler/infrastructure/ | Event completion CDK application|
+| source/backend/event_completion_handler/runtime/ | Event completion related Lambda functions|
+| source/backend/event_scheduler/infrastructure/ | Event Scheduler CDK application|
+| source/backend/event_scheduler/runtime/ | Event Scheduler related Lambda functions|
+| source/backend/replay/infrastructure/ | Replay CDK application|
+| source/backend/replay/runtime/ | Replay related Lambda functions|
+| source/backend/workflow_trigger/infrastructure/ | Workflow Trigger CDK application|
+| source/backend/workflow_trigger/runtime/ | Workflow Trigger related Lambda functions|
 
 ## Demo
 
@@ -150,31 +166,120 @@ While MRE deploys all the relevant AWS resources to facilitate automated video c
 cd aws-media-replay-engine/source/frontend/cdk
 cdk destroy [--profile <aws-profile>]
 
-# Delete the Dataplane stack
-cd aws-media-replay-engine/source/dataplaneapi/infrastructure
+# Delete the Gateway API stack
+cd aws-media-replay-engine/source/gateway/cdk
 cdk destroy [--profile <aws-profile>]
 
-# Delete the Controlplane stack
-cd aws-media-replay-engine/source/controlplaneapi/infrastructure
+# Delete the service-discovery stack
+cd aws-media-replay-engine/source/service-discovery/cdk
+cdk destroy [--profile <aws-profile>]
+
+# Delete the Dataplane stack
+cd aws-media-replay-engine/source/api/dataplane/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+# Delete the Controlplane stacks 
+cd aws-media-replay-engine/source/api/controlplane/replay/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/event/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/workflow/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/profile/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/plugin/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/model/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/system/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/contentgroup/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/api/controlplane/program/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+# Delete the remaining stacks
+
+cd aws-media-replay-engine/source/backend/workflow_trigger/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/backend/replay/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/backend/event_scheduler/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/backend/event_completion_handler/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/backend/data_export/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/backend/clipgeneration/infrastructure
+cdk destroy [--profile <aws-profile>]
+
+cd aws-media-replay-engine/source/shared/infrastructure
 cdk destroy [--profile <aws-profile>]
 ```
 
 ## Option 2: Uninstall using the AWS Management Console
-1. Sign in to the AWS CloudFormation console.
+1. Sign-in to the AWS CloudFormation console.
 2. Select the MRE Frontend stack.
 3. Choose Delete.
-4. Select the MRE Dataplane stack.
+4. Select the aws-mre-gateway stack.
 5. Choose Delete.
-6. Select the MRE Controlplane stack.
+6. Select the aws-mre-service-discovery stack.
 7. Choose Delete.
+8. Select the MRE Dataplane stack (aws-mre-dataplane).
+9. Choose Delete.
+10. Select all Controlplane stacks with the prefix "aws-mre-controlplane-" and delete them in the the order 
+as outlined in the section **option 1 (Uninstall using AWS CDK)**.
+11. Select and delete the following stacks
+    1. aws-mre-workflow-trigger
+    2. aws-mre-replay-handler
+    3. aws-mre-event-scheduler
+    4. aws-mre-event-completion-handler
+    5. aws-mre-data-exporter
+    6. aws-mre-clip-generation
+    7. aws-mre-shared-resources
+
+
 
 ## Option 3: Uninstall using AWS Command Line Interface
 ```
 aws cloudformation delete-stack --stack-name <frontend-stack-name> --region <aws-region>
 
+aws cloudformation delete-stack --stack-name <gateway-stack-name> --region <aws-region>
+
+aws cloudformation delete-stack --stack-name <service-discovery-stack-name> --region <aws-region>
+
 aws cloudformation delete-stack --stack-name <dataplane-stack-name> --region <aws-region>
 
-aws cloudformation delete-stack --stack-name <controlplane-stack-name> --region <aws-region>
+```
+Repeat this command for all stacks with the prefix **aws-mre-controlplane-**
+Delete the controlplane stacks in the the order as outlined in the section **option 1 (Uninstall using AWS CDK)**.
+```
+aws cloudformation delete-stack --stack-name <aws-mre-controlplane-*> --region <aws-region>
+```
+
+Delete the remaining Stacks
+```
+aws cloudformation delete-stack --stack-name aws-mre-workflow-trigger --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-replay-handler --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-event-scheduler --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-event-completion-handler --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-data-exporter --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-clip-generation --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-shared-resources --region <aws-region>
+
 ```
 
 ## Deleting S3 buckets created by MRE
@@ -184,7 +289,7 @@ MRE creates 5 S3 buckets that are not automatically deleted. To delete these buc
 2. Select the `LambdaLayerBucket` bucket.
 3. Choose Empty.
 4. Choose Delete.
-5. Select the `MediaLiveDestinationBucket` bucket.
+5. Select the `MreMediaSourceBucket` bucket.
 6. Choose Empty.
 7. Choose Delete.
 8. Select the `MreMediaOutputBucket` bucket.

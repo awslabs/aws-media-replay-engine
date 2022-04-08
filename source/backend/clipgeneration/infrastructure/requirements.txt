@@ -1,0 +1,8 @@
+aws-cdk.core>=1.85.0,<2.0
+aws-cdk.aws-events>=1.85.0,<2.0
+aws-cdk.aws-events-targets>=1.85.0,<2.0
+aws-cdk.aws-iam>=1.85.0,<2.0
+aws-cdk.aws-lambda>=1.85.0,<2.0
+aws-cdk.aws-ssm>=1.85.0,<2.0
+aws-cdk.aws-stepfunctions>=1.85.0,<2.0
+aws-cdk.aws-stepfunctions-tasks>=1.85.0,<2.0

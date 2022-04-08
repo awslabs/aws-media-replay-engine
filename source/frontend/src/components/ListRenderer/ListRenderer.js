@@ -237,7 +237,7 @@ export const ListRenderer = (props) => {
 
     const handleEventDataExportDownload = async (row) => {
         let exportPathToolTip = _.get(props, "rows.actions.downloadMetadata.tooltip");
-        console.log('exportPathToolTip: ', row);
+        
         let exportPathTemplate = _.get(props, "rows.actions.downloadMetadata.path");
         let exportPath = createPathFromTemplate(exportPathTemplate, row);
         const result = await query('get_blob', 'api', exportPath, {disableLoader: true});
@@ -253,7 +253,6 @@ export const ListRenderer = (props) => {
         let exportPathTemplate = _.get(props, "rows.actions.Hls.path");
         let exportPath = createPathFromTemplate(exportPathTemplate, row);
         exportPath = `${exportPath}${track}`
-
         const result = await query('get_blob', 'api', exportPath, {disableLoader: true});
         downloadBlob(result.data, `${row.Name}-${track}-MasterManifest.m3u8`);
 

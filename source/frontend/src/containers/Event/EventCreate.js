@@ -32,7 +32,7 @@ export const EventCreate = () => {
 
 
     const fetchChannels = async () => {
-        let response = await query('get', 'api', 'medialive/channels', {disableLoader: true});
+        let response = await query('get', 'api', 'system/medialive/channels', {disableLoader: true});
         return response.data;
     }
 

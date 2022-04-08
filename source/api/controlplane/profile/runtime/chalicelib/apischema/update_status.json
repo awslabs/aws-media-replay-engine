@@ -1,0 +1,23 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "update_status",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Enabled": {
+            "$id": "#/properties/Enabled",
+            "type": "boolean",
+            "title": "The Enabled Schema",
+            "default": true,
+            "examples": [
+                true,
+                false
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Enabled"
+    ]
+}

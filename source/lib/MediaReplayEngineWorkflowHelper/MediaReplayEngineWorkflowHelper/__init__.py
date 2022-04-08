@@ -430,7 +430,7 @@ class ControlPlane:
         :param program: Location of the MP4 Video and Thumbnail
         
         """
-        path = f"/replayrequest/mp4location/update"
+        path = f"/replay/mp4location/update"
         method = "POST"
         
         headers = {
@@ -458,7 +458,7 @@ class ControlPlane:
 
         :return: List of Replay Requests
         """
-        path = f"/replayrequests/track/{audioTrack}/program/{program}/event/{event}"
+        path = f"/replay/track/{audioTrack}/program/{program}/event/{event}"
 
         method = "GET"
 
@@ -475,7 +475,7 @@ class ControlPlane:
 
         :return: List of Replay Requests
         """
-        path = f"/replayrequests/completed/events/track/{audioTrack}/program/{program}/event/{event}"
+        path = f"/replay/completed/events/track/{audioTrack}/program/{program}/event/{event}"
 
         method = "GET"
 
@@ -493,7 +493,7 @@ class ControlPlane:
 
         :return: List of Replay Requests
         """
-        path = f"/replayrequests/program/{program}/event/{event}/segmentend"
+        path = f"/replay/program/{program}/event/{event}/segmentend"
         method = "GET"
 
         api_response = self.invoke_controlplane_api(path, method)
@@ -562,7 +562,7 @@ class ControlPlane:
         :return: None
         """
 
-        path = "/replayrequest/update/hls/manifest"
+        path = "/replay/update/hls/manifest"
         method = "POST"
         headers = {
             "Content-Type": "application/json"

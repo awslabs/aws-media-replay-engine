@@ -9,7 +9,7 @@ Media Replay Engine (MRE) provides the capability to export Event and Replay dat
 
 The API to request an event specific export is here:
 
-[GET /export/data/event/{event}/program/{program}](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#get-event-export-data)
+[GET /export/data/event/{event}/program/{program}](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-event.html#get-event-export-data)
 
 Here's an example of the JSON formatted export data.
 
@@ -115,7 +115,7 @@ Here's an example of the JSON formatted export data.
 
 The API to request a replay specific export is here:
 
-[GET /export/data/replay/{id}/event/{event}/program/{program}](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#get-replay-export-data)
+[GET /export/data/replay/{id}/event/{event}/program/{program}](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-replay.html#get-replay-export-data)
 
 Here's an example of the JSON formatted export data.
 

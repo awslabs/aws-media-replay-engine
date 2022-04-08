@@ -14,11 +14,10 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../source'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'Media Replay Engine'
-copyright = '2021, AWS'
+copyright = '2022, AWS'
 author = 'AWS'
 
 
@@ -35,7 +34,7 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '_templates']
 
 # The master toctree document.
 master_doc = 'index'
@@ -79,7 +78,7 @@ os.environ['EVENT_CONTENT_GROUP_INDEX'] = "SYSTEM_TABLE_NAME"
 os.environ['EVENT_PAGINATION_INDEX'] = "SYSTEM_TABLE_NAME"
 os.environ['WORKFLOW_EXECUTION_TABLE_NAME'] = "SYSTEM_TABLE_NAME"
 os.environ['REPLAY_REQUEST_TABLE_NAME'] = "SYSTEM_TABLE_NAME"
-os.environ['MEDIALIVE_S3_BUCKET'] = "SYSTEM_TABLE_NAME"
+os.environ['MEDIASOURCE_S3_BUCKET'] = "SYSTEM_TABLE_NAME"
 os.environ['PROBE_VIDEO_LAMBDA_ARN'] = "SYSTEM_TABLE_NAME"
 os.environ['MULTI_CHUNK_HELPER_LAMBDA_ARN'] = "SYSTEM_TABLE_NAME"
 os.environ['PLUGIN_OUTPUT_HANDLER_LAMBDA_ARN'] = "SYSTEM_TABLE_NAME"
@@ -92,6 +91,7 @@ os.environ['CLOUDFRONT_COOKIE_PRIVATE_KEY_NAME'] = "SYSTEM_TABLE_NAME"
 os.environ['CLOUDFRONT_COOKIE_KEY_PAIR_ID_NAME'] = "SYSTEM_TABLE_NAME"
 os.environ['HLS_STREAM_CLOUDFRONT_DISTRO'] = "SYSTEM_TABLE_NAME"
 os.environ['CURRENT_EVENTS_TABLE_NAME'] = "SYSTEM_TABLE_NAME"
+os.environ['PROGRAM_EVENT_PLUGIN_INDEX'] = "PROGRAM_EVENT_PLUGIN_INDEX"
 
 
 
@@ -105,3 +105,5 @@ os.environ['REPLAY_RESULT_TABLE_NAME'] = "SYSTEM_TABLE_NAME"
 os.environ['PROGRAM_EVENT_INDEX'] = "SYSTEM_TABLE_NAME"
 os.environ['CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX'] = "SYSTEM_TABLE_NAME"
 os.environ['CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX'] = "SYSTEM_TABLE_NAME"
+os.environ['SERVICE_DISC_SERVICE_ID'] = 'SERVICE_DISC_SERVICE_ID'
+os.environ['API_AUTH_SECRET_KEY_NAME'] = 'API_AUTH_SECRET_KEY_NAME'

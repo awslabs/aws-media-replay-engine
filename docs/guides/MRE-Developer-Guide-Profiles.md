@@ -14,4 +14,4 @@ Profiles should be created to support different types of content (sports, news o
 
 The payload to the **profile** API takes a payload that is described here:
 
-[POST /profile](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane.html#create-profile)
+[POST /profile](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-profile.html#create-profile)

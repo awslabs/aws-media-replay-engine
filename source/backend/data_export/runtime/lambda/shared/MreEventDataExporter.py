@@ -45,16 +45,18 @@ class EventDataExporter:
         event_name = self._event['detail']['Event']['EventInfo']['Event']['Name']
         program_name = self._event['detail']['Event']['EventInfo']['Event']['Program']
 
+
         classifier = self._event['detail']['Event']['EventInfo']['Profile']['Classifier']['Name']
-        all_plugin_output_attributes, all_plugin_output_attribute_names = self._get_all_plugin_output_attributes()
+        plugins_in_profile, all_plugin_output_attribute_names = self._get_all_plugin_info()
         print(event_name)
         print(program_name)
         print(classifier)
         print(json.dumps(all_plugin_output_attribute_names))
+        print(json.dumps(plugins_in_profile))
 
-        return self._dataplane.get_all_event_segments_for_export(event_name, program_name, classifier, list(all_plugin_output_attribute_names))
+        return self._dataplane.get_all_event_segments_for_export(event_name, program_name, classifier, list(all_plugin_output_attribute_names), list(plugins_in_profile))
 
-    def _get_all_plugin_output_attributes(self):
+    def _get_all_plugin_info(self):
         '''
             Gets all the Output Attributes from Plugins based on the Profile
         '''
@@ -62,25 +64,22 @@ class EventDataExporter:
         # Get Plugins Classifier/Labeller/Featurer
         # For each get Output Attributes including from their Dependent Plugins
         profile = self._event['detail']['Event']['EventInfo']['Profile']
-        #all_classifier_output_attributes = self.__get_classifier_output_attributes(profile)
-        all_labeler_output_attributes = self.__get_labeler_output_attributes(profile)
-        #all_featurer_output_attributes = self.__get_featurer_output_attributes(profile)
+        all_classifier_plugins, all_classifier_output_attributes = self.__get_classifier_output_attributes(profile)
+        all_labeler_plugins, all_labeler_output_attributes = self.__get_labeler_output_attributes(profile)
+        all_featurer_plugins, all_featurer_output_attributes = self.__get_featurer_output_attributes(profile)
 
         all_output_attribute_names = []
 
-        result = {}
-        #if len(all_classifier_output_attributes) > 0:
-        #    result['Classifier'] = all_classifier_output_attributes
-        if len(all_labeler_output_attributes) > 0:
-            result['Labeler'] = all_labeler_output_attributes
-        #elif len(all_featurer_output_attributes) > 0:
-        #    result['Featurer'] = all_featurer_output_attributes
-
-
         all_output_attribute_names.extend(all_labeler_output_attributes)
-        #all_output_attribute_names.extend(all_featurer_output_attributes)
+        all_output_attribute_names.extend(all_featurer_output_attributes)
+        all_output_attribute_names.extend(all_classifier_output_attributes)
 
-        return result, all_output_attribute_names
+        all_plugins_in_profile = []
+        all_plugins_in_profile.extend(all_classifier_plugins)
+        all_plugins_in_profile.extend(all_labeler_plugins)
+        all_plugins_in_profile.extend(all_featurer_plugins)
+
+        return all_plugins_in_profile, all_output_attribute_names
 
     def __get_classifier_plugin_names(self, profile):
         all_classifier_plugins = []
@@ -95,6 +94,7 @@ class EventDataExporter:
 
     def __get_classifier_output_attributes(self, profile):
         all_classifier_output_attributes = []
+        all_classifier_plugins = []
         if 'Classifier' in profile:
             all_classifier_plugins = self.__get_classifier_plugin_names(profile)
             for plugin_name in all_classifier_plugins:
@@ -104,7 +104,7 @@ class EventDataExporter:
                     attrib_names.pop(attrib_names.index('Label'))
                 all_classifier_output_attributes.extend(attrib_names)
 
-        return all_classifier_output_attributes
+        return all_classifier_plugins, all_classifier_output_attributes
 
 
     def __get_labeler_plugin_names(self, profile):
@@ -121,6 +121,7 @@ class EventDataExporter:
     def __get_labeler_output_attributes(self, profile):
         
         all_labeler_output_attributes = []
+        all_labeler_plugins = []
         if 'Labeler' in profile:
             all_labeler_plugins = self.__get_labeler_plugin_names(profile)
             for plugin_name in all_labeler_plugins:
@@ -130,23 +131,26 @@ class EventDataExporter:
                     attrib_names.pop(attrib_names.index('Label'))
                 all_labeler_output_attributes.extend(attrib_names)
 
-        return all_labeler_output_attributes
+        return all_labeler_plugins, all_labeler_output_attributes
 
     def __get_featurer_plugin_names(self, profile):
         all_featurer_plugins = []
-        main_plugin = profile['Featurer']['Name']
-        all_featurer_plugins.append(main_plugin)
 
-        if 'DependentPlugins' in profile['Featurer']:
-            for dependent_plugin in profile['Featurer']['DependentPlugins']:
-                all_featurer_plugins.append(dependent_plugin['Name'])
+        for featurer in profile['Featurers']:
+            main_plugin = featurer['Name']
+            all_featurer_plugins.append(main_plugin)
+
+            if 'DependentPlugins' in featurer:
+                for dependent_plugin in featurer['DependentPlugins']:
+                    all_featurer_plugins.append(dependent_plugin['Name'])
 
         return all_featurer_plugins
 
     def __get_featurer_output_attributes(self, profile):
         
         all_featurer_output_attributes = []
-        if 'Featurer' in profile:
+        all_featurer_plugins = []
+        if 'Featurers' in profile:
             all_featurer_plugins = self.__get_featurer_plugin_names(profile)
             for plugin_name in all_featurer_plugins:
                 plugin = self._controlplane.get_plugin_by_name(plugin_name)
@@ -155,7 +159,7 @@ class EventDataExporter:
                     attrib_names.pop(attrib_names.index('Label'))
                 all_featurer_output_attributes.extend(attrib_names)
 
-        return all_featurer_output_attributes
+        return all_featurer_plugins, all_featurer_output_attributes
     
 
     def generate_event_data(self):
@@ -164,7 +168,10 @@ class EventDataExporter:
         '''
         event_data_export = {}
         event_payload = self._build_event_data()
+
+        # Get all segments which have Output Attributes based on the Plugin Config for the Event profile
         segment_payload = self._get_all_segments_for_event()
+
         event_data_export["Event"] = event_payload
         event_data_export["Segments"] = segment_payload
 
@@ -175,7 +182,7 @@ class EventDataExporter:
 
         event_info = self._get_additional_event_data()
         profile = self._get_profile()
-        all_plugin_output_attributes, all_plugin_output_attribute_names = self._get_all_plugin_output_attributes()
+        all_plugins_in_profile, all_plugin_output_attribute_names = self._get_all_plugin_info()
 
         event = {}
 
@@ -184,7 +191,7 @@ class EventDataExporter:
         event['Program'] = event_info['Program']
         event['Start'] = event_info['Start']
         event['AudioTracksFound'] = event_info['AudioTracks']
-        event['AllOutputAttributes'] = all_plugin_output_attributes
+        event['AllOutputAttributes'] = all_plugin_output_attribute_names
 
         if 'ProgramId' in event_info:
             event['ProgramId'] = event_info['ProgramId']

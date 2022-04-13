@@ -414,7 +414,7 @@ def get_clip_preview_feedback(program, event, classifier, start_time, audio_trac
 
 
 
-@segment_api.route('/event/program/classifier/all/segments', cors=True, methods=['PUT'], authorizer=authorizer)
+@segment_api.route('/event/program/export/all/segments', cors=True, methods=['PUT'], authorizer=authorizer)
 def get_all_event_segments():
     """
     Returns the Segment Metadata based on the segments found during Segmentation/Optimization process.
@@ -428,8 +428,9 @@ def get_all_event_segments():
     program = input['Program']
     classifier = input['Classifier']
     output_attributes = input['OutputAttributes']  # List
+    plugins_in_profile = input['PluginsInProfile']  # List
     print(f"output_attributes ...... {output_attributes}")
-    print(f"output_attributes type ...... {output_attributes}")
+    print(f"plugins_in_profile ...... {plugins_in_profile}")
 
     
     try:
@@ -481,9 +482,8 @@ def get_all_event_segments():
                 segment_info['OptimizedThumbnailLocation'] = res['OptimizedThumbnailLocation']
 
             for output_attrib in output_attributes:
-                if output_attrib in res:
-                    if res[output_attrib] == 'True':
-                        segment_output_attributes.append(output_attrib)
+                if isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], output_attrib):
+                    segment_output_attributes.append(output_attrib)
 
             if len(segment_output_attributes) > 0:
                 segment_info['OutputAttributesFound'] = segment_output_attributes
@@ -524,3 +524,42 @@ def get_all_event_segments():
 
     else:
         return replace_decimals(all_segments)
+
+
+
+def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, output_attribute):
+
+    # For all Plugins in the profile, based on the Segment Start time +-1 
+    # check if a Output Attribute exists with value True
+    plugin_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+
+    for plugin in plugins:
+
+        response = plugin_table.query(
+            KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{plugin}") & Key('Start').between(
+                segment_start - decimal.Decimal(0.1), segment_start + decimal.Decimal(0.1)),
+            ScanIndexForward=True,
+            IndexName='ProgramEventPluginName_Start-index'
+        )
+
+        segment_info = response["Items"]
+
+        while "LastEvaluatedKey" in response:
+            response = plugin_table.query(
+                KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{plugin}") & Key('Start').between(
+                segment_start - decimal.Decimal(0.1), segment_start + decimal.Decimal(0.1)),
+                ScanIndexForward=True,
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+                IndexName='ProgramEventPluginName_Start-index'
+            )
+            segment_info.extend(response["Items"])
+
+        # Most cases this would just be One Segment matching the Start time
+        for segment_item in segment_info:
+            if output_attribute in segment_item:
+                # If Attribute value is True, we have a Match
+                if segment_item[output_attribute]:
+                    return True
+
+    
+    return False

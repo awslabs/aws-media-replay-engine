@@ -126,8 +126,7 @@ export const EventList = () => {
                         tooltip: "Delete Event"
                     },
                     Edl: {
-
-                        path: `event/#Name/edl/track/#Track/program/#Program/`, //replace #Name and #Program with row.Name and row.Program in child,
+                        path: `event/#Name/edl/program/#Program/track/#Track`, //replace #Name and #Program with row.Name and row.Program in child,
                         tooltip: "Export to EDL",
                         showAudioTrackDialog: true
                     },

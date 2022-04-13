@@ -50,7 +50,7 @@ class MreDataExporter(cdk.Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.event_bus}"
+                    f"arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}"
                 ]
             )
         )

@@ -221,7 +221,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-all-event-segments">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/classifier/all/segments</span><a class="headerlink" href="#get-all-event-segments" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export/all/segments</span><a class="headerlink" href="#get-all-event-segments" title="Permalink to this headline">¶</a></h2>
 <p>Returns the Segment Metadata based on the segments found during Segmentation/Optimization process.</p>
 <dl class="simple">
 <dt>Raises:</dt><dd><p>404 - NotFoundError
@@ -735,7 +735,7 @@ return None along with all the labels created by the dependent plugins before th
 <li><a class="reference internal" href="#record-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/preview/feedback</span></a></li>
 <li><a class="reference internal" href="#get-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/reviewer/{reviewer}/feedback</span></a></li>
 <li><a class="reference internal" href="#store-clip-result"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/result</span></a></li>
-<li><a class="reference internal" href="#get-all-event-segments"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/classifier/all/segments</span></a></li>
+<li><a class="reference internal" href="#get-all-event-segments"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export/all/segments</span></a></li>
 <li><a class="reference internal" href="#get-optimized-clip-preview-details"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/clipstart/{start}/clipduration/{duration}/track/{tracknumber}/classifier/{classifier}/opt/previewinfo</span></a></li>
 <li><a class="reference internal" href="#get-original-clip-preview-details"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/clipstart/{start}/clipduration/{duration}/track/{tracknumber}/classifier/{classifier}/org/previewinfo</span></a></li>
 <li><a class="reference internal" href="#get-matching-replay-segments"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/profileClassifier/{classifier}/track/{tracknumber}/replay/{replayId}/segments</span></a></li>

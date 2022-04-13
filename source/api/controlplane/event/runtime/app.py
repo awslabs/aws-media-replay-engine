@@ -1623,7 +1623,7 @@ def get_event_export_data(program, name):
             "BlobContent": export_filecontent
         }
 
-@app.route('/event/{name}/edl/track/{audiotrack}/program/{program}', cors=True, methods=['GET'], authorizer=authorizer)
+@app.route('/event/{name}/edl/program/{program}/track/{audiotrack}', cors=True, methods=['GET'], authorizer=authorizer)
 def get_edl_by_event(program, name, audiotrack):
     """
     Returns the EDL format of an MRE Event as a octet-stream

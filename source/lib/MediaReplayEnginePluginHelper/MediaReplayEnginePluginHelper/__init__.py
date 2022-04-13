@@ -1031,14 +1031,14 @@ class DataPlane:
 
         return api_response.json()
 
-    def get_all_event_segments_for_export(self, event, program, classifier, output_attributes):
+    def get_all_event_segments_for_export(self, event, program, classifier, output_attributes, plugins_in_profile):
         """
         Returns the Segment Metadata based on the segments found during Segmentation/Optimization process.
 
         :return: Data plane response
         """
 
-        path = "/event/program/classifier/all/segments"
+        path = "/event/program/export/all/segments"
         method = "PUT"
         headers = {
             "Content-Type": "application/json"
@@ -1048,7 +1048,8 @@ class DataPlane:
             "Program": program,
             "Name": event,
             "Classifier": classifier,
-	        "OutputAttributes": output_attributes
+	        "OutputAttributes": output_attributes,
+            "PluginsInProfile": plugins_in_profile
         }
 
         api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))

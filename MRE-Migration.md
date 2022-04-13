@@ -20,7 +20,7 @@ While data migration for many tables can follow the Extract -> Load pattern, few
 The following table maps the DynamoDB Table names from the previous version of MRE to the current version as well as the bucket names that need to be transformed during the ETL process.
 
 | Source table name prefix - v1.0.X | Target table name prefix - v2.0.0 | Bucket name to be changed (Source -> Target) |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | aws-mre-controlplane-ReplayRequest* | aws-mre-controlplane-replay-ReplayRequest* | MreMediaOutputbucket* -> MreMediaOutputbucket* |
 | aws-mre-dataplane-Chunk* | aws-mre-dataplane-Chunk* | MediaLiveDestinationbucket* -> MreMediaSourcebucket* |
 | aws-mre-dataplane-ClipReviewFeedback* | aws-mre-dataplane-ClipReviewFeedback* | - | - |
@@ -44,7 +44,7 @@ Objects from the following v1.0.X S3 buckets need to be migrated into the new v2
 
 
 | Bucket name prefix - v1.0.X | Bucket name prefix - v2.0.0 |
-| --- | --- | --- |
+| --- | -- |
 | MediaLiveDestinationbucket* | MreMediaSourcebucket* |
 | MreDataExportbucket* | MreDataExportbucket* |
 | MreMediaOutputbucket* | MreMediaOutputbucket* |

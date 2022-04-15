@@ -413,13 +413,13 @@ class ClipGenStack(cdk.Stack):
         self.mre_edlgen_events_rule = events.Rule(
             self,
             "MREEventEndRule",
-            description="Rule that captures the MRE Lifecycle Event EVENT_END",
+            description="Rule that captures the MRE Lifecycle Event SEGMENT_END, OPTIMIZED_SEGMENT_END - Used by Event EDL export",
             enabled=True,
             event_bus=self.event_bus,
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["EVENT_END"]
+                    "State":  ["OPTIMIZED_SEGMENT_END", "SEGMENT_END"]
                 }
             ),
             targets=[

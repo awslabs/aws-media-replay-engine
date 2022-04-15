@@ -94,8 +94,8 @@ def generate_edl(event, context):
 
     edl_content = []
     prev_record_out_time = ""
-    event_name = event['detail']['Event']['Name']
-    program_name = event['detail']['Event']['Program']
+    event_name = event['detail']['Segment']['Event']
+    program_name = event['detail']['Segment']['Program']
 
     mre_event = controlPlaneHelper.get_event(event_name, program_name)
     frame_rate = mre_event['FrameRate']

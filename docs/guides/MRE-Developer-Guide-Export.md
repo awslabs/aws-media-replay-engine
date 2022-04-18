@@ -78,6 +78,7 @@ Here's an example of the JSON formatted export data.
         "2": "S3 Location of mp4 clip"
       },
       "OriginalThumbnailLocation": "S3 location of Thumbnail",
+      "FeaturesFound": [],
       "Feedback": []
     },
     {
@@ -91,6 +92,7 @@ Here's an example of the JSON formatted export data.
           "2": "S3 Location of mp4 clip"
         },
         "OriginalThumbnailLocation": "S3 location of Thumbnail",
+        "FeaturesFound": [],
         "Feedback": []
     },
     {
@@ -104,6 +106,7 @@ Here's an example of the JSON formatted export data.
         "2": "S3 Location of mp4 clip"
       },
       "OriginalThumbnailLocation": "S3 location of Thumbnail",
+      "FeaturesFound": [],
       "Feedback": []
     }
   ]

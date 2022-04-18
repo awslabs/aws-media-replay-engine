@@ -64,17 +64,20 @@ class EventDataExporter:
         # Get Plugins Classifier/Labeller/Featurer
         # For each get Output Attributes including from their Dependent Plugins
         profile = self._event['detail']['Event']['EventInfo']['Profile']
+        all_optimizer_plugins, all_optimizer_output_attributes = self.__get_optimizer_output_attributes(profile)
         all_classifier_plugins, all_classifier_output_attributes = self.__get_classifier_output_attributes(profile)
         all_labeler_plugins, all_labeler_output_attributes = self.__get_labeler_output_attributes(profile)
         all_featurer_plugins, all_featurer_output_attributes = self.__get_featurer_output_attributes(profile)
 
         all_output_attribute_names = []
 
+        all_output_attribute_names.extend(all_optimizer_output_attributes)
         all_output_attribute_names.extend(all_labeler_output_attributes)
         all_output_attribute_names.extend(all_featurer_output_attributes)
         all_output_attribute_names.extend(all_classifier_output_attributes)
 
         all_plugins_in_profile = []
+        all_plugins_in_profile.extend(all_optimizer_plugins)
         all_plugins_in_profile.extend(all_classifier_plugins)
         all_plugins_in_profile.extend(all_labeler_plugins)
         all_plugins_in_profile.extend(all_featurer_plugins)
@@ -106,6 +109,30 @@ class EventDataExporter:
 
         return all_classifier_plugins, all_classifier_output_attributes
 
+    def __get_optimizer_plugin_names(self, profile):
+        all_optimizer_plugins = []
+        main_plugin = profile['Optimizer']['Name']
+        all_optimizer_plugins.append(main_plugin)
+
+        if 'DependentPlugins' in profile['Optimizer']:
+            for dependent_plugin in profile['Optimizer']['DependentPlugins']:
+                all_optimizer_plugins.append(dependent_plugin['Name'])
+
+        return all_optimizer_plugins
+
+    def __get_optimizer_output_attributes(self, profile):
+        all_optimizer_output_attributes = []
+        all_optimizer_plugins = []
+        if 'Optimizer' in profile:
+            all_optimizer_plugins = self.__get_optimizer_plugin_names(profile)
+            for plugin_name in all_optimizer_plugins:
+                plugin = self._controlplane.get_plugin_by_name(plugin_name)
+                attrib_names = list(plugin['OutputAttributes'].keys())
+                if 'Label' in attrib_names:
+                    attrib_names.pop(attrib_names.index('Label'))
+                all_optimizer_output_attributes.extend(attrib_names)
+
+        return all_optimizer_plugins, all_optimizer_output_attributes
 
     def __get_labeler_plugin_names(self, profile):
         all_labeler_plugins = []

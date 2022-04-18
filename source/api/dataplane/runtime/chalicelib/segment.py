@@ -486,7 +486,7 @@ def get_all_event_segments():
                     segment_output_attributes.append(output_attrib)
 
             if len(segment_output_attributes) > 0:
-                segment_info['OutputAttributesFound'] = segment_output_attributes
+                segment_info['FeaturesFound'] = segment_output_attributes
 
             feedback_audio_track = {}
             response = clip_preview_table.query(

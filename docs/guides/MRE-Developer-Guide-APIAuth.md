@@ -31,12 +31,10 @@ def token_auth(auth_request):
         decoded_payload = jwt.decode(auth_request.token.replace("Bearer", '').strip(),
                                      get_secret_value_response['SecretString'], algorithms=["HS512"])
     except Exception as e:
-        print(e)
         return AuthResponse(routes=[''], principal_id='user')
 
-    print(decoded_payload)
     return AuthResponse(routes=[
-        '/external/{proxy+}'
+        '/external/*'
     ], principal_id='user')
 
 ```
@@ -51,11 +49,12 @@ In order to create JWT tokens and secure your APIs, follow these steps. This is 
 echo | openssl sha512
 ```
 
-2. Store this SHA512-HMAC secret key within AWS Secrets Manager by updating the value of the secret name **API_AUTH_SECRET_KEY_NAME**. This secret name is automatically created within AWS Secrets Manager when MRE is deployed.
+2. Store this SHA512-HMAC secret key within AWS Secrets Manager by updating the value of the secret name **mre_hsa_api_auth_secret**. This secret name is automatically created within AWS Secrets Manager when MRE is deployed.
 
 3. API Consumer creates a JWT token by encoding it with the HMAC-SHA512 hash. The following example shows how its done using the PyJwt package in python.
 
 ```python
+import jwt
 secretkey = HMAC-SHA512 hash
 encoded_token = jwt.encode({“exp”: 1629861452, "payLoadKey": "payload"}, secretkey, algorithm=“HS512”)
 ```

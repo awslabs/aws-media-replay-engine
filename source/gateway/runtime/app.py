@@ -6,6 +6,7 @@ import requests
 import boto3
 from chalice import Response
 import json
+import jwt
 
 app = Chalice(app_name='aws-mre-gateway-api')
 authorizer = IAMAuthorizer()
@@ -39,17 +40,18 @@ def token_auth(auth_request):
     get_secret_value_response = sec_client.get_secret_value(
         SecretId=API_AUTH_SECRET_KEY_NAME
     )
+    
 
     try:
-        decoded_payload = jwt.decode(auth_request.token.replace("Bearer", '').strip(),
+        jwt.decode(auth_request.token.replace("Bearer", '').strip(),
                                      get_secret_value_response['SecretString'], algorithms=["HS512"])
+        
     except Exception as e:
-        print(e)
         return AuthResponse(routes=[''], principal_id='user')
 
-    print(decoded_payload)
+    
     return AuthResponse(routes=[
-        '/external/{proxy+}'
+        f'/external/*'
     ], principal_id='user')
 
 @app.route('/external/{proxy+}', cors=True, methods=['GET'], authorizer=token_auth)
@@ -63,7 +65,8 @@ def get_payload():
         Controlplane API result.
             
     """
-    return invoke_destination_api("GET", app.current_request.headers, app.current_request.uri_params['proxy'])
+
+    return invoke_destination_api("GET", app.current_request.uri_params['proxy'], app.current_request.headers)
 
 @app.route('/external/{proxy+}', cors=True, methods=['DELETE'], authorizer=token_auth)
 def delete_payload():
@@ -91,7 +94,7 @@ def put_payload():
         Controlplane API result.
             
     """
-    return invoke_destination_api("PUT", app.current_request.uri_params['proxy'], body=app.current_request.raw_body)
+    return invoke_destination_api("PUT", app.current_request.uri_params['proxy'], api_body=app.current_request.raw_body)
 
 
 @app.route('/external/{proxy+}', cors=True, methods=['POST'], authorizer=token_auth)
@@ -106,7 +109,7 @@ def post_payload():
         Controlplane API result.
             
     """
-    return invoke_destination_api("POST", app.current_request.uri_params['proxy'], body=app.current_request.raw_body)
+    return invoke_destination_api("POST", app.current_request.uri_params['proxy'], api_body=app.current_request.raw_body)
 
 
 
@@ -197,6 +200,7 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
     
     try:
             dest_url = get_api_url_by_route(app.current_request.uri_params)
+            
             if not dest_url:
                 raise Exception("No route found")
 
@@ -232,7 +236,6 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
             res.raise_for_status()
        
     except requests.HTTPError as e:
-        print(f"Http Error while invoking the api: {str(e)}")
         if res.status_code == 404:
             raise NotFoundError(res.reason)
         elif res.status_code == 400:
@@ -240,7 +243,6 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
         elif res.status_code >= 500:
             raise ChaliceViewError(res.reason)
     except requests.exceptions.RequestException as e:
-        print(f"Request Exception while invoking the api: {str(e)}")
         if res.status_code == 404:
             raise NotFoundError(res.reason)
         elif res.status_code == 400:
@@ -248,6 +250,5 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
         elif res.status_code >= 500:
             raise ChaliceViewError(res.reason)
     else:
-        print('no error')
         return res.content
         

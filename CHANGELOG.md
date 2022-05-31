@@ -15,3 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed: Cloudfront Distribution domain name stored as a SSM param for MRE Fan Experience Frontend
 - Fixed: Forcing MRE API to handle persistence of MediaLive payload as decimals.
 - Fixed: Several frontend bug fixes
+
+
+## [2.0.1] - 2021-05-31
+
+- Fixed: Fixed a defect in API Authentication using JWT token. All GET requests were failing due to the wrong route configured in AuthResponse 
+- Security: Upgraded PyJwt to 2.4.0 to mitigate the security risk - Key confusion through non-blocklisted public key formats (https://github.com/advisories/GHSA-ffqj-6fqr-9h24)
+- Fixed: Plugin output attributes for Optimizer Plugins will not be displayed during replay creation.

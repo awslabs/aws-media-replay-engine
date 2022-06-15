@@ -2,18 +2,20 @@
  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  SPDX-License-Identifier: Apache-2.0
 '''
-
+from constructs import Construct
 from aws_cdk import (
-    core,
+    CfnOutput,
+    CfnParameter,
+    Stack,
     aws_iam,
     aws_cognito,
     aws_codecommit,
-    aws_amplify,
+    aws_amplify_alpha as aws_amplify,
 )
 
 
-class MreFrontendStack(core.Stack):
-    def __init__(self, scope: core.Construct, id: str, **kwargs) -> None:
+class MreFrontendStack(Stack):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
         # region Cognito
@@ -22,7 +24,7 @@ class MreFrontendStack(core.Stack):
             user_pool_name="MRE-frontend"
         )
 
-        admin_email = core.CfnParameter(self, "adminemail", type="String")
+        admin_email = CfnParameter(self, "adminemail", type="String")
 
         aws_cognito.CfnUserPoolUser(
             self, "CognitoUser",
@@ -107,11 +109,11 @@ class MreFrontendStack(core.Stack):
 
         # endregion App
 
-        core.CfnOutput(self, "webAppURL", value="master." + app.default_domain)
-        core.CfnOutput(self, "webAppId", value=app.app_id)
-        core.CfnOutput(self, "region", value=self.region)
-        core.CfnOutput(self, "userPoolId", value=user_pool.user_pool_id)
-        core.CfnOutput(self, "appClientId", value=user_pool_client.user_pool_client_id)
-        core.CfnOutput(self, "identityPoolId", value=identity_pool.ref)
+        CfnOutput(self, "webAppURL", value="master." + app.default_domain)
+        CfnOutput(self, "webAppId", value=app.app_id)
+        CfnOutput(self, "region", value=self.region)
+        CfnOutput(self, "userPoolId", value=user_pool.user_pool_id)
+        CfnOutput(self, "appClientId", value=user_pool_client.user_pool_client_id)
+        CfnOutput(self, "identityPoolId", value=identity_pool.ref)
 
 

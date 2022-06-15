@@ -3,10 +3,10 @@
  SPDX-License-Identifier: Apache-2.0
 '''
 
-from aws_cdk import core
+from aws_cdk import App
 from stacks.mre_frontend_stack import MreFrontendStack
 
-app = core.App()
+app = App()
 
 MreFrontendStack(app, "mre-frontend-stack")
 

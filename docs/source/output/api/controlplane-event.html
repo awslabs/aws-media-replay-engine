@@ -1,10 +1,10 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
     <title>Aws-Mre-Controlplane-Event-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -17,6 +17,7 @@
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
@@ -158,9 +159,9 @@
                     
                     
   <section class="chalice-app" id="aws-mre-controlplane-event-api">
-<h1 class="chalice-appname">Aws-Mre-Controlplane-Event-Api<a class="headerlink" href="#aws-mre-controlplane-event-api" title="Permalink to this headline">¶</a></h1>
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Event-Api<a class="headerlink" href="#aws-mre-controlplane-event-api" title="Permalink to this heading">¶</a></h1>
 <section class="chalice-route" id="create-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event</span><a class="headerlink" href="#create-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event</span><a class="headerlink" href="#create-event" title="Permalink to this heading">¶</a></h2>
 <p>Creates a new event in MRE.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -213,7 +214,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-events-all">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all</span><a class="headerlink" href="#list-events-all" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all</span><a class="headerlink" href="#list-events-all" title="Permalink to this heading">¶</a></h2>
 <p>List all events in MRE. Supports pagination and filters.</p>
 <p>Returns:</p>
 <blockquote>
@@ -259,7 +260,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-events-external">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all/external</span><a class="headerlink" href="#list-events-external" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all/external</span><a class="headerlink" href="#list-events-external" title="Permalink to this heading">¶</a></h2>
 <p>List all the events for integrating with external systems.</p>
 <p>Returns:</p>
 <blockquote>
@@ -278,7 +279,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-events-by-content-group">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-events-by-content-group" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-events-by-content-group" title="Permalink to this heading">¶</a></h2>
 <p>List all events filtered by content_group with pagination and more filters</p>
 <p>Returns:</p>
 <blockquote>
@@ -324,7 +325,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-future-events">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/future/all</span><a class="headerlink" href="#list-future-events" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/future/all</span><a class="headerlink" href="#list-future-events" title="Permalink to this heading">¶</a></h2>
 <p>List all the events scheduled in the future in the next 1 Hr.</p>
 <p>Returns:</p>
 <blockquote>
@@ -343,7 +344,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="store-audio-tracks">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/metadata/track/audio</span><a class="headerlink" href="#store-audio-tracks" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/metadata/track/audio</span><a class="headerlink" href="#store-audio-tracks" title="Permalink to this heading">¶</a></h2>
 <p>Store the audio tracks of an event identified after probing the first HLS video segment.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -363,7 +364,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="delete-processed-events-from-control">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/processed/{id}</span><a class="headerlink" href="#delete-processed-events-from-control" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/processed/{id}</span><a class="headerlink" href="#delete-processed-events-from-control" title="Permalink to this heading">¶</a></h2>
 <p>Deletes Events from the Control table used to track Event processing status</p>
 <p>Returns:</p>
 <blockquote>
@@ -371,7 +372,7 @@
 </div></blockquote>
 </section>
 <section class="chalice-route" id="update-edl-for-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/edllocation/update</span><a class="headerlink" href="#update-edl-for-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/edllocation/update</span><a class="headerlink" href="#update-edl-for-event" title="Permalink to this heading">¶</a></h2>
 <p>Updates EDL S3 location with the event</p>
 <p>Returns:</p>
 <blockquote>
@@ -383,7 +384,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="store-event-export-data">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export_data</span><a class="headerlink" href="#store-event-export-data" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export_data</span><a class="headerlink" href="#store-event-export-data" title="Permalink to this heading">¶</a></h2>
 <p>Store the Export data generated for the Event as a S3 Location</p>
 <p>Returns:</p>
 <blockquote>
@@ -395,7 +396,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="update-hls-manifest-for-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/hlslocation/update</span><a class="headerlink" href="#update-hls-manifest-for-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/hlslocation/update</span><a class="headerlink" href="#update-hls-manifest-for-event" title="Permalink to this heading">¶</a></h2>
 <p>Updates HLS Manifest S3 location with the event</p>
 <p>Returns:</p>
 <blockquote>
@@ -407,7 +408,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-all-queued-events">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/queued/all/limit/{limit}/closestEventFirst/{closestEventFirst}</span><a class="headerlink" href="#get-all-queued-events" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/queued/all/limit/{limit}/closestEventFirst/{closestEventFirst}</span><a class="headerlink" href="#get-all-queued-events" title="Permalink to this heading">¶</a></h2>
 <p>Gets all Queued Events for processing.</p>
 <p>Returns:</p>
 <blockquote>
@@ -426,7 +427,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-range-based-events">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/range/{fromDate}/{toDate}</span><a class="headerlink" href="#list-range-based-events" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/range/{fromDate}/{toDate}</span><a class="headerlink" href="#list-range-based-events" title="Permalink to this heading">¶</a></h2>
 <p>List all the events based on Date Range which is in UTC format</p>
 <p>Returns:</p>
 <blockquote>
@@ -445,7 +446,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-edl-by-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/edl/program/{program}/track/{audiotrack}</span><a class="headerlink" href="#get-edl-by-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/edl/program/{program}/track/{audiotrack}</span><a class="headerlink" href="#get-edl-by-event" title="Permalink to this heading">¶</a></h2>
 <p>Returns the EDL format of an MRE Event as a octet-stream</p>
 <p>Returns:</p>
 <blockquote>
@@ -457,7 +458,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-event-export-data">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/export/data/program/{program}</span><a class="headerlink" href="#get-event-export-data" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/export/data/program/{program}</span><a class="headerlink" href="#get-event-export-data" title="Permalink to this heading">¶</a></h2>
 <p>Returns the export data for an event as a octet-stream</p>
 <p>Returns:</p>
 <blockquote>
@@ -471,7 +472,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-hls-manifest-by-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/eventmanifest/program/{program}/track/{audiotrack}</span><a class="headerlink" href="#get-hls-manifest-by-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/eventmanifest/program/{program}/track/{audiotrack}</span><a class="headerlink" href="#get-hls-manifest-by-event" title="Permalink to this heading">¶</a></h2>
 <p>Returns the HLS format of an MRE Event as a octet-stream</p>
 <p>Returns:</p>
 <blockquote>
@@ -483,7 +484,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="delete-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#delete-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#delete-event" title="Permalink to this heading">¶</a></h2>
 <p>Delete an event by name and program.</p>
 <p>Returns:</p>
 <blockquote>
@@ -497,7 +498,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#get-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#get-event" title="Permalink to this heading">¶</a></h2>
 <p>Get an event by name and program.</p>
 <p>Returns:</p>
 <blockquote>
@@ -533,7 +534,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="update-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#update-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#update-event" title="Permalink to this heading">¶</a></h2>
 <p>Update an event by name and program.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -564,7 +565,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="store-frame-rate">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/framerate/{frame_rate}</span><a class="headerlink" href="#store-frame-rate" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/framerate/{frame_rate}</span><a class="headerlink" href="#store-frame-rate" title="Permalink to this heading">¶</a></h2>
 <p>Store the frame rate identified after probing the first HLS video segment.</p>
 <p>Returns:</p>
 <blockquote>
@@ -576,7 +577,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="update-event-with-replay">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span><a class="headerlink" href="#update-event-with-replay" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span><a class="headerlink" href="#update-event-with-replay" title="Permalink to this heading">¶</a></h2>
 <p>Updates an event with a flag to indicate Replay creation.</p>
 <p>Returns:</p>
 <blockquote>
@@ -584,7 +585,7 @@
 </div></blockquote>
 </section>
 <section class="chalice-route" id="get-event-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status</span><a class="headerlink" href="#get-event-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status</span><a class="headerlink" href="#get-event-status" title="Permalink to this heading">¶</a></h2>
 <p>Get the status of an event.</p>
 <p>Returns:</p>
 <blockquote>
@@ -597,7 +598,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="put-event-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status/{status}</span><a class="headerlink" href="#put-event-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status/{status}</span><a class="headerlink" href="#put-event-status" title="Permalink to this heading">¶</a></h2>
 <p>Update the status of an event.</p>
 <p>Returns:</p>
 <blockquote>
@@ -609,7 +610,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-first-pts">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts</span><a class="headerlink" href="#get-first-pts" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts</span><a class="headerlink" href="#get-first-pts" title="Permalink to this heading">¶</a></h2>
 <p>Retrieve the pts timecode of the first frame of the first HLS video segment.</p>
 <p>Returns:</p>
 <blockquote>
@@ -621,7 +622,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="store-first-pts">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts/{first_pts}</span><a class="headerlink" href="#store-first-pts" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts/{first_pts}</span><a class="headerlink" href="#store-first-pts" title="Permalink to this heading">¶</a></h2>
 <p>Store the pts timecode of the first frame of the first HLS video segment.</p>
 <p>Returns:</p>
 <blockquote>

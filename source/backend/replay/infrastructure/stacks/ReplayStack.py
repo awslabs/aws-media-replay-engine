@@ -1,7 +1,8 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    Stack,
+    Duration,
     aws_events as events,
     aws_events_targets as events_targets,
     aws_iam as iam,
@@ -22,7 +23,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
 
 MRE_EVENT_BUS = "aws-mre-event-bus"
 
-class ReplayStack(cdk.Stack):
+class ReplayStack(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -135,7 +136,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.CreateReplay",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -152,7 +153,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.GetEligibleReplays",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(6),
+            timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -169,7 +170,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.mark_replay_complete",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(6),
+            timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -186,7 +187,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.generate_master_playlist",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(14),
+            timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -203,7 +204,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.generate_hls_clips",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(14),
+            timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -220,7 +221,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.check_Hls_job_status",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(14),
+            timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -237,7 +238,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.generate_mp4_clips",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -254,7 +255,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.check_mp4_job_status",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -271,7 +272,7 @@ class ReplayStack(cdk.Stack):
             handler="replay_lambda.update_replay_with_mp4_location",
             role=self.replay_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(5),
+            timeout=Duration.minutes(5),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -378,13 +379,13 @@ class ReplayStack(cdk.Stack):
         waitFiveSecondsTask = sfn.Wait(
             self,
             "wait_5_seconds",
-            time=sfn.WaitTime.duration(cdk.Duration.seconds(5))
+            time=sfn.WaitTime.duration(Duration.seconds(5))
         )
 
         waitFiveSecondsTaskMp4 = sfn.Wait(
             self,
             "wait_5_seconds_mp4",
-            time=sfn.WaitTime.duration(cdk.Duration.seconds(5))
+            time=sfn.WaitTime.duration(Duration.seconds(5))
         )
 
         allOkTask = sfn.Pass(

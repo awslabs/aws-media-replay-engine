@@ -81,10 +81,9 @@ class MREEventScheduler:
             future_time = cur_utc_time + timedelta(minutes=event_bootstrap_time_in_mins + int(EVENT_SCHEDULER_BUFFER_TIME_IN_MINS))
 
             # Check if the current event is few minutes away from streaming
-            # We consider the Bootstrap Time (In case of EC2 or any such resource to Bootstrap and initialize all required services)
-            # along with a buffer to calculate the TIME_AWAY value
-            # Also make sure that the same event is not re-processed. This is done by checking if the Event exists in the 
-            # CurrentEvents table.
+            # ---------12PM (Current Time) ------------- 3PM (Event Start time) ---------------------------------
+            # BootStrap is 90 Mins, Buffer Time = 5 Mins
+            # At1:30PM ------- Current Time (1:30PM) + Future Time ( 3:00 PM = CurrentTime + Boostrap in Mins + Buffer Time) - Event Start Time <= 0
             if datetime.strptime(event_start_time, '%Y-%m-%dT%H:%M:%SZ') >= cur_utc_time and datetime.strptime(event_start_time, '%Y-%m-%dT%H:%M:%SZ') <= future_time:
                 # Send a Message to EventBridge for Provisioning Stream Processing Resource Architecture
                 # Check the Concurrent Events value , before provisioning Stream Processing Resources

@@ -1,7 +1,9 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    CfnOutput,
+    Duration,
+    Stack,
     aws_events as events,
     aws_events_targets as events_targets,
     aws_iam as iam,
@@ -22,7 +24,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
 
 MRE_EVENT_BUS = "aws-mre-event-bus"
 
-class ClipGenStack(cdk.Stack):
+class ClipGenStack(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -131,7 +133,7 @@ class ClipGenStack(cdk.Stack):
             handler="mre-event-clip-generator.GenerateClips",
             role=self.event_clip_gen_lambda_role,
             memory_size=512,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment={
                 "MediaConvertRole": self.event_media_convert_role_arn,
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
@@ -203,7 +205,7 @@ class ClipGenStack(cdk.Stack):
             handler="event_hls_manifest_gen.create_hls_manifest",
             role=self.event_hls_gen_lambda_role,
             memory_size=512,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment={
                 "MediaConvertRole": self.event_media_convert_role_arn,
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
@@ -222,7 +224,7 @@ class ClipGenStack(cdk.Stack):
             handler="event_hls_manifest_gen.media_convert_job_status",
             role=self.event_hls_gen_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(5),
+            timeout=Duration.minutes(5),
             environment={
                 "MediaConvertRole": self.event_media_convert_role_arn,
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
@@ -288,7 +290,7 @@ class ClipGenStack(cdk.Stack):
             handler="mre_event_edl_gen.generate_edl",
             role=self.event_hls_gen_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(10),
+            timeout=Duration.minutes(10),
             environment={
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
                 "OutputBucket": self.media_convert_output_bucket_name,
@@ -387,7 +389,7 @@ class ClipGenStack(cdk.Stack):
         waitTenSecondsTask = sfn.Wait(
             self,
             "wait_10_seconds",
-            time=sfn.WaitTime.duration(cdk.Duration.seconds(10))
+            time=sfn.WaitTime.duration(Duration.seconds(10))
         )
 
         doneTask = sfn.Pass(
@@ -443,4 +445,4 @@ class ClipGenStack(cdk.Stack):
             description="[DO NOT DELETE] Contains MRE Clip Generation State Machine Arn"
         )
 
-        cdk.CfnOutput(self, "mre-clip-gen", value=self.state_machine.state_machine_arn, description="Contains MRE Clip Generation State Machine Arn", export_name="mre-clip-gen-arn" )
+        CfnOutput(self, "mre-clip-gen", value=self.state_machine.state_machine_arn, description="Contains MRE Clip Generation State Machine Arn", export_name="mre-clip-gen-arn" )

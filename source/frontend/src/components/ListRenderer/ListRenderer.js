@@ -237,7 +237,7 @@ export const ListRenderer = (props) => {
 
     const handleEventDataExportDownload = async (row) => {
         let exportPathToolTip = _.get(props, "rows.actions.downloadMetadata.tooltip");
-        
+
         let exportPathTemplate = _.get(props, "rows.actions.downloadMetadata.path");
         let exportPath = createPathFromTemplate(exportPathTemplate, row);
         const result = await query('get_blob', 'api', exportPath, {disableLoader: true});
@@ -314,7 +314,7 @@ export const ListRenderer = (props) => {
                 versions={props.rows.versions}
                 expandableHeader={props.expandableHeader}
                 handleDetail
-
+                isHover={true}
             />
 
         });
@@ -512,58 +512,58 @@ export const ListRenderer = (props) => {
                         </Grid> :
                         <>
                             {props.header.pluginClassFilter &&
-                            <Grid item sm={4}>
-                                <PluginClassDropdown handleChange={(e) => {
-                                    handleAllFilters(FILTERS.pluginClassFilter.name, e.target.value)
-                                }}
-                                                     selected={FILTERS.pluginClassFilter.value}
-                                />
-                            </Grid>}
+                                <Grid item sm={4}>
+                                    <PluginClassDropdown handleChange={(e) => {
+                                        handleAllFilters(FILTERS.pluginClassFilter.name, e.target.value)
+                                    }}
+                                                         selected={FILTERS.pluginClassFilter.value}
+                                    />
+                                </Grid>}
                             {props.header.contentGroupFilter &&
-                            <Grid item sm={3}>
-                                <ContentGroupDropdown handleChange={(e) => {
-                                    handleAllFilters(FILTERS.contentGroupFilter.name, e.target.value)
-                                }}
-                                                      selected={FILTERS.contentGroupFilter.value}
-                                />
-                            </Grid>}
+                                <Grid item sm={3}>
+                                    <ContentGroupDropdown handleChange={(e) => {
+                                        handleAllFilters(FILTERS.contentGroupFilter.name, e.target.value)
+                                    }}
+                                                          selected={FILTERS.contentGroupFilter.value}
+                                    />
+                                </Grid>}
                             {props.header.replayFilter &&
-                            <Grid container item direction="row" alignItems="flex-end" spacing={2} sm={7}>
-                                <Box p={2}>
-                                    <Typography variant="h2">or</Typography>
-                                </Box>
-                                <Grid item sm={3}>
-                                    <ProgramDropdown
-                                        handleChange={(e) => {
-                                            handleAllFilters(FILTERS.programFilter.name, e.target.value)
-                                        }}
-                                        selected={FILTERS.programFilter.value}
-                                    />
-                                </Grid>
-                                <Box p={2}>
-                                    <Typography variant="h2">and</Typography>
-                                </Box>
-                                <Grid item sm={3}>
-                                    <EventDropdown
-                                        initValue={props.eventFilterInitValue}
-                                        handleChange={(e) => {
-                                            handleAllFilters(FILTERS.eventFilter.name, e.target.value)
-                                        }}
-                                        selected={FILTERS.eventFilter.value}
-                                    />
-                                </Grid>
-                            </Grid>}
+                                <Grid container item direction="row" alignItems="flex-end" spacing={2} sm={7}>
+                                    <Box p={2}>
+                                        <Typography variant="h2">or</Typography>
+                                    </Box>
+                                    <Grid item sm={3}>
+                                        <ProgramDropdown
+                                            handleChange={(e) => {
+                                                handleAllFilters(FILTERS.programFilter.name, e.target.value)
+                                            }}
+                                            selected={FILTERS.programFilter.value}
+                                        />
+                                    </Grid>
+                                    <Box p={2}>
+                                        <Typography variant="h2">and</Typography>
+                                    </Box>
+                                    <Grid item sm={3}>
+                                        <EventDropdown
+                                            initValue={props.eventFilterInitValue}
+                                            handleChange={(e) => {
+                                                handleAllFilters(FILTERS.eventFilter.name, e.target.value)
+                                            }}
+                                            selected={FILTERS.eventFilter.value}
+                                        />
+                                    </Grid>
+                                </Grid>}
                         </>}
                     <Grid item container direction="row" alignItems="flex-end" justify="flex-end" sm={2}
                           spacing={1}>
                         {props.header.hideRemoveFilters !== true &&
-                        <Grid item>
-                            <IconButton size="small" onClick={handleClearFilters}>
-                                <Tooltip title="Clear filters">
-                                    <DeleteForeverIcon className={classes.iconSize}/>
-                                </Tooltip>
-                            </IconButton>
-                        </Grid>
+                            <Grid item>
+                                <IconButton size="small" onClick={handleClearFilters}>
+                                    <Tooltip title="Clear filters">
+                                        <DeleteForeverIcon className={classes.iconSize}/>
+                                    </Tooltip>
+                                </IconButton>
+                            </Grid>
                         }
 
                         <Grid item>

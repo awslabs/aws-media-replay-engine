@@ -1,10 +1,10 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
     <title>Aws-Mre-Controlplane-Replay-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -17,6 +17,7 @@
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
@@ -158,9 +159,9 @@
                     
                     
   <section class="chalice-app" id="aws-mre-controlplane-replay-api">
-<h1 class="chalice-appname">Aws-Mre-Controlplane-Replay-Api<a class="headerlink" href="#aws-mre-controlplane-replay-api" title="Permalink to this headline">¶</a></h1>
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Replay-Api<a class="headerlink" href="#aws-mre-controlplane-replay-api" title="Permalink to this heading">¶</a></h1>
 <section class="chalice-route" id="add-replay">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay</span><a class="headerlink" href="#add-replay" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay</span><a class="headerlink" href="#add-replay" title="Permalink to this heading">¶</a></h2>
 <p>Add a new Replay Summarization to the system.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -225,7 +226,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-all-replays">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/all</span><a class="headerlink" href="#get-all-replays" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/all</span><a class="headerlink" href="#get-all-replays" title="Permalink to this heading">¶</a></h2>
 <p>Gets all the replay requests</p>
 <p>Returns:</p>
 <blockquote>
@@ -237,7 +238,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="listreplay-by-content-group">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/all/contentgroup/{contentGrp}</span><a class="headerlink" href="#listreplay-by-content-group" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/all/contentgroup/{contentGrp}</span><a class="headerlink" href="#listreplay-by-content-group" title="Permalink to this heading">¶</a></h2>
 <p>Get all the replay requests based on Content Group</p>
 <p>Returns:</p>
 <blockquote>
@@ -250,7 +251,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-all-replay-requests-for-completed-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/completed/events/track/{audioTrack}/program/{program}/event/{event}</span><a class="headerlink" href="#get-all-replay-requests-for-completed-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/completed/events/track/{audioTrack}/program/{program}/event/{event}</span><a class="headerlink" href="#get-all-replay-requests-for-completed-event" title="Permalink to this heading">¶</a></h2>
 <p>Returns all Complete Replay Requests for the Program/Event and Audio Track</p>
 <p>Returns:</p>
 <blockquote>
@@ -263,7 +264,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="store-replay-export-data">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/event/program/export_data</span><a class="headerlink" href="#store-replay-export-data" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/event/program/export_data</span><a class="headerlink" href="#store-replay-export-data" title="Permalink to this heading">¶</a></h2>
 <p>Store the Export data generated for the Replay</p>
 <p>Returns:</p>
 <blockquote>
@@ -275,7 +276,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="delete-replay">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/replay/event/{name}/program/{program}/id/{replayid}</span><a class="headerlink" href="#delete-replay" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/replay/event/{name}/program/{program}/id/{replayid}</span><a class="headerlink" href="#delete-replay" title="Permalink to this heading">¶</a></h2>
 <p>Deletes an event by name, program and ReplayId.</p>
 <p>Returns:</p>
 <blockquote>
@@ -289,7 +290,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-replay-export-data">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/export/data/{id}/event/{event}/program/{program}</span><a class="headerlink" href="#get-replay-export-data" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/export/data/{id}/event/{event}/program/{program}</span><a class="headerlink" href="#get-replay-export-data" title="Permalink to this heading">¶</a></h2>
 <p>Returns the Replay Export Data as octet-stream</p>
 <p>Returns:</p>
 <blockquote>
@@ -302,7 +303,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="update-mp4-for-replay-request">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/mp4location/update</span><a class="headerlink" href="#update-mp4-for-replay-request" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/mp4location/update</span><a class="headerlink" href="#update-mp4-for-replay-request" title="Permalink to this heading">¶</a></h2>
 <p>Updates MP4 file location with the Replay Request</p>
 <p>Returns:</p>
 <blockquote>
@@ -314,7 +315,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-mre-stream-auth">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/mre/streaming/auth</span><a class="headerlink" href="#get-mre-stream-auth" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/mre/streaming/auth</span><a class="headerlink" href="#get-mre-stream-auth" title="Permalink to this heading">¶</a></h2>
 <p>Returns Cloudfront Signed Cookie creds which are valid for 1 day.
 Clients can use these creds to cache locally and make subsequent calls to
 Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
@@ -330,7 +331,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </div></blockquote>
 </section>
 <section class="chalice-route" id="listreplay-by-program-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/all</span><a class="headerlink" href="#listreplay-by-program-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/all</span><a class="headerlink" href="#listreplay-by-program-event" title="Permalink to this heading">¶</a></h2>
 <p>Gets all the replay requests based on Program and Event</p>
 <p>Returns:</p>
 <blockquote>
@@ -342,7 +343,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </dl>
 </section>
 <section class="chalice-route" id="getfeatures-by-program-event">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/features</span><a class="headerlink" href="#getfeatures-by-program-event" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/features</span><a class="headerlink" href="#getfeatures-by-program-event" title="Permalink to this heading">¶</a></h2>
 <p>Get all the Features (as defined in plugin output attributes) based on Program and Event</p>
 <p>Returns:</p>
 <blockquote>
@@ -355,7 +356,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </dl>
 </section>
 <section class="chalice-route" id="get-hls-manifest-by-replayid">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/hls/replaymanifest/replayid/{replayid}</span><a class="headerlink" href="#get-hls-manifest-by-replayid" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/hls/replaymanifest/replayid/{replayid}</span><a class="headerlink" href="#get-hls-manifest-by-replayid" title="Permalink to this heading">¶</a></h2>
 <p>Returns the HLS format of an MRE Replay as a octet-stream</p>
 <p>Returns:</p>
 <blockquote>
@@ -367,7 +368,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </dl>
 </section>
 <section class="chalice-route" id="get-replay-by-program-event-id">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/replayid/{id}</span><a class="headerlink" href="#get-replay-by-program-event-id" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/replayid/{id}</span><a class="headerlink" href="#get-replay-by-program-event-id" title="Permalink to this heading">¶</a></h2>
 <p>Gets the replay request based on event, program and replayId</p>
 <p>Returns:</p>
 <blockquote>
@@ -379,7 +380,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </dl>
 </section>
 <section class="chalice-route" id="update-replay-request-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/replayid/{id}/status/update/{replaystatus}</span><a class="headerlink" href="#update-replay-request-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/replayid/{id}/status/update/{replaystatus}</span><a class="headerlink" href="#update-replay-request-status" title="Permalink to this heading">¶</a></h2>
 <p>Updates the status of a Replay</p>
 <p>Returns:</p>
 <blockquote>
@@ -387,7 +388,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </div></blockquote>
 </section>
 <section class="chalice-route" id="get-all-replays-for-segment-end">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/segmentend</span><a class="headerlink" href="#get-all-replays-for-segment-end" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/segmentend</span><a class="headerlink" href="#get-all-replays-for-segment-end" title="Permalink to this heading">¶</a></h2>
 <p>Get all Queued,InProgress Replay Requests for the Program/Event</p>
 <p>Returns:</p>
 <blockquote>
@@ -400,7 +401,7 @@ Cloudfront URLs (for HLS Streaming and rendering thumbnails)</p>
 </dl>
 </section>
 <section class="chalice-route" id="get-replay-hls-locations">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/gameid/{event}/hls/stream/locations</span><a class="headerlink" href="#get-replay-hls-locations" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/gameid/{event}/hls/stream/locations</span><a class="headerlink" href="#get-replay-hls-locations" title="Permalink to this heading">¶</a></h2>
 <p>Returns Cloudfront links for Replay HLS streams, thumbnails along with Cloudfront Signed Cookie Creds.
 Clients first Authorize with this API using JWT tokens and use the Cloudfront Signed Cookie Creds
 to make calls to the Cloudfront URLs to stream HLS</p>
@@ -419,7 +420,7 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 </div></blockquote>
 </section>
 <section class="chalice-route" id="get-all-replay-requests-for-event-optosegment-end">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/track/{audioTrack}/program/{program}/event/{event}</span><a class="headerlink" href="#get-all-replay-requests-for-event-optosegment-end" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/track/{audioTrack}/program/{program}/event/{event}</span><a class="headerlink" href="#get-all-replay-requests-for-event-optosegment-end" title="Permalink to this heading">¶</a></h2>
 <p>Returns all Queued Replay Requests for the Program/Event and Audio Track</p>
 <p>Returns:</p>
 <blockquote>
@@ -432,7 +433,7 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 </dl>
 </section>
 <section class="chalice-route" id="update-hls-for-replay-request">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/update/hls/manifest</span><a class="headerlink" href="#update-hls-for-replay-request" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/update/hls/manifest</span><a class="headerlink" href="#update-hls-for-replay-request" title="Permalink to this heading">¶</a></h2>
 <p>Updates HLS S3 manifest file location with the Replay Request</p>
 <p>Returns:</p>
 <blockquote>

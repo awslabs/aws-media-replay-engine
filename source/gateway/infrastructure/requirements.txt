@@ -1,5 +1,2 @@
-aws-cdk.core>=1.85.0,<2.0
-aws-cdk.aws-iam>=1.85.0,<2.0
-aws-cdk.aws-ssm>=1.85.0,<2.0
-aws-cdk.aws-secretsmanager>=1.85.0,<2.0
-chalice[cdk]
+aws-cdk-lib>=2.24.1,<3.0
+chalice[cdkv2]

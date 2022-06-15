@@ -125,11 +125,22 @@
                                 "$id": "#/properties/Classifier/properties/DependentPlugins/properties/Configuration",
                                 "type": "object",
                                 "title": "The Configuration Schema"
+                            },
+                            "DependentFor": {
+                                "$id": "#/properties/Classifier/properties/DependentPlugins/properties/DependentFor",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "minItems": 1,
+                                "uniqueItems": true,
+                                "title": "The DependentFor Schema"
                             }
                         },
                         "additionalProperties": false,
                         "required": [
-                            "Name"
+                            "Name",
+                            "DependentFor"
                         ]
                     },
                     "minItems": 1,
@@ -216,11 +227,22 @@
                                 "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/Configuration",
                                 "type": "object",
                                 "title": "The Configuration Schema"
+                            },
+                            "DependentFor": {
+                                "$id": "#/properties/Optimizer/properties/DependentPlugins/properties/DependentFor",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "minItems": 1,
+                                "uniqueItems": true,
+                                "title": "The DependentFor Schema"
                             }
                         },
                         "additionalProperties": false,
                         "required": [
-                            "Name"
+                            "Name",
+                            "DependentFor"
                         ]
                     },
                     "minItems": 1,
@@ -307,11 +329,22 @@
                                 "$id": "#/properties/Labeler/properties/DependentPlugins/properties/Configuration",
                                 "type": "object",
                                 "title": "The Configuration Schema"
+                            },
+                            "DependentFor": {
+                                "$id": "#/properties/Labeler/properties/DependentPlugins/properties/DependentFor",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "minItems": 1,
+                                "uniqueItems": true,
+                                "title": "The DependentFor Schema"
                             }
                         },
                         "additionalProperties": false,
                         "required": [
-                            "Name"
+                            "Name",
+                            "DependentFor"
                         ]
                     },
                     "minItems": 1,
@@ -399,11 +432,22 @@
                                     "$id": "#/properties/Featurers/properties/DependentPlugins/properties/Configuration",
                                     "type": "object",
                                     "title": "The Configuration Schema"
+                                },
+                                "DependentFor": {
+                                    "$id": "#/properties/Featurers/properties/DependentPlugins/properties/DependentFor",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "minItems": 1,
+                                    "uniqueItems": true,
+                                    "title": "The DependentFor Schema"
                                 }
                             },
                             "additionalProperties": false,
                             "required": [
-                                "Name"
+                                "Name",
+                                "DependentFor"
                             ]
                         },
                         "minItems": 1,

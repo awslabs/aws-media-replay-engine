@@ -1,7 +1,7 @@
 import os
 from chalice import IAMAuthorizer
 from chalice import Chalice, AuthResponse
-from chalice import ChaliceViewError, BadRequestError, NotFoundError
+from chalice import ChaliceViewError, BadRequestError, NotFoundError, ConflictError
 import requests
 import boto3
 from chalice import Response
@@ -236,19 +236,43 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
             res.raise_for_status()
        
     except requests.HTTPError as e:
+        error_msg = get_error_message(e.response.text)  
         if res.status_code == 404:
-            raise NotFoundError(res.reason)
+            raise NotFoundError(error_msg)
         elif res.status_code == 400:
-            raise BadRequestError(res.reason)
+            raise BadRequestError(error_msg)
+        elif res.status_code == 409:
+            raise ConflictError(error_msg)
         elif res.status_code >= 500:
-            raise ChaliceViewError(res.reason)
+            raise ChaliceViewError(error_msg)
+        else:
+            raise
     except requests.exceptions.RequestException as e:
+        error_msg = get_error_message(e.response.text)
         if res.status_code == 404:
-            raise NotFoundError(res.reason)
+            raise NotFoundError(error_msg)
         elif res.status_code == 400:
-            raise BadRequestError(res.reason)
+            raise BadRequestError(error_msg)
+        elif res.status_code == 409:
+            raise ConflictError(error_msg)
         elif res.status_code >= 500:
-            raise ChaliceViewError(res.reason)
+            raise ChaliceViewError(error_msg)
+        else:
+            raise
+    except Exception as e:
+        print(e)
+        raise
     else:
         return res.content
         
+def get_error_message(error_response):
+    try:
+        res_json = json.loads(error_response)
+        if 'message' in res_json:
+            return res_json['message']
+        elif 'Message' in res_json:
+            return res_json['Message']
+    except Exception as e:
+        print(e)
+    else:
+        return error_response

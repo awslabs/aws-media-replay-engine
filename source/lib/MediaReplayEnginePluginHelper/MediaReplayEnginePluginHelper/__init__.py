@@ -261,27 +261,30 @@ class PluginHelper:
 
         dependent_plugins_configuration = {}
 
-        if self.plugin_class == "Classifier":
+        if self.plugin_class in ["Classifier", "Featurer"]:
             if "DependentPlugins" in self.classifier:
                 for d_plugin in self.classifier["DependentPlugins"]:
-                    dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
-
-
-        elif self.plugin_class == "Optimizer":
-            if "DependentPlugins" in self.optimizer:
-                for d_plugin in self.optimizer["DependentPlugins"]:
-                    dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
-
-        elif self.plugin_class == "Featurer":
-            for featurer in self.featurers:
-                if featurer["Name"] == self.plugin_name and "DependentPlugins" in featurer:
-                    for d_plugin in featurer["DependentPlugins"]:
+                    if d_plugin["Name"] in self.dependent_plugins:
                         dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
 
-        elif self.plugin_class == "Labeler":
+        if not dependent_plugins_configuration and self.plugin_class in ["Optimizer", "Featurer"]:
+            if "DependentPlugins" in self.optimizer:
+                for d_plugin in self.optimizer["DependentPlugins"]:
+                    if d_plugin["Name"] in self.dependent_plugins:
+                        dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
+
+        if not dependent_plugins_configuration and self.plugin_class in ["Labeler", "Featurer"]:
             if "DependentPlugins" in self.labeler:
                 for d_plugin in self.labeler["DependentPlugins"]:
-                    dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
+                    if d_plugin["Name"] in self.dependent_plugins:
+                        dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
+
+        if not dependent_plugins_configuration and self.plugin_class == "Featurer":
+            for featurer in self.featurers:
+                if "DependentPlugins" in featurer:
+                    for d_plugin in featurer["DependentPlugins"]:
+                        if d_plugin["Name"] in self.dependent_plugins:
+                            dependent_plugins_configuration[d_plugin["Name"]] = d_plugin["Configuration"] if "Configuration" in d_plugin else {}
 
         return dependent_plugins_configuration
 
@@ -786,12 +789,13 @@ class DataPlane:
 
         if "DependentPlugins" in self.optimizer:
             for d_plugin in self.optimizer["DependentPlugins"]:
-                detectors.append(
-                    {
-                        "Name": d_plugin["Name"],
-                        "SupportedMediaType": d_plugin["SupportedMediaType"]
-                    }
-                )
+                if d_plugin["Name"] in self.dependent_plugins:
+                    detectors.append(
+                        {
+                            "Name": d_plugin["Name"],
+                            "SupportedMediaType": d_plugin["SupportedMediaType"]
+                        }
+                    )
 
         body = {
             "Program": self.program,
@@ -895,7 +899,7 @@ class DataPlane:
         
         return api_response.json()
         
-    def get_dependent_plugins_output(self):
+    def get_dependent_plugins_output(self, audio_track=1):
         """
         Method to retrieve the output of one or more dependent plugins of a plugin from 
         the Data plane.
@@ -909,43 +913,60 @@ class DataPlane:
             "Content-Type": "application/json"
         }
 
-        dep_plugins = []
         dep_plugins_obj_list = []
 
-        if self.plugin_class == "Classifier":
+        if self.plugin_class in ["Classifier", "Featurer"]:
             if "DependentPlugins" in self.classifier:
-                dep_plugins = self.classifier["DependentPlugins"]
+                for d_plugin in self.classifier["DependentPlugins"]:
+                    if d_plugin["Name"] in self.dependent_plugins:
+                        dep_plugins_obj_list.append(
+                            {
+                                "Name": d_plugin["Name"],
+                                "SupportedMediaType": d_plugin["SupportedMediaType"]
+                            }
+                        )
 
-        elif self.plugin_class == "Optimizer":
+        if not dep_plugins_obj_list and self.plugin_class in ["Optimizer", "Featurer"]:
             if "DependentPlugins" in self.optimizer:
-                dep_plugins = self.optimizer["DependentPlugins"]
+                for d_plugin in self.optimizer["DependentPlugins"]:
+                    if d_plugin["Name"] in self.dependent_plugins:
+                        dep_plugins_obj_list.append(
+                            {
+                                "Name": d_plugin["Name"],
+                                "SupportedMediaType": d_plugin["SupportedMediaType"]
+                            }
+                        )
 
-        elif self.plugin_class == "Featurer":
-            for featurer in self.featurers:
-                if featurer["Name"] == self.plugin_name and "DependentPlugins" in featurer:
-                    dep_plugins = featurer["DependentPlugins"]
-
-        elif self.plugin_class == "Labeler":
+        if not dep_plugins_obj_list and self.plugin_class in ["Labeler", "Featurer"]:
             if "DependentPlugins" in self.labeler:
-                dep_plugins = self.labeler["DependentPlugins"]
-
-        for d_plugin in dep_plugins:
-            dep_plugins_obj_list.append(
-                {
-                    "Name": d_plugin["Name"],
-                    "SupportedMediaType": d_plugin["SupportedMediaType"]
-                }
-            )
+                for d_plugin in self.labeler["DependentPlugins"]:
+                    if d_plugin["Name"] in self.dependent_plugins:
+                        dep_plugins_obj_list.append(
+                            {
+                                "Name": d_plugin["Name"],
+                                "SupportedMediaType": d_plugin["SupportedMediaType"]
+                            }
+                        )
+        
+        if not dep_plugins_obj_list and self.plugin_class == "Featurer":
+            for featurer in self.featurers:
+                if "DependentPlugins" in featurer:
+                    for d_plugin in featurer["DependentPlugins"]:
+                        if d_plugin["Name"] in self.dependent_plugins:
+                            dep_plugins_obj_list.append(
+                                {
+                                    "Name": d_plugin["Name"],
+                                    "SupportedMediaType": d_plugin["SupportedMediaType"]
+                                }
+                            )
 
         body = {
             "Program": self.program,
             "Event": self.event,
             "ChunkNumber": self.get_chunk_number(self.filename),
-            "DependentPlugins": dep_plugins_obj_list
+            "DependentPlugins": dep_plugins_obj_list,
+            "AudioTrack": self.audio_track if self.audio_track else int(audio_track)
         }
-
-        if self.audio_track:
-            body["AudioTrack"] = self.audio_track
 
         api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
         

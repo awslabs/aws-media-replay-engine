@@ -12,21 +12,22 @@ def lambda_handler(event, context):
     print (event)
 
     results = []
-    mre_dataplane = DataPlane(event)
-
-    # 'event' is the input event payload passed to Lambda
+    mre_dataplane = DataPlane(event) # 'event' is the input event payload passed to Lambda
     mre_outputhelper = OutputHelper(event)
 
     try:
-
         # plugin params
 
         #get all detector data since last start or end plus this current chunk
         state, segment, labels = mre_dataplane.get_segment_state()
-        print("state: " + str(state))
-        print("segment:",segment)
+        print("state: ", str(state))
+        print("segment:", segment)
 
-        labels_scene = [label for label in labels]
+        #get the dependent plugin name from plugin config
+        #for this segmenter plugin, there is just one dependent plugin
+        d_plugin_name = event["Plugin"]["DependentPlugins"][0]
+
+        labels_scene = [label for label in labels[d_plugin_name]]
 
         labels_dedupped, labels_list = remove_dups_in_list(labels_scene)
 
@@ -61,7 +62,7 @@ def lambda_handler(event, context):
                     search_from_idx += len(end_seq)
 
                 #print("tryin with search_from_idx: " + str(search_from_idx))
-                search_results, search_from_idx = find_sequence(labels, labels_dedupped, labels_list, start_seq, 'Start', search_from_idx)
+                search_results, search_from_idx = find_sequence(labels[d_plugin_name], labels_dedupped, labels_list, start_seq, 'Start', search_from_idx)
 
                 if len(search_results) > 0:
                     print(search_results)
@@ -83,7 +84,7 @@ def lambda_handler(event, context):
                     search_from_idx += 1 #len(start_seq) >> overlapping far segment sequences area needed to find the end, so try offsetting by 1
 
                 #print("tryin with search_from_idx: " + str(search_from_idx))
-                search_results, search_from_idx = find_sequence(labels, labels_dedupped, labels_list, end_seq, 'End', search_from_idx)
+                search_results, search_from_idx = find_sequence(labels[d_plugin_name], labels_dedupped, labels_list, end_seq, 'End', search_from_idx)
                 #print(search_results)
 
                 if len(search_results) > 0:

@@ -59,7 +59,7 @@ export const FormRenderer = (props) => {
     const classes = useStyles();
     const history = useHistory();
 
-    const {query, isLoading} = APIHandler()
+    const {query, isLoading} = APIHandler();
     const handleAfterRequestSuccess = () => {history.push({pathname: props.history})};
 
     let inputFieldsList = _.values(props.inputFieldsMap);

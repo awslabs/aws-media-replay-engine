@@ -155,13 +155,13 @@ export const ClipPreview = () => {
 
                 setClipPreviewMode(stateParams.mode)
 
-                await getPlugins()
+                await getPlugins();
 
                 // Force close the Left Navigation bar
-                setIsSidebarOpen(false)
+                setIsSidebarOpen(false);
 
                 if (stateParams.mode === "EventClips") {
-                    await initializeViewClipPreview()
+                    await initializeViewClipPreview();
                 }
                 else {  //mode="ReplayClips"
                     await initializeReplayClipPreview();
@@ -180,7 +180,7 @@ export const ClipPreview = () => {
             let profileRes = await query('get', 'api', `profile/${origEventData.Profile}`, {disableLoader: true});
             profileRes = profileRes.data;
             setProfileClassifier(profileRes.Classifier.Name);
-            setSelectedCard(clipData)
+            setSelectedCard(clipData);
 
 
             // Set the Latest Event State
@@ -189,7 +189,7 @@ export const ClipPreview = () => {
             // Step function takes a while to Extract and Persist AudioTracks at an Event level.
             setOriginalEventData(await getLatestEventState(origEventData))
 
-            setTotalClipPages(_.round(_.size(_.get(stateParams, 'allClipsData')) / MAX_CLIPS));
+            setTotalClipPages(_.ceil(_.size(_.get(stateParams, 'allClipsData')) / MAX_CLIPS));
 
             let allClipsData = _.chunk(_.get(stateParams, 'allClipsData'), MAX_CLIPS);
             _.forEach(allClipsData, page => {
@@ -294,7 +294,7 @@ export const ClipPreview = () => {
         }
 
         const fetchMoreClips = async () => {
-            if (currentClipPage === totalClipPages && stateParams.mode !== "EventClips") {
+            if (currentClipPage + 1 === totalClipPages && stateParams.mode !== "EventClips") {
                 setIsClipsLoading(true);
                 // Load the Event info from API
                 const replayRequestId = stateParams.data.ReplayId;

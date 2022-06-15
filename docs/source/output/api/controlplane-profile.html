@@ -1,10 +1,10 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
     <title>Aws-Mre-Controlplane-Profile-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -17,6 +17,7 @@
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
@@ -158,9 +159,9 @@
                     
                     
   <section class="chalice-app" id="aws-mre-controlplane-profile-api">
-<h1 class="chalice-appname">Aws-Mre-Controlplane-Profile-Api<a class="headerlink" href="#aws-mre-controlplane-profile-api" title="Permalink to this headline">¶</a></h1>
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Profile-Api<a class="headerlink" href="#aws-mre-controlplane-profile-api" title="Permalink to this heading">¶</a></h1>
 <section class="chalice-route" id="create-profile">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/profile</span><a class="headerlink" href="#create-profile" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/profile</span><a class="headerlink" href="#create-profile" title="Permalink to this heading">¶</a></h2>
 <p>Create a new processing profile. A processing profile is a logical grouping of:</p>
 <blockquote>
 <div><ul class="simple">
@@ -199,7 +200,8 @@
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -224,7 +226,8 @@
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -249,7 +252,8 @@
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -275,7 +279,8 @@
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -313,7 +318,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-profiles">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/all</span><a class="headerlink" href="#list-profiles" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/all</span><a class="headerlink" href="#list-profiles" title="Permalink to this heading">¶</a></h2>
 <p>List all the processing profiles.</p>
 <p>By default, return only the processing profiles that are “Enabled” in the system. In order
 to also return the “Disabled” processing profiles, include the query parameter “include_disabled=true”.</p>
@@ -349,7 +354,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -376,7 +382,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -403,7 +410,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -431,14 +439,15 @@ to also return the “Disabled” processing profiles, include the query paramet
                         <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                             <span class="o">...</span>
-                        <span class="p">}</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                     <span class="p">},</span>
                     <span class="o">...</span>
                 <span class="p">]</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">],</span>
-        <span class="s2">&quot;StateDefinition&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+        <span class="s2">&quot;StateMachineArn&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
         <span class="s2">&quot;Enabled&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
         <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
         <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
@@ -455,7 +464,7 @@ to also return the “Disabled” processing profiles, include the query paramet
 </dl>
 </section>
 <section class="chalice-route" id="list-profiles-by-contentgroup">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-profiles-by-contentgroup" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-profiles-by-contentgroup" title="Permalink to this heading">¶</a></h2>
 <p>List all the processing profiles by content group.</p>
 <p>By default, return only the processing profiles that are “Enabled” in the system. In order
 to also return the “Disabled” processing profiles, include the query parameter “include_disabled=true”.</p>
@@ -491,7 +500,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -518,7 +528,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -545,7 +556,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -573,14 +585,15 @@ to also return the “Disabled” processing profiles, include the query paramet
                         <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                             <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                             <span class="o">...</span>
-                        <span class="p">}</span>
+                        <span class="p">},</span>
+                        <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                     <span class="p">},</span>
                     <span class="o">...</span>
                 <span class="p">]</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">],</span>
-        <span class="s2">&quot;StateDefinition&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+        <span class="s2">&quot;StateMachineArn&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
         <span class="s2">&quot;Enabled&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
         <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
         <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
@@ -597,7 +610,7 @@ to also return the “Disabled” processing profiles, include the query paramet
 </dl>
 </section>
 <section class="chalice-route" id="delete-profile">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/profile/{name}</span><a class="headerlink" href="#delete-profile" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/profile/{name}</span><a class="headerlink" href="#delete-profile" title="Permalink to this heading">¶</a></h2>
 <p>Delete a processing profile by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -610,7 +623,7 @@ to also return the “Disabled” processing profiles, include the query paramet
 </dl>
 </section>
 <section class="chalice-route" id="get-profile">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/{name}</span><a class="headerlink" href="#get-profile" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/{name}</span><a class="headerlink" href="#get-profile" title="Permalink to this heading">¶</a></h2>
 <p>Get a processing profile by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -643,7 +656,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -670,7 +684,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -697,7 +712,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -725,14 +741,15 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
         <span class="p">},</span>
         <span class="o">...</span>
     <span class="p">],</span>
-    <span class="s2">&quot;StateDefinition&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;StateMachineArn&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;Enabled&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
     <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
@@ -748,7 +765,7 @@ to also return the “Disabled” processing profiles, include the query paramet
 </dl>
 </section>
 <section class="chalice-route" id="update-profile">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/profile/{name}</span><a class="headerlink" href="#update-profile" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/profile/{name}</span><a class="headerlink" href="#update-profile" title="Permalink to this heading">¶</a></h2>
 <p>Update a processing profile by name.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -777,7 +794,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -802,7 +820,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -827,7 +846,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                 <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                     <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                     <span class="o">...</span>
-                <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
             <span class="p">},</span>
             <span class="o">...</span>
         <span class="p">]</span>
@@ -853,7 +873,8 @@ to also return the “Disabled” processing profiles, include the query paramet
                     <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
                         <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
                         <span class="o">...</span>
-                    <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="nb">list</span>
                 <span class="p">},</span>
                 <span class="o">...</span>
             <span class="p">]</span>
@@ -875,7 +896,7 @@ to also return the “Disabled” processing profiles, include the query paramet
 </dl>
 </section>
 <section class="chalice-route" id="update-profile-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/profile/{name}/status</span><a class="headerlink" href="#update-profile-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/profile/{name}/status</span><a class="headerlink" href="#update-profile-status" title="Permalink to this heading">¶</a></h2>
 <p>Enable or Disable a processing profile by name.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>

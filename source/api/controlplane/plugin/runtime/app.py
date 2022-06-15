@@ -35,6 +35,28 @@ PLUGIN_NAME_INDEX = os.environ['PLUGIN_NAME_INDEX']
 
 API_SCHEMA = load_api_schema()
 
+
+# region local function
+# return plugins that have circular dependency
+# otherwise return None
+def find_circular_dependency(plugin_name, dependent_plugins):
+    response = None
+
+    for dependent_plugin in dependent_plugins:
+        # get full dependent plugins tree of each of the dependent plugins of the list
+        all_dependencies = get_plugin_dependency_tree(dependent_plugin)
+
+        if all_dependencies:
+            all_dependent_plugin_names = [plugin["Name"] for plugin in all_dependencies]
+            if plugin_name in all_dependent_plugin_names:
+                print(f"Found circular plugin between '{plugin_name}' and '{dependent_plugin}")
+                response = (dependent_plugin, plugin_name)
+
+    return response
+
+
+# endregion
+
 @app.route('/plugin', cors=True, methods=['POST'], authorizer=authorizer)
 def register_plugin():
     """
@@ -166,6 +188,12 @@ def register_plugin():
 
                 elif not response["Item"]["Enabled"]:
                     raise BadRequestError(f"Dependent plugin '{d_plugin}' is disabled in the system")
+
+            circular_dependency_plugin_names = find_circular_dependency(name, dependent_plugins)
+
+            if circular_dependency_plugin_names:
+                raise BadRequestError(
+                    f"Found Circular Dependency between plugin: '{circular_dependency_plugin_names[0]}' and '{circular_dependency_plugin_names[1]}'")
 
         else:
             dependent_plugins = []
@@ -305,7 +333,7 @@ def register_plugin():
 
     except BadRequestError as e:
         print(f"Got chalice BadRequestError: {str(e)}")
-        raise
+        raise BadRequestError(str(e))
 
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
@@ -316,8 +344,8 @@ def register_plugin():
         raise
 
     except Exception as e:
-        print(f"Unable to register or publish a new version of the plugin: {str(e)}")
-        raise ChaliceViewError(f"Unable to register or publish a new version of the plugin: {str(e)}")
+        print(f"Unable to register or publish a new version of the plugin: {str(name)}")
+        raise ChaliceViewError(f"Unable to register or publish a new version of the plugin: {str(name)}")
 
     else:
         print(
@@ -1279,3 +1307,128 @@ def update_plugin_version_status(name, version):
     else:
         return {}
 
+
+@app.route('/plugin/{name}/dependentplugins/all', cors=True, methods=['GET'], authorizer=authorizer)
+def get_plugin_dependency_tree(name):
+    """
+    List multi level dependency plugins by traversing every dependency level until no more dependencies are found.
+    Uses version "v0" of the given plugin and of every dependency.
+
+    Returns:
+        .. code-block:: python
+
+            [
+                {
+                    "Name": string,
+                    "PluginData": {
+                        "Id": string,
+                        "Class": ["Classifier"|"Optimizer"|"Featurer"|"Labeler"],
+                        "Description": string,
+                        "ContentGroups": list,
+                        "ExecutionType": ["Sync"|"SyncModel"],
+                        "SupportedMediaType": ["Video"|"Audio"],
+                        "ExecuteLambdaQualifiedARN": arn,
+                        "StateDefinition": string,
+                        "ModelEndpoints": [
+                            {
+                                "Name": string,
+                                "Version": string
+                            },
+                            ...
+                        ],
+                        "Configuration" : {
+                            "configuration1": "value1",
+                            ...
+                        },
+                        "OutputAttributes" : {
+                            "attribute1": {
+                                "Description": string
+                            },
+                            ...
+                        },
+                        "DependentPlugins": list,
+                        "Version": string,
+                        "Created": timestamp,
+                        "Latest": number,
+                        "Enabled": boolean,
+                        "FrameworkVersion": "x.x.x"
+                    },
+                    "DependentFor": ["pluginName1",...]
+                },
+                ...
+            ]
+
+        Raises:
+            500 - ChaliceViewError
+        """
+    try:
+        plugin_dependencies_result = []
+
+        name = urllib.parse.unquote(name)
+
+        print(f"Getting plugin dependencies of plugin '{name}'")
+
+        plugin_table = ddb_resource.Table(PLUGIN_TABLE_NAME)
+
+        # get the latest version of the plugin
+        response = plugin_table.get_item(
+            Key={
+                "Name": name,
+                "Version": "v0"
+            },
+            ConsistentRead=True
+        )
+
+        if "Item" not in response:
+            raise NotFoundError(f"Plugin '{name}' not found")
+
+        # memoize dependencies until they are also searched for their dependencies - instead of recursive search
+        memoized_dependent_plugins = {response["Item"]["Name"]: response["Item"]["DependentPlugins"]}
+        plugins_searched = [response["Item"]["Name"]]
+
+        while len(memoized_dependent_plugins) > 0:
+            new_memoized_dependent_plugins = {}
+
+            for parent_name, dependency_list in memoized_dependent_plugins.items():
+                for dependent_plugin in dependency_list:
+                    # find dependencies of discovered dependent plugin
+                    if dependent_plugin not in plugins_searched:
+                        response = plugin_table.get_item(
+                            Key={
+                                "Name": dependent_plugin,
+                                "Version": "v0"
+                            },
+                            ConsistentRead=True
+                        )
+
+                        plugin_dependencies_result.append({
+                            "Name": dependent_plugin,
+                            "pluginData": response["Item"],
+                            "DependentFor": [parent_name]
+                        })
+
+                        plugins_searched.append(response["Item"]["Name"])
+                        # add new discovered dependencies
+                        new_memoized_dependent_plugins[response["Item"]["Name"]] = response["Item"]["DependentPlugins"]
+
+                    else:
+                        # add dependent plugin to response or append required for if exists
+                        name_index = next((
+                            index for (index, d) in enumerate(plugin_dependencies_result) if d["Name"] ==
+                                                                                             dependent_plugin), None
+                        )
+                        plugin_dependencies_result[name_index]["DependentFor"].append(parent_name)
+
+            # done discovering level of dependencies, copy the next level discovered
+            memoized_dependent_plugins = new_memoized_dependent_plugins
+
+    except NotFoundError as e:
+        print(f"Got chalice NotFoundError: {str(e)}")
+        raise
+
+    except Exception as e:
+        print(f"Unable to list the dependent plugins of the plugin '{name}': {str(e)}")
+        raise ChaliceViewError(f"Unable to list the dependent plugins of the plugin '{name}': {str(e)}")
+
+    else:
+        return plugin_dependencies_result

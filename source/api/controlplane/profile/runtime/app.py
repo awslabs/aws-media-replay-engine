@@ -78,7 +78,8 @@ def create_profile():
                         "Configuration" : {
                             "configuration1": "value1",
                             ...
-                        }   
+                        },
+                        "DependentFor": list
                     },
                     ...
                 ]
@@ -103,7 +104,8 @@ def create_profile():
                         "Configuration" : {
                             "configuration1": "value1",
                             ...
-                        }   
+                        },
+                        "DependentFor": list
                     },
                     ...
                 ]
@@ -128,7 +130,8 @@ def create_profile():
                         "Configuration" : {
                             "configuration1": "value1",
                             ...
-                        }   
+                        },
+                        "DependentFor": list
                     },
                     ...
                 ]
@@ -154,7 +157,8 @@ def create_profile():
                             "Configuration" : {
                                 "configuration1": "value1",
                                 ...
-                            }   
+                            },
+                            "DependentFor": list
                         },
                         ...
                     ]
@@ -199,7 +203,6 @@ def create_profile():
 
         profile_copy = copy.deepcopy(profile)
         state_definition, plugin_definitions = state_definition_helper.profile_state_definition_helper(name, profile_copy)
-        profile["StateDefinition"] = state_definition
         profile["Id"] = str(uuid.uuid4())
         profile["Created"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         profile["LastModified"] = profile["Created"]
@@ -211,7 +214,7 @@ def create_profile():
 
         response = sfn_client.create_state_machine(
             name=sfn_name,
-            definition=profile["StateDefinition"],
+            definition=state_definition,
             roleArn=SFN_ROLE_ARN,
             type="STANDARD",
             tags=[
@@ -355,7 +358,8 @@ def list_profiles():
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
@@ -382,7 +386,8 @@ def list_profiles():
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
@@ -409,7 +414,8 @@ def list_profiles():
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
@@ -437,14 +443,15 @@ def list_profiles():
                                     "Configuration" : {
                                         "configuration1": "value1",
                                         ...
-                                    }   
+                                    },
+                                    "DependentFor": list
                                 },
                                 ...
                             ]
                         },
                         ...
                     ],
-                    "StateDefinition": string,
+                    "StateMachineArn": string,
                     "Enabled": boolean,
                     "Id": uuid,
                     "Created": timestamp,
@@ -534,7 +541,8 @@ def list_profiles_by_contentgroup(content_group):
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
@@ -561,7 +569,8 @@ def list_profiles_by_contentgroup(content_group):
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
@@ -588,7 +597,8 @@ def list_profiles_by_contentgroup(content_group):
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
@@ -616,14 +626,15 @@ def list_profiles_by_contentgroup(content_group):
                                     "Configuration" : {
                                         "configuration1": "value1",
                                         ...
-                                    }   
+                                    },
+                                    "DependentFor": list
                                 },
                                 ...
                             ]
                         },
                         ...
                     ],
-                    "StateDefinition": string,
+                    "StateMachineArn": string,
                     "Enabled": boolean,
                     "Id": uuid,
                     "Created": timestamp,
@@ -712,7 +723,8 @@ def get_profile(name):
                             "Configuration" : {
                                 "configuration1": "value1",
                                 ...
-                            }   
+                            },
+                            "DependentFor": list
                         },
                         ...
                     ]
@@ -739,7 +751,8 @@ def get_profile(name):
                             "Configuration" : {
                                 "configuration1": "value1",
                                 ...
-                            }   
+                            },
+                            "DependentFor": list
                         },
                         ...
                     ]
@@ -766,7 +779,8 @@ def get_profile(name):
                             "Configuration" : {
                                 "configuration1": "value1",
                                 ...
-                            }   
+                            },
+                            "DependentFor": list
                         },
                         ...
                     ]
@@ -794,14 +808,15 @@ def get_profile(name):
                                 "Configuration" : {
                                     "configuration1": "value1",
                                     ...
-                                }   
+                                },
+                                "DependentFor": list
                             },
                             ...
                         ]
                     },
                     ...
                 ],
-                "StateDefinition": string,
+                "StateMachineArn": string,
                 "Enabled": boolean,
                 "Id": uuid,
                 "Created": timestamp,
@@ -876,7 +891,8 @@ def update_profile(name):
                         "Configuration" : {
                             "configuration1": "value1",
                             ...
-                        }   
+                        },
+                        "DependentFor": list
                     },
                     ...
                 ]
@@ -901,7 +917,8 @@ def update_profile(name):
                         "Configuration" : {
                             "configuration1": "value1",
                             ...
-                        }   
+                        },
+                        "DependentFor": list
                     },
                     ...
                 ]
@@ -926,7 +943,8 @@ def update_profile(name):
                         "Configuration" : {
                             "configuration1": "value1",
                             ...
-                        }   
+                        },
+                        "DependentFor": list
                     },
                     ...
                 ]
@@ -952,7 +970,8 @@ def update_profile(name):
                             "Configuration" : {
                                 "configuration1": "value1",
                                 ...
-                            }   
+                            },
+                            "DependentFor": list
                         },
                         ...
                     ]
@@ -1011,7 +1030,6 @@ def update_profile(name):
             response["Item"]["Labeler"] if "Labeler" in response["Item"] else {})
 
         state_definition, plugin_definitions = state_definition_helper.profile_state_definition_helper(name, replace_decimals(profile))
-        profile["StateDefinition"] = state_definition
 
         # === Enrich profile by adding the latest version number of all the plugins provided in the profile ===
         # Classifier and its DependentPlugins
@@ -1054,14 +1072,14 @@ def update_profile(name):
 
         sfn_client.update_state_machine(
             stateMachineArn=state_machine_arn,
-            definition=profile["StateDefinition"]
+            definition=state_definition
         )
 
         profile_table.update_item(
             Key={
                 "Name": name
             },
-            UpdateExpression="SET #Description = :Description, #ContentGroups = :ContentGroups, #ChunkSize = :ChunkSize, #MaxSegmentLengthSeconds = :MaxSegmentLengthSeconds, #ProcessingFrameRate = :ProcessingFrameRate, #Classifier = :Classifier, #Optimizer = :Optimizer, #Featurers = :Featurers, #Labeler = :Labeler, #StateDefinition = :StateDefinition, #LastModified = :LastModified",
+            UpdateExpression="SET #Description = :Description, #ContentGroups = :ContentGroups, #ChunkSize = :ChunkSize, #MaxSegmentLengthSeconds = :MaxSegmentLengthSeconds, #ProcessingFrameRate = :ProcessingFrameRate, #Classifier = :Classifier, #Optimizer = :Optimizer, #Featurers = :Featurers, #Labeler = :Labeler, #LastModified = :LastModified",
             ExpressionAttributeNames={
                 "#Description": "Description",
                 "#ContentGroups": "ContentGroups",
@@ -1072,7 +1090,6 @@ def update_profile(name):
                 "#Optimizer": "Optimizer",
                 "#Featurers": "Featurers",
                 "#Labeler": "Labeler",
-                "#StateDefinition": "StateDefinition",
                 "#LastModified": "LastModified"
             },
             ExpressionAttributeValues={
@@ -1085,7 +1102,6 @@ def update_profile(name):
                 ":Optimizer": profile["Optimizer"],
                 ":Featurers": profile["Featurers"],
                 ":Labeler": profile["Labeler"],
-                ":StateDefinition": profile["StateDefinition"],
                 ":LastModified": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
             }
         )

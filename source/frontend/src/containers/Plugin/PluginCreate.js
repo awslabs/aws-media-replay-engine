@@ -34,9 +34,9 @@ export const PluginCreate = () => {
     const stateParams = _.get(history, 'location.state');
 
     const {query, isLoading} = APIHandler();
-    const [dependentPluginsOptions, setDependentPluginsOptions] = React.useState([]);
-    const [associatedModelsOptions, setAssociatedModelsOptions] = React.useState([]);
-    const [associatedModelsOptionsFiltered, setAssociatedModelsOptionsFiltered] = React.useState([]);
+    const [dependentPluginsOptions, setDependentPluginsOptions] = React.useState(undefined);
+    const [associatedModelsOptions, setAssociatedModelsOptions] = React.useState(undefined);
+    const [associatedModelsOptionsFiltered, setAssociatedModelsOptionsFiltered] = React.useState(undefined);
     const [contentGroupOptions, setContentGroupOptions] = React.useState([]);
 
     const fetchPlugins = async () => {
@@ -198,7 +198,7 @@ export const PluginCreate = () => {
             isRequired: true,
             specialValidationFunction: (value) => {
                 let isValidARN = value.match(LAMBDA_WITH_VERSION_ARN_REGEX);
-                return (isValidARN ? "" : "Value should match regex: ^arn:aws:lambda:([a-z]{2}-[a-z]+-\\\\d{1})?:(\\\\d{12})?:function:([a-zA-Z0-9-_\\\\.]+)?:(\\\\$LATEST|[a-zA-Z0-9-_]+)$" )
+                return (isValidARN ? "" : "Value should match regex: ^arn:aws:lambda:([a-z]{2}-[a-z]+-\\\\d{1})?:(\\\\d{12})?:function:([a-zA-Z0-9-_\\\\.]+)?:(\\\\$LATEST|[a-zA-Z0-9-_]+)$")
             }
         },
         Configuration: {
@@ -243,7 +243,7 @@ export const PluginCreate = () => {
                         <Backdrop open={true} className={classes.backdrop}>
                             <CircularProgress color="inherit"/>
                         </Backdrop>
-                    </div> :
+                    </div> : associatedModelsOptionsFiltered && dependentPluginsOptions &&
                     <FormRenderer
                         outputAttributes={outputAttributes}
                         keyValues={stateParams && stateParams.Configuration}

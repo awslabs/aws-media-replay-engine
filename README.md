@@ -20,14 +20,15 @@ To get a head start building automated video clipping pipelines using the MRE fr
 
 * python >= 3.8
 * aws-cli
-* aws-cdk < 2.0
+* aws-cdk >= 2.24.1
 * docker
-* node >= 10.13.0
-  - ⚠️ versions `13.0.0` to `13.6.0` are not supported due to compatibility issues with the CDK dependencies.
+* node >= 14.15.0
 * npm >= 5.6
 * git
 
-> **NOTE:** If using an AWS Cloud9 environment to install MRE, please be aware that by default the Cloud9 environment comes with an EBS volume sized at 10 GB out of which only ~2 GB is usable. To avoid errors during installation, please resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).
+> **NOTE:** If using an AWS Cloud9 environment to install MRE:  
+    - Resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).  
+    - Ensure the installed version of Python is 3.8 or newer.
 
 ## Build from scratch and deploy using AWS CDK
 
@@ -35,7 +36,7 @@ Run the following commands to build and deploy MRE from scratch. Be sure to defi
 
 ```
 REGION=[specify a region in a format like us-east-1]
-VERSION=1.0.0
+VERSION=2.1.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment

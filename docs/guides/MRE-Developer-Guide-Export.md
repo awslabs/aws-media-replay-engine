@@ -48,6 +48,8 @@ Here's an example of the JSON formatted export data.
           {
             "Name": "TennisSceneClassification",
             "Configuration": { "minimum_confidence": "30" },
+            "DependentFor": ["TennisSegmentation"],
+					  "Level": 1,
             "SupportedMediaType": "Video"
           }
         ]
@@ -59,6 +61,8 @@ Here's an example of the JSON formatted export data.
           {
             "Name": "TennisScoreBoxDetection",
             "Configuration": { "Minimum-Confidence": "0.6" },
+            "DependentFor": ["TennisScoreExtraction"],
+					  "Level": 1,
             "SupportedMediaType": "Video"
           }
         ]
@@ -157,6 +161,8 @@ Here's an example of the JSON formatted export data.
           {
             "Name": "TennisSceneClassification",
             "Configuration": { "minimum_confidence": "30" },
+            "DependentFor": ["TennisSegmentation"],
+					  "Level": 1,
             "SupportedMediaType": "Video"
           }
         ]
@@ -168,6 +174,8 @@ Here's an example of the JSON formatted export data.
           {
             "Name": "TennisScoreBoxDetection",
             "Configuration": { "Minimum-Confidence": "0.6" },
+            "DependentFor": ["TennisScoreExtraction"],
+					  "Level": 1,
             "SupportedMediaType": "Video"
           }
         ]

@@ -3,7 +3,9 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    CfnOutput,
+    Fn,
+    Stack,
     aws_iam as iam
 )
 from chalice.cdk import Chalice
@@ -18,14 +20,14 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class ChaliceApp(cdk.Stack):
+class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
-        self.event_table_arn = cdk.Fn.import_value("mre-event-table-arn")
-        self.event_table_name = cdk.Fn.import_value("mre-event-table-name")
-        self.profile_table_arn = cdk.Fn.import_value("mre-profile-table-arn")
-        self.current_event_table_arn = cdk.Fn.import_value("mre-current-event-table-arn")
+        self.event_table_arn = Fn.import_value("mre-event-table-arn")
+        self.event_table_name = Fn.import_value("mre-event-table-name")
+        self.profile_table_arn = Fn.import_value("mre-profile-table-arn")
+        self.current_event_table_arn = Fn.import_value("mre-current-event-table-arn")
         
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
@@ -150,7 +152,7 @@ class ChaliceApp(cdk.Stack):
                     "sqs:SendMessage"
                 ],
                 resources=[
-                    f"arn:aws:sqs:*:*:{cdk.Fn.import_value('mre-event-deletion-queue-name')}"
+                    f"arn:aws:sqs:*:*:{Fn.import_value('mre-event-deletion-queue-name')}"
                 ]
             )
         )
@@ -181,10 +183,10 @@ class ChaliceApp(cdk.Stack):
                     "EVENT_PROGRAMID_INDEX": constants.EVENT_PROGRAMID_INDEX,
                     "EVENT_CHANNEL_INDEX": constants.EVENT_CHANNEL_INDEX,
                     "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
-                    "CURRENT_EVENTS_TABLE_NAME": cdk.Fn.import_value("mre-current-event-table-name"),
-                    "PROFILE_TABLE_NAME": cdk.Fn.import_value("mre-profile-table-name"),
-                    "MEDIASOURCE_S3_BUCKET": cdk.Fn.import_value("mre-media-source-bucket-name"),
-                    "SQS_QUEUE_URL": cdk.Fn.import_value("mre-event-deletion-queue-name")
+                    "CURRENT_EVENTS_TABLE_NAME": Fn.import_value("mre-current-event-table-name"),
+                    "PROFILE_TABLE_NAME": Fn.import_value("mre-profile-table-name"),
+                    "MEDIASOURCE_S3_BUCKET": Fn.import_value("mre-media-source-bucket-name"),
+                    "SQS_QUEUE_URL": Fn.import_value("mre-event-deletion-queue-name")
                 },
                 "tags": {
                     "Project": "MRE"
@@ -195,5 +197,5 @@ class ChaliceApp(cdk.Stack):
         )
 
 
-        cdk.CfnOutput(self, "mre-event-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Event API Url", export_name="mre-event-api-url" )
+        CfnOutput(self, "mre-event-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Event API Url", export_name="mre-event-api-url" )
         

@@ -1,10 +1,10 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
     <title>Aws-Mre-Controlplane-System-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -17,6 +17,7 @@
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
@@ -158,9 +159,9 @@
                     
                     
   <section class="chalice-app" id="aws-mre-controlplane-system-api">
-<h1 class="chalice-appname">Aws-Mre-Controlplane-System-Api<a class="headerlink" href="#aws-mre-controlplane-system-api" title="Permalink to this headline">¶</a></h1>
+<h1 class="chalice-appname">Aws-Mre-Controlplane-System-Api<a class="headerlink" href="#aws-mre-controlplane-system-api" title="Permalink to this heading">¶</a></h1>
 <section class="chalice-route" id="put-system-configuration">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/system/configuration</span><a class="headerlink" href="#put-system-configuration" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/system/configuration</span><a class="headerlink" href="#put-system-configuration" title="Permalink to this heading">¶</a></h2>
 <p>Upsert a system configuration parameter</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -193,7 +194,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-system-configurations">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/configuration/all</span><a class="headerlink" href="#list-system-configurations" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/configuration/all</span><a class="headerlink" href="#list-system-configurations" title="Permalink to this heading">¶</a></h2>
 <p>List all the system configuration parameters</p>
 <p>Returns:</p>
 <blockquote>
@@ -212,7 +213,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-system-configuration">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/configuration/{name}</span><a class="headerlink" href="#get-system-configuration" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/configuration/{name}</span><a class="headerlink" href="#get-system-configuration" title="Permalink to this heading">¶</a></h2>
 <p>Get a system configuration parameter value by name</p>
 <p>Returns:</p>
 <blockquote>
@@ -225,7 +226,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-medialive-channels">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/medialive/channels</span><a class="headerlink" href="#list-medialive-channels" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/medialive/channels</span><a class="headerlink" href="#list-medialive-channels" title="Permalink to this heading">¶</a></h2>
 <p>Get all Media Live Channels</p>
 <p>Returns:</p>
 <blockquote>
@@ -238,7 +239,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-mediatailor-channels">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/mediatailor/channels</span><a class="headerlink" href="#list-mediatailor-channels" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/mediatailor/channels</span><a class="headerlink" href="#list-mediatailor-channels" title="Permalink to this heading">¶</a></h2>
 <p>Get all Media Tailor Channels</p>
 <p>Returns:</p>
 <blockquote>
@@ -251,7 +252,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="list-mediatailor-playback-configurations">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/mediatailor/playbackconfigurations</span><a class="headerlink" href="#list-mediatailor-playback-configurations" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/mediatailor/playbackconfigurations</span><a class="headerlink" href="#list-mediatailor-playback-configurations" title="Permalink to this heading">¶</a></h2>
 <p>Get all Media Tailor Playback Configurations</p>
 <p>Returns:</p>
 <blockquote>
@@ -264,7 +265,7 @@
 </dl>
 </section>
 <section class="chalice-route" id="generate-uuid">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/uuid</span><a class="headerlink" href="#generate-uuid" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/uuid</span><a class="headerlink" href="#generate-uuid" title="Permalink to this heading">¶</a></h2>
 <p>Generate a random UUID string using the Python ‘uuid’ module</p>
 <p>Returns:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">UUID</span>
@@ -272,7 +273,7 @@
 </div>
 </section>
 <section class="chalice-route" id="version">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/version</span><a class="headerlink" href="#version" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/version</span><a class="headerlink" href="#version" title="Permalink to this heading">¶</a></h2>
 <p>Get the control plane api and framework version numbers</p>
 <p>Returns:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>

@@ -20,6 +20,63 @@ CLIP_GENERATION_STATE_MACHINE_ARN = os.environ['CLIP_GENERATION_STATE_MACHINE_AR
 ddb_resource = boto3.resource("dynamodb")
 
 
+def get_multi_level_d_plugins(level, p_plugins, d_plugins, plugins_level_list, d_plugins_def_dict, plugin_class={}, shortened_plugin_class={}, d_plugins_list=[], batch_get_keys=[]):
+    print(f"Collecting dependent plugins for level '{level}' with parent plugin(s) '{p_plugins}'")
+
+    items = []
+    d_plugin_obj_list = []
+
+    for d_plugin in d_plugins:
+        if plugin_class:
+            d_plugin_obj = {
+                "Name": d_plugin["Name"],
+                "Configuration": d_plugin["Configuration"] if "Configuration" in d_plugin else {},
+                "DependentFor": d_plugin["DependentFor"]
+            }
+
+            if "ModelEndpoint" in d_plugin and isinstance(d_plugin["ModelEndpoint"], dict):
+                d_plugin_obj["ModelEndpoint"] = get_model_endpoint_from_ddb(d_plugin["ModelEndpoint"])
+
+            if d_plugin["Name"] not in d_plugins_def_dict:
+                d_plugins_def_dict[d_plugin["Name"]] = d_plugin_obj
+                shortened_plugin_class["DependentPlugins"].append(d_plugins_def_dict[d_plugin["Name"]])
+            else:
+                d_plugins_def_dict[d_plugin["Name"]]["DependentFor"].extend(item for item in d_plugin_obj["DependentFor"] if item not in d_plugins_def_dict[d_plugin["Name"]]["DependentFor"])
+            
+            if d_plugin["Name"] not in d_plugins_list:
+                d_plugins_list.append(d_plugin["Name"])
+                batch_get_keys.append({"Name": d_plugin["Name"], "Version": "v0"})
+
+        is_contains = any(item in d_plugin["DependentFor"] for item in p_plugins)
+
+        '''
+        if is_contains and d_plugin["Name"] not in items:
+            items.append(d_plugin["Name"])
+            d_plugin_obj_list.append(d_plugins_def_dict[d_plugin["Name"]])
+        '''
+
+        if is_contains:
+            if not plugin_class:
+                for p_plugin in p_plugins: # Check for circular dependency
+                    if "Level" not in d_plugins_def_dict[p_plugin]:
+                        d_plugins_def_dict[p_plugin]["Level"] = level - 1
+                    elif (level - 1) != d_plugins_def_dict[p_plugin]["Level"]:
+                        raise Exception(f"Possible circular dependency found between the dependent plugins '{p_plugin}' and '{d_plugin['Name']}'")
+
+            if d_plugin["Name"] not in items:
+                if "Level" not in d_plugins_def_dict[d_plugin["Name"]]:
+                    d_plugins_def_dict[d_plugin["Name"]]["Level"] = level
+
+                items.append(d_plugin["Name"])
+                d_plugin_obj_list.append(d_plugins_def_dict[d_plugin["Name"]])
+
+    if items:
+        plugins_level_list.append(d_plugin_obj_list)
+        return get_multi_level_d_plugins(level + 1, items, d_plugins, plugins_level_list, d_plugins_def_dict)
+
+    return plugins_level_list
+
+
 def profile_state_definition_helper(name, profile):
     plugins_list = []
     d_plugins_list = []
@@ -54,22 +111,8 @@ def profile_state_definition_helper(name, profile):
     batch_get_keys.append({"Name": classifier["Name"], "Version": "v0"})
 
     if "DependentPlugins" in classifier:
-        for index, d_plugin in enumerate(classifier["DependentPlugins"]):
-            if "ModelEndpoint" in d_plugin and isinstance(d_plugin["ModelEndpoint"], dict):
-                classifier["DependentPlugins"][index]["ModelEndpoint"] = get_model_endpoint_from_ddb(
-                    d_plugin["ModelEndpoint"])
-
-            shortened_classifier["DependentPlugins"].append(
-                {
-                    "Name": d_plugin["Name"],
-                    "Configuration": d_plugin["Configuration"] if "Configuration" in d_plugin else {},
-                }
-            )
-
-            if d_plugin["Name"] not in d_plugins_list:
-                d_plugins_list.append(d_plugin["Name"])
-                batch_get_keys.append({"Name": d_plugin["Name"], "Version": "v0"})
-
+        classifier["DependentPlugins"] = get_multi_level_d_plugins(1, [classifier["Name"]], classifier["DependentPlugins"], [], {}, classifier, shortened_classifier, d_plugins_list, batch_get_keys)
+    
     shortened_profile["Classifier"] = shortened_classifier
 
     # Optimizer
@@ -89,21 +132,7 @@ def profile_state_definition_helper(name, profile):
         batch_get_keys.append({"Name": optimizer["Name"], "Version": "v0"})
 
         if "DependentPlugins" in optimizer:
-            for index, d_plugin in enumerate(optimizer["DependentPlugins"]):
-                if "ModelEndpoint" in d_plugin and isinstance(d_plugin["ModelEndpoint"], dict):
-                    optimizer["DependentPlugins"][index]["ModelEndpoint"] = get_model_endpoint_from_ddb(
-                        d_plugin["ModelEndpoint"])
-
-                shortened_optimizer["DependentPlugins"].append(
-                    {
-                        "Name": d_plugin["Name"],
-                        "Configuration": d_plugin["Configuration"] if "Configuration" in d_plugin else {},
-                    }
-                )
-
-                if d_plugin["Name"] not in d_plugins_list:
-                    d_plugins_list.append(d_plugin["Name"])
-                    batch_get_keys.append({"Name": d_plugin["Name"], "Version": "v0"})
+            optimizer["DependentPlugins"] = get_multi_level_d_plugins(1, [optimizer["Name"]], optimizer["DependentPlugins"], [], {}, optimizer, shortened_optimizer, d_plugins_list, batch_get_keys)
 
         shortened_profile["Optimizer"] = shortened_optimizer
 
@@ -124,21 +153,7 @@ def profile_state_definition_helper(name, profile):
         batch_get_keys.append({"Name": labeler["Name"], "Version": "v0"})
 
         if "DependentPlugins" in labeler:
-            for index, d_plugin in enumerate(labeler["DependentPlugins"]):
-                if "ModelEndpoint" in d_plugin and isinstance(d_plugin["ModelEndpoint"], dict):
-                    labeler["DependentPlugins"][index]["ModelEndpoint"] = get_model_endpoint_from_ddb(
-                        d_plugin["ModelEndpoint"])
-
-                shortened_labeler["DependentPlugins"].append(
-                    {
-                        "Name": d_plugin["Name"],
-                        "Configuration": d_plugin["Configuration"] if "Configuration" in d_plugin else {},
-                    }
-                )
-
-                if d_plugin["Name"] not in d_plugins_list:
-                    d_plugins_list.append(d_plugin["Name"])
-                    batch_get_keys.append({"Name": d_plugin["Name"], "Version": "v0"})
+            labeler["DependentPlugins"] = get_multi_level_d_plugins(1, [labeler["Name"]], labeler["DependentPlugins"], [], {}, labeler, shortened_labeler, d_plugins_list, batch_get_keys)
 
         shortened_profile["Labeler"] = shortened_labeler
 
@@ -168,23 +183,7 @@ def profile_state_definition_helper(name, profile):
                 batch_get_keys.append({"Name": featurer["Name"], "Version": "v0"})
 
             if "DependentPlugins" in featurer:
-                for d_index, d_plugin in enumerate(featurer["DependentPlugins"]):
-                    if "ModelEndpoint" in d_plugin and isinstance(d_plugin["ModelEndpoint"], dict):
-                        featurers[index]["DependentPlugins"][d_index]["ModelEndpoint"] = get_model_endpoint_from_ddb(
-                            d_plugin["ModelEndpoint"])
-
-                    shortened_featurer["DependentPlugins"].append(
-                        {
-                            "Name": d_plugin["Name"],
-                            "Configuration": d_plugin["Configuration"] if "Configuration" in d_plugin else {},
-                        }
-                    )
-
-                    if d_plugin["Name"] not in d_plugins_list:
-                        d_plugins_list.append(d_plugin["Name"])
-
-                        if d_plugin["Name"] not in plugins_list:
-                            batch_get_keys.append({"Name": d_plugin["Name"], "Version": "v0"})
+                featurer["DependentPlugins"] = get_multi_level_d_plugins(1, [featurer["Name"]], featurer["DependentPlugins"], [], {}, featurer, shortened_featurer, d_plugins_list, batch_get_keys)
 
             shortened_profile["Featurers"].append(shortened_featurer)
 
@@ -393,17 +392,15 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
 
     # Classifier and/or Labeler DependentPlugins
     if "DependentPlugins" in classifier or is_labeler_dependent_present:
-        dependent_plugins = []
+        d_plugins_branch_list = []
 
         if "DependentPlugins" in classifier:
             print(f"DependentPlugins State machine generation for the Classifier plugin '{classifier_plugin_name}' in progress.")
-            dependent_plugins += classifier["DependentPlugins"]
+            d_plugins_branch_list.extend(get_multi_level_state_definition_branch_list(classifier["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile))
 
         if is_labeler_dependent_present:
             print(f"DependentPlugins State machine generation for the Labeler plugin '{labeler_plugin_name}' in progress.")
-            dependent_plugins += labeler["DependentPlugins"]
-
-        d_plugins_branch_list = get_plugin_state_definition_branch_list(dependent_plugins, None, plugin_definitions, True, shortened_profile)[0]
+            d_plugins_branch_list.extend(get_multi_level_state_definition_branch_list(labeler["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile))
 
         classifier_labeler_branch = {
             "StartAt": "ClassifierLabelerDependentPluginsTask",
@@ -532,7 +529,7 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
         if "DependentPlugins" in optimizer:
             print(f"DependentPlugins State machine generation for the Optimizer plugin '{optimizer_plugin_name}' in progress.")
 
-            d_plugins_branch_list, is_audio_media_type = get_plugin_state_definition_branch_list(optimizer["DependentPlugins"], None, plugin_definitions, False, shortened_profile)
+            d_plugins_branch_list = get_multi_level_state_definition_branch_list(optimizer["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile)
 
             optimizer_d_branch = {
                 "StartAt": "OptimizerDependentPluginsTask",
@@ -673,7 +670,7 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
     if featurers:
         print("Featurers state machine generation in progress.")
 
-        featurers_branch_list, is_audio_media_type = get_plugin_state_definition_branch_list(featurers, "Featurer", plugin_definitions, False, shortened_profile)
+        featurers_branch_list = get_featurers_state_definition_branch_list(featurers, "Featurer", plugin_definitions, shortened_profile)
 
         featurers_branch = {
             "StartAt": "FeaturersParallelTask",
@@ -800,21 +797,117 @@ def get_plugin_state_definition(plugin, expected_class, plugin_definition, short
     return json.loads(plugin_state_definition)
 
 
-def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin_definitions, is_dependent_plugins, shortened_profile):
+def get_multi_level_state_definition_branch_list(d_levels_list, expected_class, plugin_definitions, shortened_profile):
+    multi_level_branch_list = []
+    multi_level_random_string = "_" + "".join(random.choices(string.ascii_letters + string.digits, k = 5))
+
+    parent_branch = {
+        "States": {}
+    }
+    
+    for index, level in zip(reversed(range(len(d_levels_list))), reversed(d_levels_list)):
+        single_level_branch_list = []
+        is_first_plugin_audio = False
+
+        for p_index, plugin in enumerate(level):
+            plugin_name = plugin["Name"]
+            plugin_definition = get_plugin_state_definition(plugin, expected_class, plugin_definitions[plugin_name], shortened_profile)
+            plugin_supported_media_type = plugin_definitions[plugin_name]["SupportedMediaType"]
+
+            random_string = "_" + "".join(random.choices(string.ascii_letters + string.digits, k = 5))
+
+            if plugin_supported_media_type == "Video":
+                child_branch = {
+                    "StartAt": f"{plugin_name}{random_string}",
+                    "States": {
+                        f"{plugin_name}{random_string}": plugin_definition
+                    }
+                }
+
+            elif plugin_supported_media_type == "Audio":
+                if p_index == 0:
+                    is_first_plugin_audio = True
+
+                map_parameters = {
+                    "Event.$": "$.Event",
+                    "Input.$": "$.Input",
+                    "TrackNumber.$": "$$.Map.Item.Value"
+                }
+
+                plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
+
+                child_branch = {
+                    "StartAt": f"{plugin_name}MapTask{random_string}",
+                    "States": {
+                        f"{plugin_name}MapTask{random_string}": {
+                            "Type": "Map",
+                            "ItemsPath": "$.Event.AudioTracks",
+                            "Parameters": map_parameters,
+                            "Iterator": {
+                                "StartAt": f"{plugin_name}{random_string}",
+                                "States": {
+                                    f"{plugin_name}{random_string}": plugin_definition
+                                }
+                            },
+                            "End": True
+                        }
+                    }
+                }
+
+            single_level_branch_list.append(child_branch)
+
+        if index == len(d_levels_list) - 1:
+            parent_branch["StartAt"] = f"Level{index + 1}DependentPluginsTask{multi_level_random_string}"
+
+        else:
+            parent_branch["States"][f"Level{index + 2}CollectDependentPluginsResult{multi_level_random_string}"].pop("End", None)
+            parent_branch["States"][f"Level{index + 2}CollectDependentPluginsResult{multi_level_random_string}"]["Next"] = f"Level{index + 1}DependentPluginsTask{multi_level_random_string}"
+        
+        parent_branch["States"][f"Level{index + 1}DependentPluginsTask{multi_level_random_string}"] = {
+            "Type": "Parallel",
+            "Branches": single_level_branch_list,
+            "Next": f"Level{index + 1}CollectDependentPluginsResult{multi_level_random_string}"
+        }
+
+        if is_first_plugin_audio:
+            parent_branch["States"][f"Level{index + 1}CollectDependentPluginsResult{multi_level_random_string}"] = {
+                "Type": "Pass",
+                "Parameters": {
+                    "Event.$": "$[0][0].Event",
+                    "Input.$": "$[0][0].Input"
+                },
+                "End": True
+            }
+
+        else:
+            parent_branch["States"][f"Level{index + 1}CollectDependentPluginsResult{multi_level_random_string}"] = {
+                "Type": "Pass",
+                "Parameters": {
+                    "Event.$": "$[0].Event",
+                    "Input.$": "$[0].Input"
+                },
+                "End": True
+            }
+        
+    multi_level_branch_list.append(parent_branch)
+
+    return multi_level_branch_list
+
+
+def get_featurers_state_definition_branch_list(plugins_list, expected_class, plugin_definitions, shortened_profile):
     branch_list = []
-    is_audio_media_type = False
 
     for plugin in plugins_list:
         plugin_name = plugin["Name"]
         plugin_definition = get_plugin_state_definition(plugin, expected_class, plugin_definitions[plugin_name], shortened_profile)
         plugin_supported_media_type = plugin_definitions[plugin_name]["SupportedMediaType"]
 
+        random_string = "_" + "".join(random.choices(string.ascii_letters + string.digits, k = 5))
+
         if "DependentPlugins" in plugin:
-            print(f"DependentPlugins state machine generation for plugin '{plugin_name}' in progress..")
+            print(f"DependentPlugins State machine generation for the Featurer plugin '{plugin_name}' in progress.")
 
-            d_plugins_branch_list = get_plugin_state_definition_branch_list(plugin["DependentPlugins"], None, plugin_definitions, True, shortened_profile)[0]
-
-            random_string = "_" + "".join(random.choices(string.ascii_letters + string.digits, k = 5))
+            d_plugins_branch_list = get_multi_level_state_definition_branch_list(plugin["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile)
 
             if plugin_supported_media_type == "Video":
                 child_branch = {
@@ -838,8 +931,55 @@ def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin
                 }
 
             elif plugin_supported_media_type == "Audio":
-                is_audio_media_type = True
+                map_parameters = {
+                    "Event.$": "$.Event",
+                    "Input.$": "$.Input",
+                    "TrackNumber.$": "$$.Map.Item.Value"
+                }
 
+                plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
+
+                child_branch = {
+                    "StartAt": f"{plugin_name}DependentPluginsTask{random_string}",
+                    "States": {
+                        f"{plugin_name}DependentPluginsTask{random_string}": {
+                            "Type": "Parallel",
+                            "Branches": d_plugins_branch_list,
+                            "Next": f"{plugin_name}CollectDependentPluginsResult{random_string}"
+                        },
+                        f"{plugin_name}CollectDependentPluginsResult{random_string}": {
+                            "Type": "Pass",
+                            "Parameters": {
+                                "Event.$": "$[0].Event",
+                                "Input.$": "$[0].Input"
+                            },
+                            "Next": f"{plugin_name}MapTask{random_string}"
+                        },
+                        f"{plugin_name}MapTask{random_string}": {
+                            "Type": "Map",
+                            "ItemsPath": "$.Event.AudioTracks",
+                            "Parameters": map_parameters,
+                            "Iterator": {
+                                "StartAt": f"{plugin_name}{random_string}",
+                                "States": {
+                                    f"{plugin_name}{random_string}": plugin_definition
+                                }
+                            },
+                            "End": True
+                        }
+                    }
+                }
+
+        else:
+            if plugin_supported_media_type == "Video":
+                child_branch = {
+                    "StartAt": f"{plugin_name}{random_string}",
+                    "States": {
+                        f"{plugin_name}{random_string}": plugin_definition
+                    }
+                }
+
+            elif plugin_supported_media_type == "Audio":
                 map_parameters = {
                     "Event.$": "$.Event",
                     "Input.$": "$.Input",
@@ -856,22 +996,8 @@ def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin
                             "ItemsPath": "$.Event.AudioTracks",
                             "Parameters": map_parameters,
                             "Iterator": {
-                                "StartAt": f"{plugin_name}DependentPluginsTask{random_string}",
+                                "StartAt": f"{plugin_name}{random_string}",
                                 "States": {
-                                    f"{plugin_name}DependentPluginsTask{random_string}": {
-                                        "Type": "Parallel",
-                                        "Branches": d_plugins_branch_list,
-                                        "Next": f"{plugin_name}CollectDependentPluginsResult{random_string}"
-                                    },
-                                    f"{plugin_name}CollectDependentPluginsResult{random_string}": {
-                                        "Type": "Pass",
-                                        "Parameters": {
-                                            "Event.$": "$[0].Event",
-                                            "Input.$": "$[0].Input",
-                                            "TrackNumber.$": "$[0].TrackNumber"
-                                        },
-                                        "Next": f"{plugin_name}{random_string}"
-                                    },
                                     f"{plugin_name}{random_string}": plugin_definition
                                 }
                             },
@@ -880,68 +1006,6 @@ def get_plugin_state_definition_branch_list(plugins_list, expected_class, plugin
                     }
                 }
 
-        else:
-            random_string = "_" + "".join(random.choices(string.ascii_letters + string.digits, k = 5))
-
-            if is_dependent_plugins:
-                if plugin_supported_media_type == "Video":
-                    child_branch = {
-                        "StartAt": f"{plugin_name}{random_string}",
-                        "States": {
-                            f"{plugin_name}{random_string}": plugin_definition
-                        }
-                    }
-
-                elif plugin_supported_media_type == "Audio":
-                    is_audio_media_type = True
-
-                    plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
-
-                    child_branch = {
-                        "StartAt": f"{plugin_name}{random_string}",
-                        "States": {
-                            f"{plugin_name}{random_string}": plugin_definition
-                        }
-                    }
-
-            else:
-                if plugin_supported_media_type == "Video":
-                    child_branch = {
-                        "StartAt": f"{plugin_name}{random_string}",
-                        "States": {
-                            f"{plugin_name}{random_string}": plugin_definition
-                        }
-                    }
-
-                elif plugin_supported_media_type == "Audio":
-                    is_audio_media_type = True
-
-                    map_parameters = {
-                        "Event.$": "$.Event",
-                        "Input.$": "$.Input",
-                        "TrackNumber.$": "$$.Map.Item.Value"
-                    }
-
-                    plugin_definition["Parameters"]["Payload"]["TrackNumber.$"] = "$.TrackNumber"
-
-                    child_branch = {
-                        "StartAt": f"{plugin_name}MapTask{random_string}",
-                        "States": {
-                            f"{plugin_name}MapTask{random_string}": {
-                                "Type": "Map",
-                                "ItemsPath": "$.Event.AudioTracks",
-                                "Parameters": map_parameters,
-                                "Iterator": {
-                                    "StartAt": f"{plugin_name}{random_string}",
-                                    "States": {
-                                        f"{plugin_name}{random_string}": plugin_definition
-                                    }
-                                },
-                                "End": True
-                        }
-                    }
-                }
-
         branch_list.append(child_branch)
     
-    return (branch_list, is_audio_media_type)
+    return branch_list

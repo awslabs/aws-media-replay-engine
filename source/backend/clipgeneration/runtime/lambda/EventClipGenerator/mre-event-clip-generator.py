@@ -68,10 +68,10 @@ def GenerateClips(event, context):
     for optsegment in optimized_segments:
 
         print("--- OPTO SEGMENT PROCESSED-------------")
-        print(segment['Start'])
+        print(optsegment['Start'])
 
         
-        chunks = dataplane.get_chunks_for_segment(get_OptoStart(segment, event), get_OptoEnd(segment, event))
+        chunks = dataplane.get_chunks_for_segment(get_OptoStart(optsegment, event), get_OptoEnd(optsegment, event))
         print('Got Chunks from API based for Optimized Segments)')
         print(f" optimized_segments chunks: {chunks}")
         keyprefix, hls_input_settings = create_optimized_MP4_clips(optsegment, event, chunks)

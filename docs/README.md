@@ -3,8 +3,7 @@
 PURPOSE:
 
 Uses Sphinx with autodoc and chalicedoc plugins to generate pretty HTML
-documentation from docstrings in source/dataplaneapi/runtime/app.py and
-source/controlplaneapi/runtime/app.py. Output docs will be saved to docs/source/output/.
+documentation from docstrings in source/**/app.py. Output docs will be saved to docs/source/output/.
 
 ### PRELIMINARY:
 python3 must be installed.

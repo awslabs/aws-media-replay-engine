@@ -67,7 +67,7 @@ NOTE: dataplane-api-id is the ID of the MRE Dataplane API Gateway endpoint
 
 **To get plugin parameters**
 
-Most of the plugin parameters needed for processing will be present in the lambda event payload. The parameters can be retrieved by their name from the “event” payload. For example, to get the model endpoint, use event[“ModelEndpoint”] and to get the configuration chosen for the plugin while creating the profile, use event[“Configuration”].
+Most of the plugin parameters needed for processing will be present in the lambda event payload. The parameters can be retrieved by their name from the “event” payload. For example, to get the model endpoint, use event["Plugin"]["ModelEndpoint"] and to get the configuration chosen for the plugin while creating the profile, use event["Plugin"]["Configuration"].
 
 
 **To translate timecode from chunk runtime to UTC**
@@ -100,30 +100,30 @@ from MediaReplayEnginePluginHelper import Status
 mre_outputhelper = OutputHelper(event) # event is the “complete” event payload passed to Lambda
 
 # When the plugin processing is successful:
-# Update the processing status of the plugin (required):
+# Update the processing status of the plugin (required)
 mre_outputhelper.update_plugin_status(Status.PLUGIN_COMPLETE)
 
-# Add the results of the plugin to the payload (required if the plugin status is “complete”; Optional if the plugin has any errors)
-mre_outputhelper.add_results_to_output(results) → results is a list of JSON objects/dicts
+# Add the results of the plugin to the payload (required if the plugin status is “complete”; optional if the plugin has any errors)
+mre_outputhelper.add_results_to_output(results) # results is a list of dicts
 
 # Finally, return the output event of Lambda
 return mre_outputhelper.get_output_object()
 
-# When the plugin processing is not successful and has encountered an error:
-# Update the processing status of the plugin (required):
-outputhelper.update_plugin_status(Status.PLUGIN_ERROR)
+# When the plugin processing is not successful and has encountered an exception:
+# Update the processing status of the plugin (required)
+mre_outputhelper.update_plugin_status(Status.PLUGIN_ERROR)
 
-# Finally, return the output event of Lambda
-return outputhelper.get_output_object()
+# Finally, reraise the exception that was caught
+raise
 ```
 
 **Which audio track to process:**
 
 ```
-event[“TrackNumber”] gives the current audio track of the Step function Map state
+event["TrackNumber"] gives the current audio track of the Step function Map state
 ```
 
-A starter Lambda function is shown below. Reminder to include the MRE plugin helper Lambda Layer called: MediaReplayEnginePluginHelper
+A starter Lambda function is shown below. Reminder to include the MRE plugin helper Lambda Layer called: *MediaReplayEnginePluginHelper*
 
 ```
 from MediaReplayEnginePluginHelper import OutputHelper
@@ -193,6 +193,7 @@ Plugin registration provides the follow:
 - the expected configuration parameters - these are captured from the user when configuring the **profile** in MRE
 - expected output attributes - these are the data values that the plugin creates and will be leveraged later in the **replay** process and **exports**
 - associated ML models - optionally, the plugin can designate which model versions a plugin is designed to work with. This helps guide **profile** creators into making appropriate selections.
+- dependency on other plugins - these decide if there are any plugins that should be executed prior to executing this plugin in the MRE workflow.
 
 Each plugin require an AWS Lambda ARN to be provided. Plugin versioning is maintained by MRE every time a registration call is made for a plugin with the same **name** attribute value.
 

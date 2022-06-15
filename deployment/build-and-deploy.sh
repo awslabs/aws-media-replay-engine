@@ -163,6 +163,16 @@ msg "- Enable SSM Parameter Store high throughput setting? $(if [[ ! -z $HIGH_TH
 echo ""
 sleep 3
 
+# Verify Python min version
+resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor >= 8 else "Invalid Version")')"
+if [[ $resp =~ "Invalid Version" ]]; then
+  echo "ERROR: Invalid Python version:"
+  echo "ERROR: Minimal required version: 3.8"
+  echo "ERROR: Please install it and rerun this script"
+  exit 1
+fi
+
+
 # Check if aws is installed
 if [[ ! -x "$(command -v aws)" ]]; then
   echo "ERROR: Command not found: aws"

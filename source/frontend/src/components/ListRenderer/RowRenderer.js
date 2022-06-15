@@ -260,7 +260,7 @@ export const RowRenderer = (props) => {
                 handleDelete={handleDeleteVersion}
                 version={versionToDelete}
             />}
-            <TableRow>
+            <TableRow hover={props.isHover}>
                 {props.isExpandable === true &&
                 <TableCell>
                     <IconButton aria-label="expand row" size="small" onClick={() => {

@@ -1,2 +1,1 @@
-aws-cdk.core>=1.85.0,<2.0
-aws-cdk.aws-servicediscovery>=1.85.0,<2.0
+aws-cdk-lib>=2.24.1,<3.0

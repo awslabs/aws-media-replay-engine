@@ -72,7 +72,7 @@ def get_segment_state():
         print(
             f"Getting the state of the segment identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}'")
 
-        output = [None, {}, []]
+        output = [None, {}, {}]
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
@@ -113,6 +113,8 @@ def get_segment_state():
             f"Retrieving all the labels created by the dependent plugins '{dependent_plugins}' since '{start_key_condition}'")
 
         for d_plugin in dependent_plugins:
+            output[2][d_plugin] = []
+
             key_condition_expr = Key("PK").eq(f"{program}#{event}#{d_plugin}") & Key("Start").gt(start_key_condition)
 
             response = plugin_result_table.query(
@@ -121,7 +123,7 @@ def get_segment_state():
                 ConsistentRead=True
             )
 
-            output[2].extend(response["Items"])
+            output[2][d_plugin].extend(response["Items"])
 
             while "LastEvaluatedKey" in response:
                 response = plugin_result_table.query(
@@ -131,7 +133,7 @@ def get_segment_state():
                     ConsistentRead=True
                 )
 
-                output[2].extend(response["Items"])
+                output[2][d_plugin].extend(response["Items"])
 
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")

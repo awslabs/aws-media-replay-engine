@@ -1,10 +1,10 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
     <title>Aws-Mre-Controlplane-Plugin-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -17,6 +17,7 @@
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
@@ -158,9 +159,9 @@
                     
                     
   <section class="chalice-app" id="aws-mre-controlplane-plugin-api">
-<h1 class="chalice-appname">Aws-Mre-Controlplane-Plugin-Api<a class="headerlink" href="#aws-mre-controlplane-plugin-api" title="Permalink to this headline">¶</a></h1>
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Plugin-Api<a class="headerlink" href="#aws-mre-controlplane-plugin-api" title="Permalink to this heading">¶</a></h1>
 <section class="chalice-route" id="register-plugin">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/plugin</span><a class="headerlink" href="#register-plugin" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/plugin</span><a class="headerlink" href="#register-plugin" title="Permalink to this heading">¶</a></h2>
 <p>Register a new plugin or publish a new version of an existing plugin with updated
 attribute values.</p>
 <dl class="simple">
@@ -234,7 +235,7 @@ attribute values.</p>
 </dl>
 </section>
 <section class="chalice-route" id="list-plugins">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/all</span><a class="headerlink" href="#list-plugins" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/all</span><a class="headerlink" href="#list-plugins" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered plugins.
 Each plugin has version “v0” which holds a copy of the latest plugin revision.</p>
 <p>By default, return only the plugins that are “Enabled” in the system. In order
@@ -287,7 +288,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="list-plugins-by-class">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/class/{plugin_class}/all</span><a class="headerlink" href="#list-plugins-by-class" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/class/{plugin_class}/all</span><a class="headerlink" href="#list-plugins-by-class" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered plugins by class.
 Each plugin has version “v0” which holds a copy of the latest plugin revision.</p>
 <p>By default, return only the plugins that are “Enabled” in the system. In order
@@ -340,7 +341,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="list-plugins-by-class-and-contentgroup">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/class/{plugin_class}/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-plugins-by-class-and-contentgroup" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/class/{plugin_class}/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-plugins-by-class-and-contentgroup" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered plugins by class and content group.
 Each plugin has version “v0” which holds a copy of the latest plugin revision.</p>
 <p>By default, return only the plugins that are “Enabled” in the system. In order
@@ -393,7 +394,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="list-plugins-by-contentgroup">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-plugins-by-contentgroup" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-plugins-by-contentgroup" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered plugins by content group.
 Each plugin has version “v0” which holds a copy of the latest plugin revision.</p>
 <p>By default, return only the plugins that are “Enabled” in the system. In order
@@ -446,7 +447,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="delete-plugin">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/plugin/{name}</span><a class="headerlink" href="#delete-plugin" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/plugin/{name}</span><a class="headerlink" href="#delete-plugin" title="Permalink to this heading">¶</a></h2>
 <p>Delete all the versions of a plugin by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -459,7 +460,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="get-plugin-by-name">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}</span><a class="headerlink" href="#get-plugin-by-name" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}</span><a class="headerlink" href="#get-plugin-by-name" title="Permalink to this heading">¶</a></h2>
 <p>Get the latest version of a plugin by name.</p>
 <p>Each plugin has version “v0” which holds a copy of the latest plugin revision.</p>
 <p>Returns:</p>
@@ -507,8 +508,62 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-plugin-dependency-tree">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/dependentplugins/all</span><a class="headerlink" href="#get-plugin-dependency-tree" title="Permalink to this heading">¶</a></h2>
+<p>List multi level dependency plugins by traversing every dependency level until no more dependencies are found.
+Uses version “v0” of the given plugin and of every dependency.</p>
+<dl>
+<dt>Returns:</dt><dd><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+        <span class="s2">&quot;PluginData&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Class&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Classifier&quot;</span><span class="o">|</span><span class="s2">&quot;Optimizer&quot;</span><span class="o">|</span><span class="s2">&quot;Featurer&quot;</span><span class="o">|</span><span class="s2">&quot;Labeler&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroups&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="s2">&quot;ExecutionType&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Sync&quot;</span><span class="o">|</span><span class="s2">&quot;SyncModel&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;SupportedMediaType&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Video&quot;</span><span class="o">|</span><span class="s2">&quot;Audio&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;ExecuteLambdaQualifiedARN&quot;</span><span class="p">:</span> <span class="n">arn</span><span class="p">,</span>
+            <span class="s2">&quot;StateDefinition&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ModelEndpoints&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+                    <span class="s2">&quot;Version&quot;</span><span class="p">:</span> <span class="n">string</span>
+                <span class="p">},</span>
+                <span class="o">...</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Configuration&quot;</span> <span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;configuration1&quot;</span><span class="p">:</span> <span class="s2">&quot;value1&quot;</span><span class="p">,</span>
+                <span class="o">...</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;OutputAttributes&quot;</span> <span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;attribute1&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span>
+                <span class="p">},</span>
+                <span class="o">...</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;DependentPlugins&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="s2">&quot;Version&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;Latest&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;Enabled&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;FrameworkVersion&quot;</span><span class="p">:</span> <span class="s2">&quot;x.x.x&quot;</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;DependentFor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;pluginName1&quot;</span><span class="p">,</span><span class="o">...</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="update-plugin-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/status</span><a class="headerlink" href="#update-plugin-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/status</span><a class="headerlink" href="#update-plugin-status" title="Permalink to this heading">¶</a></h2>
 <p>Enable or Disable the latest version of a plugin by name.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -528,7 +583,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="list-plugin-versions">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/all</span><a class="headerlink" href="#list-plugin-versions" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/all</span><a class="headerlink" href="#list-plugin-versions" title="Permalink to this heading">¶</a></h2>
 <p>List all the versions of a plugin by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -579,7 +634,7 @@ to also return the “Disabled” plugins, include the query parameter “includ
 </dl>
 </section>
 <section class="chalice-route" id="delete-plugin-version">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}</span><a class="headerlink" href="#delete-plugin-version" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}</span><a class="headerlink" href="#delete-plugin-version" title="Permalink to this heading">¶</a></h2>
 <p>Delete a specific version of a plugin by name and version.</p>
 <p>Deletion can be performed on all the plugin versions except “v0” and the latest plugin revision.
 If the latest plugin version needs to be deleted, publish a new version of the plugin and then
@@ -596,7 +651,7 @@ delete the prior plugin version.</p>
 </dl>
 </section>
 <section class="chalice-route" id="get-plugin-by-name-and-version">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}</span><a class="headerlink" href="#get-plugin-by-name-and-version" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}</span><a class="headerlink" href="#get-plugin-by-name-and-version" title="Permalink to this heading">¶</a></h2>
 <p>Get a plugin by name and version.</p>
 <p>Returns:</p>
 <blockquote>
@@ -644,7 +699,7 @@ delete the prior plugin version.</p>
 </dl>
 </section>
 <section class="chalice-route" id="update-plugin-version-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}/status</span><a class="headerlink" href="#update-plugin-version-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}/status</span><a class="headerlink" href="#update-plugin-version-status" title="Permalink to this heading">¶</a></h2>
 <p>Enable or Disable a plugin by name and version.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -695,6 +750,7 @@ delete the prior plugin version.</p>
 <li><a class="reference internal" href="#delete-plugin"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/plugin/{name}</span></a></li>
 <li><a class="reference internal" href="#get-plugin-by-name"><p>Duplicate implicit target name: “/plugin/{name}”.</p>
 </a></li>
+<li><a class="reference internal" href="#get-plugin-dependency-tree"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/dependentplugins/all</span></a></li>
 <li><a class="reference internal" href="#update-plugin-status"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/status</span></a></li>
 <li><a class="reference internal" href="#list-plugin-versions"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/all</span></a></li>
 <li><a class="reference internal" href="#delete-plugin-version"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/plugin/{name}/version/{version}</span></a></li>

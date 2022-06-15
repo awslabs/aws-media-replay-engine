@@ -4,7 +4,10 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    RemovalPolicy,
+    Stack,
+    Fn,
+    CfnOutput,
     aws_dynamodb as ddb,
     aws_iam as iam,
     aws_secretsmanager as secret_mgr,
@@ -20,7 +23,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class ChaliceApp(cdk.Stack):
+class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -29,13 +32,13 @@ class ChaliceApp(cdk.Stack):
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
 
         # TBD
-        self.plugin_table_arn = cdk.Fn.import_value("mre-plugin-table-arn")
-        self.profile_table_arn = cdk.Fn.import_value("mre-profile-table-arn")
-        self.event_table_arn = cdk.Fn.import_value("mre-event-table-arn")
-        self.plugin_table_name = cdk.Fn.import_value("mre-plugin-table-name")
-        self.profile_table_name = cdk.Fn.import_value("mre-profile-table-name")
-        self.event_table_name = cdk.Fn.import_value("mre-event-table-name")
-        self.media_output_domain_name = cdk.Fn.import_value("mre-media-output-distro-domain-name")
+        self.plugin_table_arn = Fn.import_value("mre-plugin-table-arn")
+        self.profile_table_arn = Fn.import_value("mre-profile-table-arn")
+        self.event_table_arn = Fn.import_value("mre-event-table-arn")
+        self.plugin_table_name = Fn.import_value("mre-plugin-table-name")
+        self.profile_table_name = Fn.import_value("mre-profile-table-name")
+        self.event_table_name = Fn.import_value("mre-event-table-name")
+        self.media_output_domain_name = Fn.import_value("mre-media-output-distro-domain-name")
 
         self.create_cloudfront_secrets()
         self.create_replay_dynamodb_table()
@@ -55,12 +58,12 @@ class ChaliceApp(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        cdk.CfnOutput(self, "mre-replayrequest-table-arn", value=self.replayrequest_table.table_arn,
+        CfnOutput(self, "mre-replayrequest-table-arn", value=self.replayrequest_table.table_arn,
                       description="Arn of the MRE ReplayRequest table", export_name="mre-replayrequest-table-arn")
-        cdk.CfnOutput(self, "mre-replayrequest-table-name", value=self.replayrequest_table.table_name,
+        CfnOutput(self, "mre-replayrequest-table-name", value=self.replayrequest_table.table_name,
                       description="Name of the MRE ReplayRequest table", export_name="mre-replayrequest-table-name")
 
     def create_cloudfront_secrets(self):
@@ -208,5 +211,5 @@ class ChaliceApp(cdk.Stack):
             }
         )
 
-        cdk.CfnOutput(self, "mre-replay-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value,
+        CfnOutput(self, "mre-replay-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value,
                       description="MRE Replay API Url", export_name="mre-replay-api-url")

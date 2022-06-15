@@ -4,7 +4,9 @@
 import os
 
 from aws_cdk import (
-    core as cdk,
+    RemovalPolicy,
+    Stack,
+    Duration,
     aws_dynamodb as ddb,
     aws_iam as iam,
     aws_lambda as _lambda,
@@ -25,7 +27,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class ChaliceApp(cdk.Stack):
+class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -43,7 +45,7 @@ class ChaliceApp(cdk.Stack):
                 type=ddb.AttributeType.NUMBER
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # Frame Table: ProgramEvent GSI
@@ -69,7 +71,7 @@ class ChaliceApp(cdk.Stack):
                 type=ddb.AttributeType.NUMBER
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # Chunk Table: StartPts LSI
@@ -94,7 +96,7 @@ class ChaliceApp(cdk.Stack):
                 type=ddb.AttributeType.NUMBER
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # PluginResults Table: ProgramEventPluginName_Start GSI
@@ -132,7 +134,7 @@ class ChaliceApp(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # ClipPreviewFeedback Table: Name GSI
@@ -166,7 +168,7 @@ class ChaliceApp(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # Get the EventBridge Event Bus name for MRE from SSM Parameter Store
@@ -330,7 +332,7 @@ class ChaliceApp(cdk.Stack):
             handler="lambda_function.lambda_handler",
             role=self.event_deletion_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment={
                 "PLUGIN_RESULT_TABLE_NAME": self.plugin_result_table.table_name,
                 "PLUGIN_RESULT_PROGRAM_EVENT_INDEX": PROGRAM_EVENT_INDEX,

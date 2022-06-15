@@ -1,6 +1,6 @@
 import os
 from aws_cdk import (
-    core as cdk,
+    Fn,
     custom_resources as cr,
     aws_events as events,
     aws_iam as iam,
@@ -60,50 +60,50 @@ class MreCdkCommon():
     @staticmethod
     def get_event_bus(this) -> events.IEventBus:
         # Get the IEventBus Object back from the Event Bus Arn
-        return events.EventBus.from_event_bus_arn(this, "ImportedEventBus", cdk.Fn.import_value("mre-event-bus-arn"))
+        return events.EventBus.from_event_bus_arn(this, "ImportedEventBus", Fn.import_value("mre-event-bus-arn"))
 
 
     @staticmethod
     def get_media_convert_output_bucket_name(this):
-        return cdk.Fn.import_value("mre-media-output-bucket-name")
+        return Fn.import_value("mre-media-output-bucket-name")
     
 
     @staticmethod
     def get_media_convert_output_bucket(this):
-        return s3.Bucket.from_bucket_name(this, "MreMediaOutputBucketName",cdk.Fn.import_value("mre-media-output-bucket-name"))
+        return s3.Bucket.from_bucket_name(this, "MreMediaOutputBucketName",Fn.import_value("mre-media-output-bucket-name"))
 
     @staticmethod
     def get_media_source_bucket(this):
-        return s3.Bucket.from_bucket_name(this, "MreMediaSourceBucketName",cdk.Fn.import_value("mre-media-source-bucket-name"))
+        return s3.Bucket.from_bucket_name(this, "MreMediaSourceBucketName",Fn.import_value("mre-media-source-bucket-name"))
 
     @staticmethod
     def get_data_export_bucket_name():
-        return cdk.Fn.import_value("mre-data-export-bucket-name")
+        return Fn.import_value("mre-data-export-bucket-name")
 
     @staticmethod    
     def get_timecode_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "TimeCodeLayerFromArn", cdk.Fn.import_value("mre-timecode-layer-arn"))
+        return _lambda.LayerVersion.from_layer_version_arn(this, "TimeCodeLayerFromArn", Fn.import_value("mre-timecode-layer-arn"))
 
     @staticmethod
     def get_ffmpeg_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "ffmpegLayerFromArn", cdk.Fn.import_value("mre-ffmpeg-layer-arn"))    
+        return _lambda.LayerVersion.from_layer_version_arn(this, "ffmpegLayerFromArn", Fn.import_value("mre-ffmpeg-layer-arn"))    
 
     @staticmethod
     def get_ffprobe_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "ffprobeLayerFromArn", cdk.Fn.import_value("mre-ffprobe-layer-arn"))
+        return _lambda.LayerVersion.from_layer_version_arn(this, "ffprobeLayerFromArn", Fn.import_value("mre-ffprobe-layer-arn"))
 
     @staticmethod
     def get_mre_workflow_helper_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "workflowHelperLayerFromArn", cdk.Fn.import_value("mre-workflow-helper-layer-arn"))
+        return _lambda.LayerVersion.from_layer_version_arn(this, "workflowHelperLayerFromArn", Fn.import_value("mre-workflow-helper-layer-arn"))
 
     @staticmethod
     def get_mre_plugin_helper_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "pluginHelperLayerFromArn", cdk.Fn.import_value("mre-plugin-helper-layer-arn"))
+        return _lambda.LayerVersion.from_layer_version_arn(this, "pluginHelperLayerFromArn", Fn.import_value("mre-plugin-helper-layer-arn"))
 
     @staticmethod
     def get_media_convert_role_arn():
-        return cdk.Fn.import_value("mre-event-media-convert-role-arn")
+        return Fn.import_value("mre-event-media-convert-role-arn")
     
     @staticmethod
     def get_mre_harvest_queue(this) -> sqs.IQueue:
-        return sqs.Queue.from_queue_arn(this, "harvestQueueFromArn", cdk.Fn.import_value("mre-harvest-queue-arn"))
+        return sqs.Queue.from_queue_arn(this, "harvestQueueFromArn", Fn.import_value("mre-harvest-queue-arn"))

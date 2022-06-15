@@ -94,21 +94,18 @@ export const ProfileCreate = () => {
     _.forOwn(PLUGIN_TYPES, (pluginClassValue, pluginClassKey) => {
         // featurer creates array with an initial value
         if (_.isEmpty(initialFormValues[pluginClassValue]) === true) {
+            const initialValue = {
+                Name: _.get(stateParams, 'Name', ""),
+                ModelEndpoint: _.get(stateParams, 'ModelEndpoint', {}),
+                Configuration: _.get(stateParams, 'Configuration', {}),
+                DependentPlugins: _.get(stateParams, 'DependentPlugins', [])
+            }
+
             if (pluginClassValue === PLUGIN_TYPES.featurer) {
-                initialFormValues[pluginClassValue] = _.get(stateParams, pluginClassValue, [{
-                    Name: _.get(stateParams, 'Name', ""),
-                    ModelEndpoint: _.get(stateParams, 'ModelEndpoint', {}),
-                    Configuration: _.get(stateParams, 'Configuration', {}),
-                    DependentPlugins: _.get(stateParams, 'DependentPlugins', [])
-                }]);
+                initialFormValues[pluginClassValue] = _.get(stateParams, pluginClassValue, [initialValue]);
             }
             else {
-                initialFormValues[pluginClassValue] = _.get(stateParams, pluginClassValue, {
-                    Name: _.get(stateParams, 'Name', ""),
-                    ModelEndpoint: _.get(stateParams, 'ModelEndpoint', {}),
-                    Configuration: _.get(stateParams, 'Configuration', {}),
-                    DependentPlugins: _.get(stateParams, 'DependentPlugins', [])
-                });
+                initialFormValues[pluginClassValue] = _.get(stateParams, pluginClassValue, initialValue);
             }
         }
     });
@@ -198,7 +195,6 @@ export const ProfileCreate = () => {
                 label: "Feature Detectors (optional)",
                 plugins: pluginOptions,
                 isMultiple: true,
-                isRequired: true
             },
         }
     }

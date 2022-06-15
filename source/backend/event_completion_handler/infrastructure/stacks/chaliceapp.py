@@ -2,7 +2,8 @@ import os
 import sys
 
 from aws_cdk import (
-    core as cdk,
+    Duration,
+    Stack,
     aws_iam as iam,
     aws_lambda as _lambda,
     aws_events as events,
@@ -18,7 +19,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class ChaliceApp(cdk.Stack):
+class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -94,7 +95,7 @@ class ChaliceApp(cdk.Stack):
             handler="lambda_function.lambda_handler",
             role=self.event_completion_handler_role,
             memory_size=128,
-            timeout=cdk.Duration.minutes(1),
+            timeout=Duration.minutes(1),
             layers=[self.mre_workflow_helper_layer]
         )
 

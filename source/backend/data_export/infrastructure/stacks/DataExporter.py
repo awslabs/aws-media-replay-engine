@@ -1,7 +1,8 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    Duration,
+    Stack,
     aws_iam as iam,
     aws_lambda as _lambda,
     aws_events as events,
@@ -18,7 +19,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class MreDataExporter(cdk.Stack):
+class MreDataExporter(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -101,7 +102,7 @@ class MreDataExporter(cdk.Stack):
             handler="mre_data_exporter.GenerateDataExport",
             role=self.event_data_export_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             environment={
                 "ExportOutputBucket": self.data_export_bucket_name,
                 "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name

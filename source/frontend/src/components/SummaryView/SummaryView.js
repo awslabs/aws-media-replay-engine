@@ -6,11 +6,8 @@
 import React from 'react';
 import {makeStyles} from '@material-ui/core/styles';
 import {useHistory} from "react-router-dom";
-import {Backdrop, Breadcrumbs, CircularProgress, Typography} from "@material-ui/core";
+import {Backdrop, Breadcrumbs, CircularProgress, Typography, Grid, Link, Button} from "@material-ui/core";
 import _ from "lodash";
-import Grid from "@material-ui/core/Grid";
-import Link from "@material-ui/core/Link";
-import Button from "@material-ui/core/Button";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
 import {ReplayPriorityList} from "../Replay/ReplayPriorityList";
 import {PluginViewDialog} from "../../containers/Plugin/PluginViewDialog";
@@ -19,6 +16,7 @@ const useStyles = makeStyles((theme) => ({
     content: {
         marginTop: 'auto',
         flexGrow: 1,
+        maxWidth: 1500
     },
     pluginBoxDivider: {
         paddingTop: '2em'
@@ -82,38 +80,47 @@ export const SummaryView = (props) => {
             <>
                 <Grid item container direction="column" spacing={2}>
                     <Grid container item direction="row" style={{paddingTop: "1vw"}}>
-                        <Grid item sm={4} >
+                        <Grid item sm={4}>
                             <Typography variant={"body2"}>Plugin Name and Version</Typography>
                         </Grid>
                         <Grid item>
                             <Link
                                 component="button"
-                                onClick={() => {handlePluginViewDialogOpen(pluginData)}}
+                                onClick={() => {
+                                    handlePluginViewDialogOpen(pluginData)
+                                }}
                                 variant={"body1"}>{pluginData.Name}:{pluginData.Version}</Link>
                         </Grid>
                         {pluginData.DependentPlugins &&
-                        <Grid container direction="column" style={{paddingTop: "1vw"}}>
-                            <Grid container item direction="row" style={{paddingLeft: "2vw"}}>
-                                <Grid item>
-                                    <Typography variant={"subtitle2"}>Dependent Plugins:</Typography>
+                            <Grid container direction="column" style={{paddingTop: "1vw"}}>
+                                <Grid container item direction="row" style={{paddingLeft: "2vw"}}>
+                                    <Grid item>
+                                        <Typography variant={"subtitle2"}>Dependent Plugins:</Typography>
+                                    </Grid>
+                                </Grid>
+                                <Grid container direction="column" spacing={1} style={{paddingTop: "0.5vw"}}>
+                                    {_.map(pluginData.DependentPlugins, dependentPlugin => {
+                                        return <Grid container item direction="row" justify={"flex-start"} spacing={2}>
+                                            <Grid item sm={4} style={{paddingLeft: "4vw"}}>
+                                                <Typography variant={"body1"}>Plugin Name and Version</Typography>
+                                            </Grid>
+                                            <Grid item sm={4}>
+                                                <Link
+                                                    component="button"
+                                                    onClick={() => {
+                                                        handlePluginViewDialogOpen(dependentPlugin)
+                                                    }}
+                                                    variant={"body1"}>{dependentPlugin.Name}:{dependentPlugin.Version}</Link>
+                                            </Grid>
+                                            <Grid item sm={2}>
+                                                <Typography>
+                                                    Dependency for: {dependentPlugin.DependentFor.join(", ")}
+                                                </Typography>
+                                            </Grid>
+                                        </Grid>
+                                    })}
                                 </Grid>
                             </Grid>
-                            <Grid container direction="column" spacing={1} style={{paddingTop: "0.5vw"}}>
-                                {_.map(pluginData.DependentPlugins, dependentPlugin => {
-                                    return <Grid container item direction="row">
-                                        <Grid item sm={4} style={{paddingLeft: "2vw"}}>
-                                            <Typography variant={"body1"}>Plugin Name and Version</Typography>
-                                        </Grid>
-                                        <Grid item>
-                                            <Link
-                                                component="button"
-                                                onClick={() => {handlePluginViewDialogOpen(dependentPlugin)}}
-                                                variant={"body1"}>{dependentPlugin.Name}:{dependentPlugin.Version}</Link>
-                                        </Grid>
-                                    </Grid>
-                                })}
-                            </Grid>
-                        </Grid>
                         }
                     </Grid>
                 </Grid>
@@ -142,22 +149,22 @@ export const SummaryView = (props) => {
     return (
         <Grid container direction="column" spacing={3} className={classes.content}>
             {!_.has(props, "dialogParams") &&
-            <Grid item>
-                <Breadcrumbs aria-label="breadcrumb">
-                    <Link color="inherit" component="button" variant="subtitle1" onClick={goBack}>
-                        {_.get(stateParams, 'back.name')}
-                    </Link>
-                    <Typography color="textPrimary">{stateParams.data.Name}</Typography>
-                </Breadcrumbs>
-            </Grid>}
+                <Grid item>
+                    <Breadcrumbs aria-label="breadcrumb">
+                        <Link color="inherit" component="button" variant="subtitle1" onClick={goBack}>
+                            {_.get(stateParams, 'back.name')}
+                        </Link>
+                        <Typography color="textPrimary">{stateParams.data.Name}</Typography>
+                    </Breadcrumbs>
+                </Grid>}
             {!_.has(props, "dialogParams") &&
-            <Grid item>
-                <Grid container direction="row" justify="space-between">
-                    <Typography variant="h1">
-                        {stateParams.data.Name} {stateParams.data.Version === "v0" ? " - v" + stateParams.data.Latest : stateParams.data.Version}
-                    </Typography>
-                </Grid>
-            </Grid>}
+                <Grid item>
+                    <Grid container direction="row" justify="space-between">
+                        <Typography variant="h1">
+                            {stateParams.data.Name} {stateParams.data.Version === "v0" ? " - v" + stateParams.data.Latest : stateParams.data.Version}
+                        </Typography>
+                    </Grid>
+                </Grid>}
 
             <Grid item>
                 {isLoading ?
@@ -210,11 +217,12 @@ export const SummaryView = (props) => {
                                                     })}
                                                 </Grid> :
                                                 inputFieldValue.type === "outputAttributes" ?
-                                                    <Grid container direction="column" item sm={5}>
+                                                    <Grid container direction="column" item sm={5} spacing={2}>
                                                         {_.map(stateParams.data[inputFieldValue.name], (value, key) => {
-                                                            return <Grid item sm={4}>
+                                                            return <Grid item container direction="row">
                                                                 <Typography variant={"body1"}>key: {key},
                                                                     Description: {value.Description || "None"}</Typography>
+
                                                             </Grid>
                                                         })}
                                                     </Grid> :
@@ -259,15 +267,15 @@ export const SummaryView = (props) => {
                 }
             </Grid>
             {!_.has(props, "dialogParams") &&
-            <Grid item sm={8}>
-                <Grid container item direction="row" justify="flex-start">
-                    <Grid item>
-                        <Button color="primary" variant="contained" onClick={goBack}>
-                            <Typography variant="subtitle1">Done</Typography>
-                        </Button>
+                <Grid item sm={8}>
+                    <Grid container item direction="row" justify="flex-start">
+                        <Grid item>
+                            <Button color="primary" variant="contained" onClick={goBack}>
+                                <Typography variant="subtitle1">Done</Typography>
+                            </Button>
+                        </Grid>
                     </Grid>
                 </Grid>
-            </Grid>
             }
 
         </Grid>

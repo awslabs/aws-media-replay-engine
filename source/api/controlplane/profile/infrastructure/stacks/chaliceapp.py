@@ -3,7 +3,10 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    Duration,
+    Stack,
+    Fn,
+    CfnOutput,
     aws_iam as iam,
     aws_lambda as _lambda
 )
@@ -19,7 +22,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class ChaliceApp(cdk.Stack):
+class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -27,12 +30,12 @@ class ChaliceApp(cdk.Stack):
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
 
-        self.profile_table_arn = cdk.Fn.import_value("mre-profile-table-arn")
-        self.profile_table_name = cdk.Fn.import_value("mre-profile-table-name")
-        self.model_table_arn = cdk.Fn.import_value("mre-model-table-arn")
-        self.model_table_name = cdk.Fn.import_value("mre-model-table-name")
-        self.plugin_table_arn = cdk.Fn.import_value("mre-plugin-table-arn")
-        self.plugin_table_name = cdk.Fn.import_value("mre-plugin-table-name")
+        self.profile_table_arn = Fn.import_value("mre-profile-table-arn")
+        self.profile_table_name = Fn.import_value("mre-profile-table-name")
+        self.model_table_arn = Fn.import_value("mre-model-table-arn")
+        self.model_table_name = Fn.import_value("mre-model-table-name")
+        self.plugin_table_arn = Fn.import_value("mre-plugin-table-arn")
+        self.plugin_table_name = Fn.import_value("mre-plugin-table-name")
 
         # Get Layers
         self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
@@ -119,7 +122,7 @@ class ChaliceApp(cdk.Stack):
             handler="lambda_function.lambda_handler",
             role=self.workflow_error_handler_lambda_role,
             memory_size=128,
-            timeout=cdk.Duration.minutes(1),
+            timeout=Duration.minutes(1),
             layers=[
                 self.mre_workflow_helper_layer,
                 self.mre_plugin_helper_layer
@@ -189,7 +192,7 @@ class ChaliceApp(cdk.Stack):
             handler="lambda_function.lambda_handler",
             role=self.plugin_output_handler_lambda_role,
             memory_size=128,
-            timeout=cdk.Duration.minutes(1),
+            timeout=Duration.minutes(1),
             layers=[
                 self.mre_workflow_helper_layer,
                 self.mre_plugin_helper_layer
@@ -256,7 +259,7 @@ class ChaliceApp(cdk.Stack):
             handler="lambda_function.lambda_handler",
             role=self.multi_chunk_helper_lambda_role,
             memory_size=128,
-            timeout=cdk.Duration.minutes(1),
+            timeout=Duration.minutes(1),
             layers=[
                 self.mre_workflow_helper_layer,
                 self.mre_plugin_helper_layer
@@ -375,7 +378,7 @@ class ChaliceApp(cdk.Stack):
             handler="lambda_function.lambda_handler",
             role=self.probe_video_lambda_role,
             memory_size=1024,
-            timeout=cdk.Duration.minutes(15),
+            timeout=Duration.minutes(15),
             layers=[
                 self.ffmpeg_layer,
                 self.ffprobe_layer,
@@ -483,7 +486,7 @@ class ChaliceApp(cdk.Stack):
                     "WORKFLOW_ERROR_HANDLER_LAMBDA_ARN": self.workflow_error_handler_lambda.function_arn,
                     "MODEL_TABLE_NAME": self.model_table_name,
                     "PLUGIN_TABLE_NAME": self.plugin_table_name,
-                    "CLIP_GENERATION_STATE_MACHINE_ARN": cdk.Fn.import_value("mre-clip-gen-arn")
+                    "CLIP_GENERATION_STATE_MACHINE_ARN": Fn.import_value("mre-clip-gen-arn")
                 },
                 "tags": {
                     "Project": "MRE"
@@ -494,5 +497,5 @@ class ChaliceApp(cdk.Stack):
         )
 
 
-        cdk.CfnOutput(self, "mre-profile-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Profile API Url", export_name="mre-profile-api-url" )
+        CfnOutput(self, "mre-profile-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Profile API Url", export_name="mre-profile-api-url" )
         

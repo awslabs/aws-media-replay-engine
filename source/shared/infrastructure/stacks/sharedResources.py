@@ -1,7 +1,11 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    Aws,
+    CfnOutput,
+    Duration,
+    RemovalPolicy,
+    Stack,
     aws_dynamodb as ddb,
     aws_events as events,
     aws_events_targets as events_targets,
@@ -24,7 +28,7 @@ import shared.infrastructure.helpers.constants as constants
 LAYERS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), os.pardir, '../layers')
 
 
-class MreSharedResources(cdk.Stack):
+class MreSharedResources(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -54,7 +58,7 @@ class MreSharedResources(cdk.Stack):
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy(
                     self, id="mre-cache-policy",
-                    cache_policy_name=f"mre-cache-policy-{cdk.Aws.ACCOUNT_ID}-{cdk.Aws.REGION}",
+                    cache_policy_name=f"mre-cache-policy-{Aws.ACCOUNT_ID}-{Aws.REGION}",
                     cookie_behavior=cloudfront.CacheCookieBehavior.all(),
                     query_string_behavior=cloudfront.CacheQueryStringBehavior.all(),
                     header_behavior=cloudfront.CacheHeaderBehavior.allow_list(
@@ -66,7 +70,7 @@ class MreSharedResources(cdk.Stack):
                 ),
                 origin_request_policy=cloudfront.OriginRequestPolicy(
                     self, id="mre-origin-request-policy",
-                    origin_request_policy_name=f"mre-origin-request-policy-{cdk.Aws.ACCOUNT_ID}-{cdk.Aws.REGION}",
+                    origin_request_policy_name=f"mre-origin-request-policy-{Aws.ACCOUNT_ID}-{Aws.REGION}",
                     cookie_behavior=cloudfront.OriginRequestCookieBehavior.all(),
                     query_string_behavior=cloudfront.OriginRequestQueryStringBehavior.all(),
                     header_behavior=cloudfront.OriginRequestHeaderBehavior.allow_list(
@@ -75,14 +79,14 @@ class MreSharedResources(cdk.Stack):
                 ),
                 response_headers_policy=cloudfront.ResponseHeadersPolicy(
                     self, "MreResponseHeadersPolicy",
-                    response_headers_policy_name=f"mre-response-headers-policy-{cdk.Aws.ACCOUNT_ID}-{cdk.Aws.REGION}",
+                    response_headers_policy_name=f"mre-response-headers-policy-{Aws.ACCOUNT_ID}-{Aws.REGION}",
                     cors_behavior=cloudfront.ResponseHeadersCorsBehavior(
                         access_control_allow_credentials=False,
                         access_control_allow_headers=["*"],
                         access_control_allow_methods=["ALL"],
                         access_control_allow_origins=["*"],
                         access_control_expose_headers=["*"],
-                        access_control_max_age=cdk.Duration.seconds(600),
+                        access_control_max_age=Duration.seconds(600),
                         origin_override=True
                     )
                 )
@@ -99,7 +103,7 @@ class MreSharedResources(cdk.Stack):
             description="[DO NOT DELETE] Parameter contains the AWS MRE MediaOutput CloudFront Distribution domain name"
         )
 
-        cdk.CfnOutput(self, "mre-media-output-distro", value=self.mre_media_output_distro.domain_name,
+        CfnOutput(self, "mre-media-output-distro", value=self.mre_media_output_distro.domain_name,
                       description="Name of the MRE media output domain", export_name="mre-media-output-distro-domain-name")
 
     def create_system_table(self):
@@ -112,12 +116,12 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        cdk.CfnOutput(self, "mre-system-table-arn", value=self.content_group_table.table_arn,
+        CfnOutput(self, "mre-system-table-arn", value=self.content_group_table.table_arn,
                       description="Arn of the MRE System table", export_name="mre-system-table-arn")
-        cdk.CfnOutput(self, "mre-system-table-name", value=self.content_group_table.table_name,
+        CfnOutput(self, "mre-system-table-name", value=self.content_group_table.table_name,
                       description="Name of the MRE System table", export_name="mre-system-table-name")
 
     def create_content_group_table(self):
@@ -130,11 +134,11 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
-        cdk.CfnOutput(self, "mre-content-group-table-arn", value=self.content_group_table.table_arn,
+        CfnOutput(self, "mre-content-group-table-arn", value=self.content_group_table.table_arn,
                       description="Arn of the MRE Content Group table", export_name="mre-content-group-table-arn")
-        cdk.CfnOutput(self, "mre-content-group-table-name", value=self.content_group_table.table_name,
+        CfnOutput(self, "mre-content-group-table-name", value=self.content_group_table.table_name,
                       description="Name of the MRE Content Group table", export_name="mre-content-group-table-name")
 
     def create_program_table(self):
@@ -147,12 +151,12 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        cdk.CfnOutput(self, "mre-program-exec-table-arn", value=self.program_table.table_arn,
+        CfnOutput(self, "mre-program-exec-table-arn", value=self.program_table.table_arn,
                       description="Arn of the MRE Program table", export_name="mre-program-table-arn")
-        cdk.CfnOutput(self, "mre-program-exec-table-name", value=self.program_table.table_name,
+        CfnOutput(self, "mre-program-exec-table-name", value=self.program_table.table_name,
                       description="Name of the MRE Program table", export_name="mre-program-table-name")
 
     def create_workflow_exec_table(self):
@@ -169,12 +173,12 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.NUMBER
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        cdk.CfnOutput(self, "mre-workflow-exec-table-arn", value=self.workflow_exec_table.table_arn,
+        CfnOutput(self, "mre-workflow-exec-table-arn", value=self.workflow_exec_table.table_arn,
                       description="Arn of the MRE Workflow Exec table", export_name="mre-workflow-exec-table-arn")
-        cdk.CfnOutput(self, "mre-workflow-exec-table-name", value=self.workflow_exec_table.table_name,
+        CfnOutput(self, "mre-workflow-exec-table-name", value=self.workflow_exec_table.table_name,
                       description="Name of the MRE Workflow Exec table", export_name="mre-workflow-exec-table-name")
 
         # Store the Workflow Execution DDB table ARN in SSM Parameter Store
@@ -201,7 +205,7 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # Model Table: Name GSI
@@ -222,9 +226,9 @@ class MreSharedResources(cdk.Stack):
             )
         )
 
-        cdk.CfnOutput(self, "mre-model-table-arn", value=self.model_table.table_arn,
+        CfnOutput(self, "mre-model-table-arn", value=self.model_table.table_arn,
                       description="Arn of the MRE Model table", export_name="mre-model-table-arn")
-        cdk.CfnOutput(self, "mre-model-table-name", value=self.model_table.table_name,
+        CfnOutput(self, "mre-model-table-name", value=self.model_table.table_name,
                       description="Name of the MRE Model table", export_name="mre-model-table-name")
 
     def create_profile_table(self):
@@ -237,12 +241,12 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        cdk.CfnOutput(self, "mre-profile-table-arn", value=self.profile_table.table_arn,
+        CfnOutput(self, "mre-profile-table-arn", value=self.profile_table.table_arn,
                       description="Arn of the MRE Profile table", export_name="mre-profile-table-arn")
-        cdk.CfnOutput(self, "mre-profile-table-name", value=self.profile_table.table_name,
+        CfnOutput(self, "mre-profile-table-name", value=self.profile_table.table_name,
                       description="Name of the MRE Profile table", export_name="mre-profile-table-name")
 
     def create_mre_event_bus(self):
@@ -263,7 +267,7 @@ class MreSharedResources(cdk.Stack):
             description="[DO NOT DELETE] Parameter contains the Amazon EventBridge Event Bus name used by AWS MRE"
         )
 
-        cdk.CfnOutput(self, "mre-event-bus", value=self.eb_event_bus.event_bus_arn,
+        CfnOutput(self, "mre-event-bus", value=self.eb_event_bus.event_bus_arn,
                       description="Arn of the MRE Event Bus", export_name="mre-event-bus-arn")
 
     def create_s3_buckets(self):
@@ -324,13 +328,13 @@ class MreSharedResources(cdk.Stack):
             tier=ssm.ParameterTier.INTELLIGENT_TIERING,
             description="[DO NOT DELETE] Parameter contains the AWS MRE MediaOutput Bucket Name"
         )
-        cdk.CfnOutput(self, "mre-media-output-bucket", value=self.mre_media_output_bucket.bucket_name,
+        CfnOutput(self, "mre-media-output-bucket", value=self.mre_media_output_bucket.bucket_name,
                       description="Name of the S3 Bucket used by MRE for MediaConvert",
                       export_name="mre-media-output-bucket-name")
-        cdk.CfnOutput(self, "mre-data-export-bucket", value=self.data_export_bucket.bucket_name,
+        CfnOutput(self, "mre-data-export-bucket", value=self.data_export_bucket.bucket_name,
                       description="Name of the S3 bucket used by MRE to store exported data",
                       export_name="mre-data-export-bucket-name")
-        cdk.CfnOutput(self, "mre-media-source-bucket", value=self.mre_media_source_bucket.bucket_name,
+        CfnOutput(self, "mre-media-source-bucket", value=self.mre_media_source_bucket.bucket_name,
                       description="Name of the S3 bucket used to store HLS chunks to trigger MRE workflows",
                       export_name="mre-media-source-bucket-name")
 
@@ -447,16 +451,16 @@ class MreSharedResources(cdk.Stack):
         # Deploy MediaReplayEnginePluginHelper after layers_deploy
         self.mre_plugin_helper_layer.node.add_dependency(self.layer_deploy)
 
-        cdk.CfnOutput(self, "mre-timecode-layer", value=self.timecode_layer.layer_version_arn,
+        CfnOutput(self, "mre-timecode-layer", value=self.timecode_layer.layer_version_arn,
                       description="contains the Arn for TimeCode Lambda Layer", export_name="mre-timecode-layer-arn")
-        cdk.CfnOutput(self, "mre-ffmpeg-layer", value=self.ffmpeg_layer.layer_version_arn,
+        CfnOutput(self, "mre-ffmpeg-layer", value=self.ffmpeg_layer.layer_version_arn,
                       description="contains the Arn for ffmpeg Lambda Layer", export_name="mre-ffmpeg-layer-arn")
-        cdk.CfnOutput(self, "mre-ffprobe-layer", value=self.ffprobe_layer.layer_version_arn,
+        CfnOutput(self, "mre-ffprobe-layer", value=self.ffprobe_layer.layer_version_arn,
                       description="contains the Arn for ffprobe Lambda Layer", export_name="mre-ffprobe-layer-arn")
-        cdk.CfnOutput(self, "mre-workflow-helper-layer", value=self.mre_workflow_helper_layer.layer_version_arn,
+        CfnOutput(self, "mre-workflow-helper-layer", value=self.mre_workflow_helper_layer.layer_version_arn,
                       description="contains the Arn for mre_workflow_helper Lambda Layer",
                       export_name="mre-workflow-helper-layer-arn")
-        cdk.CfnOutput(self, "mre-plugin-helper-layer", value=self.mre_plugin_helper_layer.layer_version_arn,
+        CfnOutput(self, "mre-plugin-helper-layer", value=self.mre_plugin_helper_layer.layer_version_arn,
                       description="contains the Arn for mre_plugin_helper Lambda Layer",
                       export_name="mre-plugin-helper-layer-arn")
 
@@ -488,7 +492,7 @@ class MreSharedResources(cdk.Stack):
             )
         )
 
-        cdk.CfnOutput(self, "mre-event-media-convert-role", value=self.event_media_convert_role.role_arn,
+        CfnOutput(self, "mre-event-media-convert-role", value=self.event_media_convert_role.role_arn,
                       description="Contains MediaConvert IAM Role Arn", export_name="mre-event-media-convert-role-arn")
 
     def create_current_events_table(self):
@@ -501,12 +505,12 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        cdk.CfnOutput(self, "mre-current-event-table-arn", value=self.current_events_table.table_arn,
+        CfnOutput(self, "mre-current-event-table-arn", value=self.current_events_table.table_arn,
                       description="Arn of CurrentEvents table", export_name="mre-current-event-table-arn")
-        cdk.CfnOutput(self, "mre-current-event-table-name", value=self.current_events_table.table_name,
+        CfnOutput(self, "mre-current-event-table-name", value=self.current_events_table.table_name,
                       description="Name of CurrentEvents table", export_name="mre-current-event-table-name")
 
     def create_event_table(self):
@@ -523,7 +527,7 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # Event Table: Channel GSI
@@ -572,9 +576,9 @@ class MreSharedResources(cdk.Stack):
             )
         )
 
-        cdk.CfnOutput(self, "mre-event-table-name", value=self.event_table.table_name, description="Event table name",
+        CfnOutput(self, "mre-event-table-name", value=self.event_table.table_name, description="Event table name",
                       export_name="mre-event-table-name")
-        cdk.CfnOutput(self, "mre-event-table-arn", value=self.event_table.table_arn, description="Event table Arn",
+        CfnOutput(self, "mre-event-table-arn", value=self.event_table.table_arn, description="Event table Arn",
                       export_name="mre-event-table-arn")
 
     def create_plugin_table(self):
@@ -590,7 +594,7 @@ class MreSharedResources(cdk.Stack):
                 type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY
         )
 
         # Plugin Table: Name GSI
@@ -611,9 +615,9 @@ class MreSharedResources(cdk.Stack):
             )
         )
 
-        cdk.CfnOutput(self, "mre-plugin-table-arn", value=self.plugin_table.table_arn,
+        CfnOutput(self, "mre-plugin-table-arn", value=self.plugin_table.table_arn,
                       description="Arn of the MRE Plugin table", export_name="mre-plugin-table-arn")
-        cdk.CfnOutput(self, "mre-plugin-table-name", value=self.plugin_table.table_name,
+        CfnOutput(self, "mre-plugin-table-name", value=self.plugin_table.table_name,
                       description="Name of the MRE Plugin table", export_name="mre-plugin-table-name")
 
     def create_sqs_queues(self):
@@ -621,8 +625,8 @@ class MreSharedResources(cdk.Stack):
         self.sqs_event_to_harvest_queue = sqs.Queue(
             self,
             "MREEventHarvestingQueue",
-            retention_period=cdk.Duration.days(7),
-            visibility_timeout=cdk.Duration.minutes(5),
+            retention_period=Duration.days(7),
+            visibility_timeout=Duration.minutes(5),
             encryption=sqs.QueueEncryption.KMS_MANAGED
         )
 
@@ -630,8 +634,8 @@ class MreSharedResources(cdk.Stack):
         self.sqs_event_harvest_failure_queue = sqs.Queue(
             self,
             "MREEventHarvestProcessFailureQueue",
-            retention_period=cdk.Duration.days(7),
-            visibility_timeout=cdk.Duration.minutes(5),
+            retention_period=Duration.days(7),
+            visibility_timeout=Duration.minutes(5),
             encryption=sqs.QueueEncryption.KMS_MANAGED
         )
 
@@ -639,8 +643,8 @@ class MreSharedResources(cdk.Stack):
         self.sqs_queue = sqs.Queue(
             self,
             "MREEventDeletionQueue",
-            retention_period=cdk.Duration.days(7),
-            visibility_timeout=cdk.Duration.minutes(20),
+            retention_period=Duration.days(7),
+            visibility_timeout=Duration.minutes(20),
             encryption=sqs.QueueEncryption.KMS_MANAGED
         )
 
@@ -654,14 +658,14 @@ class MreSharedResources(cdk.Stack):
             description="[DO NOT DELETE] Parameter contains the ARN of SQS Queue used by AWS MRE to send Event deletion notifications"
         )
 
-        cdk.CfnOutput(self, "mre-harvest-queue-name", value=self.sqs_event_to_harvest_queue.queue_name,
+        CfnOutput(self, "mre-harvest-queue-name", value=self.sqs_event_to_harvest_queue.queue_name,
                       description="Name of the MRE Event Harvest Queue", export_name="mre-harvest-queue-name")
-        cdk.CfnOutput(self, "mre-harvest-queue-arn", value=self.sqs_event_to_harvest_queue.queue_arn,
+        CfnOutput(self, "mre-harvest-queue-arn", value=self.sqs_event_to_harvest_queue.queue_arn,
                       description="ARN of the MRE Event Harvest Queue", export_name="mre-harvest-queue-arn")
-        cdk.CfnOutput(self, "mre-harvest-failure-queue-name", value=self.sqs_event_harvest_failure_queue.queue_name,
+        CfnOutput(self, "mre-harvest-failure-queue-name", value=self.sqs_event_harvest_failure_queue.queue_name,
                       description="Name of the MRE Event Harvest Failure Queue",
                       export_name="mre-harvest-failure-queue-name")
-        cdk.CfnOutput(self, "mre-event-deletion-queue-name", value=self.sqs_queue.queue_name,
+        CfnOutput(self, "mre-event-deletion-queue-name", value=self.sqs_queue.queue_name,
                       description="Name of the MRE Event Deletion Queue", export_name="mre-event-deletion-queue-name")
 
     def create_event_bridge_rules(self):

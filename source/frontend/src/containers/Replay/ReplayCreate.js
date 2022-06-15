@@ -459,17 +459,18 @@ export const ReplayCreate = () => {
                 const filteredPlugins =  _.filter(pluginAttribValues, (ftr) => {
                     return ftr[feature]
                 });
-                //console.log(filteredPlugins);
+                //console.log(`filteredPlugins=${filteredPlugins}`);
 
                 const pluginAttrValues = _.get(filteredPlugins, `[0]${[feature]}`, []);
-                //console.log(pluginAttrValues);
+                //console.log(`pluginAttrValues=${pluginAttrValues}`);
                 
                 _.forEach(pluginAttrValues, (pluginAttrVal) => {
                     //console.log('pluginAttrVal: ', pluginAttrVal);
 
-                    if (pluginAttrVal.toString() === 'False' || pluginAttrVal.toString() === 'false' || 
-                            pluginAttrVal.toString() === 'True' || pluginAttrVal.toString() === 'true'){
-                        
+                    //if (pluginAttrVal.toString() === 'False' || pluginAttrVal.toString() === 'false' || 
+                    // Assume that Plugins store Feature results as bool in DDB
+                    if (pluginAttrVal.toString() === 'false'){
+
                         if (featuresobjs.filter(f => f[feature + ' | ' + pluginAttrVal.toString()]).length === 0)
                             featuresobjs.push({[feature + ' | ' + pluginAttrVal.toString()]: "0^false^TBD^-"})
 
@@ -479,17 +480,16 @@ export const ReplayCreate = () => {
                     }
                 })
 
-                // If pluginAttrValues is Empty, then fall back on the default value for each Feature.
-                // However if We get pluginAttrValues from PluginResults, include both
-                //if (pluginAttrValues.length === 0){
-                // const pluginAttrVal = 'True' // Default Output Attr Result
+                // We Assume that Plugins persist feature output as a boolean. Since False is such a 
+                // rare thing, we default the value to be True based on the features listed in each Plugin Attributes
+                const pluginAttrVal = 'true' // Default Output Attr Result
 
                 // // Make sure we dont add duplicates
-                // if (featuresobjs.filter(f => f[feature + ' | ' + pluginAttrVal]).length === 0)
-                //     featuresobjs.push({[feature + ' | ' + pluginAttrVal]: "0^false^TBD^-"})
+                if (featuresobjs.filter(f => f[feature + ' | ' + pluginAttrVal]).length === 0)
+                    featuresobjs.push({[feature + ' | ' + pluginAttrVal]: "0^false^TBD^-"})
 
-                // if (!pluginNameAndValues.includes(feature + ' | ' + pluginAttrVal))
-                //     pluginNameAndValues.push(feature + ' | ' + pluginAttrVal)
+                if (!pluginNameAndValues.includes(feature + ' | ' + pluginAttrVal))
+                    pluginNameAndValues.push(feature + ' | ' + pluginAttrVal)
 
                    
                 //}

@@ -1,7 +1,9 @@
 import os
 import sys
 from aws_cdk import (
-    core as cdk,
+    Duration,
+    Stack,
+    Fn,
     aws_events as events,
     aws_events_targets as events_targets,
     aws_iam as iam,
@@ -19,7 +21,7 @@ RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
 
-class EventSchedulerStack(cdk.Stack):
+class EventSchedulerStack(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -72,9 +74,9 @@ class EventSchedulerStack(cdk.Stack):
                     "dynamodb:DeleteItem"
                 ],
                 resources=[
-                    cdk.Fn.import_value("mre-event-table-arn"),
-                    f"{cdk.Fn.import_value('mre-event-table-arn')}/index/*",
-                    cdk.Fn.import_value("mre-current-event-table-arn")
+                    Fn.import_value("mre-event-table-arn"),
+                    f"{Fn.import_value('mre-event-table-arn')}/index/*",
+                    Fn.import_value("mre-current-event-table-arn")
                 ]
             )
         )
@@ -102,7 +104,7 @@ class EventSchedulerStack(cdk.Stack):
             handler="mre_event_scheduler.schedule_events_for_processing",
             role=self.event_scheduler_lambda_role,
             memory_size=256,
-            timeout=cdk.Duration.minutes(5),
+            timeout=Duration.minutes(5),
             environment={
                 "EVENT_SCHEDULER_BOOTSTRAP_TIME_IN_MINS": "5",
                 "EVENT_SCHEDULER_BUFFER_TIME_IN_MINS": "5",
@@ -112,9 +114,9 @@ class EventSchedulerStack(cdk.Stack):
                 "EVENT_SCHEDULER_PAST_EVENT_START_DATE_UTC": "%Y-%m-%d",
                 "EVENT_SCHEDULER_PAST_EVENT_END_DATE_UTC": "%Y-%m-%d",
                 "EVENT_SCHEDULER_CONCURRENT_EVENTS": "1",
-                "CURRENT_EVENTS_TABLE_NAME": cdk.Fn.import_value("mre-current-event-table-name"),
+                "CURRENT_EVENTS_TABLE_NAME": Fn.import_value("mre-current-event-table-name"),
                 "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
-                "EVENT_TABLE_NAME": cdk.Fn.import_value("mre-event-table-name")
+                "EVENT_TABLE_NAME": Fn.import_value("mre-event-table-name")
             }
         )
 
@@ -124,7 +126,7 @@ class EventSchedulerStack(cdk.Stack):
             description=
             "CloudWatch event trigger for MRE's Event Scheduler Lambda. Triggers every 1 Minute.",
             enabled=True,
-            schedule=events.Schedule.rate(cdk.Duration.minutes(1)),
+            schedule=events.Schedule.rate(Duration.minutes(1)),
             targets=[events_targets.LambdaFunction(handler=self.event_scheduler_lambda)])
 
         # EventBridge: MRE Event Scheduler Events Rule

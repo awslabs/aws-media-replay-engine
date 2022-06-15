@@ -1,7 +1,9 @@
 import os
 
 from aws_cdk import (
-    core as cdk,
+    CfnOutput,
+    Fn,
+    Stack,
     aws_iam as iam,
     aws_ssm as ssm,
     aws_secretsmanager as secret_mgr
@@ -11,7 +13,7 @@ from chalice.cdk import Chalice
 RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
-class ChaliceApp(cdk.Stack):
+class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
@@ -109,7 +111,7 @@ class ChaliceApp(cdk.Stack):
             source_dir=RUNTIME_SOURCE_DIR,
             stage_config={
                 "environment_variables": {
-                    "SERVICE_DISC_SERVICE_ID": cdk.Fn.import_value("mre-service-disc-service-id"),
+                    "SERVICE_DISC_SERVICE_ID": Fn.import_value("mre-service-disc-service-id"),
                     "API_AUTH_SECRET_KEY_NAME": "mre_hsa_api_auth_secret"
                 },
                 "tags": {
@@ -133,4 +135,4 @@ class ChaliceApp(cdk.Stack):
         )
 
 
-        cdk.CfnOutput(self, "mre-default-api-gateway", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE default API Gateway Url", export_name="mre-default-api-gateway-url" )
+        CfnOutput(self, "mre-default-api-gateway", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE default API Gateway Url", export_name="mre-default-api-gateway-url" )

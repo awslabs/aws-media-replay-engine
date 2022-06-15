@@ -1,10 +1,10 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
     <title>Aws-Mre-Controlplane-Model-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -17,6 +17,7 @@
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
@@ -158,9 +159,9 @@
                     
                     
   <section class="chalice-app" id="aws-mre-controlplane-model-api">
-<h1 class="chalice-appname">Aws-Mre-Controlplane-Model-Api<a class="headerlink" href="#aws-mre-controlplane-model-api" title="Permalink to this headline">¶</a></h1>
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Model-Api<a class="headerlink" href="#aws-mre-controlplane-model-api" title="Permalink to this heading">¶</a></h1>
 <section class="chalice-route" id="register-model">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/model</span><a class="headerlink" href="#register-model" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/model</span><a class="headerlink" href="#register-model" title="Permalink to this heading">¶</a></h2>
 <p>Register a new Machine Learning (ML) model endpoint or publish a new version of an
 existing model endpoint.</p>
 <p>Body:</p>
@@ -200,7 +201,7 @@ existing model endpoint.</p>
 </dl>
 </section>
 <section class="chalice-route" id="list-models">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/all</span><a class="headerlink" href="#list-models" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/all</span><a class="headerlink" href="#list-models" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered Machine Learning models.
 Each model has version “v0” which holds a copy of the latest model revision.</p>
 <p>By default, return only the model endpoints that are “Enabled” in the system. In order
@@ -230,7 +231,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="list-models-by-contentgroup">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-models-by-contentgroup" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-models-by-contentgroup" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered Machine Learning models by content group.
 Each model has version “v0” which holds a copy of the latest model revision.</p>
 <p>By default, return only the model endpoints that are “Enabled” in the system. In order
@@ -260,7 +261,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="list-models-by-pluginclass">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/pluginclass/{plugin_class}/all</span><a class="headerlink" href="#list-models-by-pluginclass" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/pluginclass/{plugin_class}/all</span><a class="headerlink" href="#list-models-by-pluginclass" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered Machine Learning models by plugin class.
 Each model has version “v0” which holds a copy of the latest model revision.</p>
 <p>By default, return only the model endpoints that are “Enabled” in the system. In order
@@ -290,7 +291,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="list-models-by-pluginclass-and-contentgroup">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/pluginclass/{plugin_class}/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-models-by-pluginclass-and-contentgroup" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/pluginclass/{plugin_class}/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-models-by-pluginclass-and-contentgroup" title="Permalink to this heading">¶</a></h2>
 <p>List the latest version of all the registered Machine Learning models by plugin class and content group.
 Each model has version “v0” which holds a copy of the latest model revision.</p>
 <p>By default, return only the model endpoints that are “Enabled” in the system. In order
@@ -320,7 +321,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="delete-model">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/model/{name}</span><a class="headerlink" href="#delete-model" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/model/{name}</span><a class="headerlink" href="#delete-model" title="Permalink to this heading">¶</a></h2>
 <p>Delete all the versions of a Machine Learning model endpoint by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -333,7 +334,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="get-model-by-name">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/{name}</span><a class="headerlink" href="#get-model-by-name" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/{name}</span><a class="headerlink" href="#get-model-by-name" title="Permalink to this heading">¶</a></h2>
 <p>Get the latest version of a Machine Learning model endpoint by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -358,7 +359,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="update-model-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/model/{name}/status</span><a class="headerlink" href="#update-model-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/model/{name}/status</span><a class="headerlink" href="#update-model-status" title="Permalink to this heading">¶</a></h2>
 <p>Enable or Disable the latest version of a Machine Learning model endpoint by name.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -378,7 +379,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="list-model-versions">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/all</span><a class="headerlink" href="#list-model-versions" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/all</span><a class="headerlink" href="#list-model-versions" title="Permalink to this heading">¶</a></h2>
 <p>List all the versions of a Machine Learning model endpoint by name.</p>
 <p>Returns:</p>
 <blockquote>
@@ -406,7 +407,7 @@ to also return the “Disabled” model endpoints, include the query parameter �
 </dl>
 </section>
 <section class="chalice-route" id="delete-model-version">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/{version}</span><a class="headerlink" href="#delete-model-version" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/{version}</span><a class="headerlink" href="#delete-model-version" title="Permalink to this heading">¶</a></h2>
 <p>Delete a specific version of a Machine Learning model endpoint by name and version.</p>
 <p>Deletion can be performed on all the model versions except “v0” and the latest model revision.
 If the latest model version needs to be deleted, publish a new version of the model and then
@@ -423,7 +424,7 @@ delete the prior model version.</p>
 </dl>
 </section>
 <section class="chalice-route" id="get-model-by-name-and-version">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/{version}</span><a class="headerlink" href="#get-model-by-name-and-version" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/{version}</span><a class="headerlink" href="#get-model-by-name-and-version" title="Permalink to this heading">¶</a></h2>
 <p>Get a Machine Learning model endpoint by name and version.</p>
 <p>Returns:</p>
 <blockquote>
@@ -448,7 +449,7 @@ delete the prior model version.</p>
 </dl>
 </section>
 <section class="chalice-route" id="update-model-version-status">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/{version}/status</span><a class="headerlink" href="#update-model-version-status" title="Permalink to this headline">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/model/{name}/version/{version}/status</span><a class="headerlink" href="#update-model-version-status" title="Permalink to this heading">¶</a></h2>
 <p>Enable or Disable a Machine Learning model endpoint by name and version.</p>
 <p>Body:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>

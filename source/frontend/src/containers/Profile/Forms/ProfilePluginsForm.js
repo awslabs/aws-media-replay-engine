@@ -6,245 +6,298 @@
 import React from "react";
 
 import {
-    Divider,
+    CircularProgress,
     FormLabel,
     Typography,
+    Box,
+    Button,
+    Tooltip
 } from "@material-ui/core";
+import InfoIcon from '@material-ui/icons/Info';
 
 import Grid from "@material-ui/core/Grid";
+
+import Accordion from '@material-ui/core/Accordion';
+import AccordionDetails from '@material-ui/core/AccordionDetails';
+import AccordionSummary from '@material-ui/core/AccordionSummary';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+
 
 import _ from "lodash";
 import {FormSelect} from "../../../components/Form/Components/FormSelect";
 import {ConfigurationModal} from "./ConfigurationModal";
-import Box from "@material-ui/core/Box";
-import Button from "@material-ui/core/Button";
+import {APIHandler} from "../../../common/APIHandler/APIHandler";
 
 
 export const ProfilePluginsForm = (props) => {
-    let isMultiple = props.isMultiple;
+        let isMultiple = props.isMultiple;
 
-    const [selectedPlugin, setSelectedPlugin] = React.useState(props.values || {});
+        const [selectedPlugin, setSelectedPlugin] = React.useState(props.values || {});
+        const {query} = APIHandler();
+        const [isLoading, setIsLoading] = React.useState(false);
+        const [expanded, setExpanded] = React.useState(true);
 
-    const handleMainPluginChange = async (pluginName) => {
-        let modelEndpointOptions = getModelsWithVersions(pluginName);
-
-        let pluginData = {
-            Name: pluginName,
-            Configuration: getPluginConfigurationByName(pluginName),
-            ModelEndpointOptions: modelEndpointOptions,
-            ModelEndpoint: modelEndpointOptions && modelEndpointOptions[0],
-            DependentPlugins: getPluginDependenciesDataByName(pluginName)
+        const fetchPluginDependencies = async (selectedPluginName) => {
+            return await query('get', 'api', `plugin/${selectedPluginName}/dependentplugins/all`);
         }
 
-        if(_.isArray(pluginData) === true) {
-            selectedPlugin[props.index] = pluginData;
-            setSelectedPlugin(pluginData[props.index]);
-        }
-        else {
-            setSelectedPlugin(pluginData);
-        }
+        const handleDependencyExpandChange = (panel) => (event, isExpanded) => {
+            setExpanded(isExpanded ? panel : false);
+        };
 
-        if (!isMultiple) {
-            props.handleInputValue(pluginData, "", props.name);
-        }
-        else {
+        const handleMainPluginChange = async (pluginName) => {
+            let modelEndpointOptions = getModelsWithVersions(pluginName);
 
-            props.handleInputValue(pluginData, `[${props.index}]`, props.name);
-        }
-    };
+            setIsLoading(true);
 
-    const getPluginDependenciesDataByName = (pluginName) => {
-        let retVal;
+            try {
 
-        let pluginDependencyNames = getPluginDependenciesNamesByName(pluginName);
-        let pluginDependenciesFullData = _.filter(props.plugins, plugin => {
-            return _.includes(pluginDependencyNames, plugin.Name);
-        });
+                let pluginData = {
+                    Name: pluginName,
+                    Configuration: getPluginConfigurationByName(pluginName),
+                    ModelEndpointOptions: modelEndpointOptions,
+                    ModelEndpoint: modelEndpointOptions && modelEndpointOptions[0],
+                    DependentPlugins: pluginName && await getPluginDependenciesDataByName(pluginName)
+                }
+                if (_.isArray(pluginData) === true) {
+                    selectedPlugin[props.index] = pluginData;
+                    setSelectedPlugin(pluginData[props.index]);
+                }
+                else {
+                    setSelectedPlugin(pluginData);
+                }
 
-        retVal = _.map(pluginDependenciesFullData, (pluginData, index) => {
-            const modelEndpointOptions = getModelsWithVersions(pluginData.Name);
+                if (!isMultiple) {
+                    props.handleInputValue(pluginData, "", props.name);
+                }
+                else {
 
-            return {
-                Name: pluginData.Name,
-                ModelEndpoint: modelEndpointOptions && modelEndpointOptions[0],
-                ModelEndpointOptions: modelEndpointOptions,
-                Configuration: pluginData.Configuration
+                    props.handleInputValue(pluginData, `[${props.index}]`, props.name);
+                }
             }
-        });
-
-        return retVal;
-    }
-
-    const getPluginDependenciesNamesByName = (pluginName) => {
-        let pluginData = getPluginByName(pluginName);
-        return _.get(pluginData, 'DependentPlugins');
-    };
-
-    const getPluginByName = (pluginName) => {
-        return _.find(props.plugins, {"Name": pluginName});
-    };
-
-    const getPluginConfigurationByName = (pluginName) => {
-        let pluginData = getPluginByName(pluginName);
-        return _.get(pluginData, 'Configuration')
-    };
-
-    const getModelsWithVersions = (pluginName) => {
-        let retVal = [];
-
-        let plugin = getPluginByName(pluginName);
-        if (plugin) {
-            retVal = plugin.ModelEndpoints;
+            finally {
+                setIsLoading(false);
+            }
         }
 
-        return retVal;
-    };
+        const getPluginDependenciesDataByName = async (pluginName) => {
+            let retVal;
 
-    const getFilteredPluginOptions = () => {
-        let result = _.map(_.filter(props.plugins, {Class: props.name === "Featurers" ? "Featurer" : props.name}), "Name");
 
-        if (isMultiple) {
-            result = _.filter(result, option => {
-                // Don't allow same featurer twice
-                return (_.includes(_.map(props.values, "Name"), option) === false) ||
-                    props.values[props.index].Name === option;
-            })
+            let pluginDependenciesWithRelation = await getPluginDependenciesByName(pluginName);
+
+            retVal = _.map(pluginDependenciesWithRelation, (pluginDependencies, index) => {
+                const pluginData = pluginDependencies.pluginData
+                const modelEndpointOptions = getModelsWithVersions(pluginData.Name);
+
+                return {
+                    Name: pluginData.Name,
+                    ModelEndpoint: modelEndpointOptions && modelEndpointOptions[0],
+                    ModelEndpointOptions: modelEndpointOptions,
+                    Configuration: pluginData.Configuration,
+                    DependentFor: pluginDependencies.DependentFor
+                }
+            });
+            return retVal;
         }
 
-        return result
-    }
+        const getPluginDependenciesByName = async (pluginName) => {
+            let dependentPluginsNamesList = [];
 
-    const getMainPluginRow = () => {
-        let valuesPassed = isMultiple ? props.values[props.index] : props.values;
-        let currentSelectedPlugin = _.isArray(selectedPlugin) === true ? selectedPlugin[props.index] : selectedPlugin;
+            const response = await fetchPluginDependencies(pluginName);
 
-        return (
-            <Grid container item direction="row" alignItems="flex-end"
-                  key={`main-${currentSelectedPlugin.Name}-${props.index}`}>
-                <Grid item sm={7}>
-                    <FormSelect
-                        details={{
-                            label: "Plugin Name",
-                            name: "Name",
-                            isRequired: props.isRequired,
-                            options: getFilteredPluginOptions(),
-                            ItemComponent: <ConfigurationModal
-                                values={valuesPassed}
-                                selectedPluginName={currentSelectedPlugin.Name}
-                                plugins={props.plugins}
-                                updateValues={props.handleInputValue}
-                                updatePath={isMultiple ? `[${props.index}].Configuration` : "Configuration"}
-                                parentComponentName={props.name}
-                            />
-                        }}
-                        values={valuesPassed}
-                        handleInputValue={async (e) => {
-                            await handleMainPluginChange(e.target.value);
-                        }}
-                    />
-                </Grid>
-                <Grid item sm={3}>
-                    {_.isEmpty(currentSelectedPlugin.ModelEndpointOptions) !== true ?
+            if (response.success === true) {
+                dependentPluginsNamesList = response.data;
+            }
+
+            return dependentPluginsNamesList;
+        };
+
+        const getPluginByName = (pluginName) => {
+            return _.find(props.plugins, {"Name": pluginName});
+        };
+
+        const getPluginConfigurationByName = (pluginName) => {
+            let pluginData = getPluginByName(pluginName);
+            return _.get(pluginData, 'Configuration')
+        };
+
+        const getModelsWithVersions = (pluginName) => {
+            let retVal = [];
+
+            let plugin = getPluginByName(pluginName);
+            if (plugin) {
+                retVal = plugin.ModelEndpoints;
+            }
+
+            return retVal;
+        };
+
+        const getFilteredPluginOptions = () => {
+            let result = _.map(_.filter(props.plugins, {Class: props.name === "Featurers" ? "Featurer" : props.name}), "Name");
+
+            if (isMultiple) {
+                result = _.filter(result, option => {
+                    // Don't allow same featurer twice
+                    return (_.includes(_.map(props.values, "Name"), option) === false) ||
+                        props.values[props.index].Name === option;
+                })
+            }
+
+            return result
+        }
+
+        const getMainPluginRow = () => {
+            let valuesPassed = isMultiple ? props.values[props.index] : props.values;
+            let currentSelectedPlugin = _.isArray(selectedPlugin) === true ? selectedPlugin[props.index] : selectedPlugin;
+
+            return (
+                <Grid container item direction="row" alignItems="flex-end" spacing={5}
+                      key={`main-${currentSelectedPlugin.Name}-${props.index}`}>
+                    <Grid item sm={5}>
                         <FormSelect
                             details={{
-                                label: "Associated Model",
-                                name: "ModelEndpoint",
-                                options: currentSelectedPlugin.ModelEndpointOptions,
-                                onChange: true,
-                                isRequired: true,
-                                displayName: (selectedModelEndpoint) => {
-                                    return `${selectedModelEndpoint.Name}:${selectedModelEndpoint.Version}`;
-                                },
+                                label: "Plugin Name",
+                                name: "Name",
+                                isRequired: props.isRequired,
+                                options: getFilteredPluginOptions(),
+                                ItemComponent: <ConfigurationModal
+                                    values={valuesPassed}
+                                    selectedPluginName={currentSelectedPlugin.Name}
+                                    plugins={props.plugins}
+                                    updateValues={props.handleInputValue}
+                                    updatePath={isMultiple ? `[${props.index}].Configuration` : "Configuration"}
+                                    parentComponentName={props.name}
+                                />
                             }}
                             values={valuesPassed}
-                        /> :
-                        <Box pt={3}>
-                            {currentSelectedPlugin.Name != null &&
-                            <Typography variant={"body2"}>No Models Associated</Typography>}
-                        </Box>
+                            handleInputValue={async (e) => {
+                                await handleMainPluginChange(e.target.value);
+                            }}
+                        />
+                    </Grid>
+                    <Grid item sm={4}>
+                        {_.get(valuesPassed, `ModelEndpoint`) != null ?
+                            <FormSelect
+                                details={{
+                                    label: "Associated Model",
+                                    name: "ModelEndpoint",
+                                    options: currentSelectedPlugin.ModelEndpointOptions,
+                                    onChange: true,
+                                    isRequired: true,
+                                    displayName: (selectedModelEndpoint) => {
+                                        return `${selectedModelEndpoint.Name}:${selectedModelEndpoint.Version}`;
+                                    },
+                                    value: valuesPassed.ModelEndpoint
+                                }}
+                                values={valuesPassed}
+                            /> :
+                            <Box pt={3}>
+                                {currentSelectedPlugin.Name != null &&
+                                    <Typography variant={"body2"}>No Models Associated</Typography>}
+                            </Box>
+                        }
+                    </Grid>
+                    {
+                        isMultiple &&
+                        <Grid item>
+                            <Button color="primary" variant="outlined"
+                                    onClick={() => props.handleRemoveFeaturer(props.index)}>
+                                Remove
+                            </Button>
+                        </Grid>
                     }
                 </Grid>
-                {
-                    isMultiple &&
+            )
+        }
+
+        const getDependencyPluginRow = (props, dependentPlugin, dependentPluginIndex) => {
+            let valuesPassed = isMultiple ? props.values[props.index] : props.values;
+            valuesPassed = _.find(valuesPassed.DependentPlugins, {"Name": dependentPlugin.Name});
+
+            let configurationUpdatePath = isMultiple ? `[${props.index}].DependentPlugins[${dependentPluginIndex}].Configuration` : `DependentPlugins[${dependentPluginIndex}].Configuration`
+
+            return (
+                <Grid container item direction="row" alignItems="flex-end" spacing={5}
+                      key={`dependent-${selectedPlugin.Name}`}>
+                    <Grid item sm={5}>
+                        <Grid item container direction="row" spacing={3} alignItems="center">
+                            <Grid item sm={10}>
+                                <Typography variant={"body2"}>{dependentPlugin.Name}</Typography>
+                            </Grid>
+                            <Grid item sm={1}>
+                                <ConfigurationModal
+                                    values={valuesPassed}
+                                    selectedPluginName={dependentPlugin.Name}
+                                    plugins={props.plugins}
+                                    updateValues={props.handleInputValue}
+                                    updatePath={configurationUpdatePath}
+                                    parentComponentName={props.name}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                    <Grid item sm={4}>
+                        {_.get(valuesPassed, `ModelEndpoint`) != null && _.isEmpty(dependentPlugin.ModelEndpointOptions) !== true ?
+                            <FormSelect
+                                details={{
+                                    label: "Associated Model",
+                                    name: "ModelEndpoint",
+                                    options: valuesPassed.ModelEndpointOptions,
+                                    onChange: true,
+                                    isRequired: true,
+                                    displayName: (selectedModelEndpoint) => {
+                                        return `${selectedModelEndpoint.Name}:${selectedModelEndpoint.Version}`;
+                                    },
+                                    value: valuesPassed.ModelEndpoint
+                                }}
+                                values={valuesPassed}
+                            /> :
+                            <Typography variant={"body2"}>No Models Associated</Typography>
+                        }
+                    </Grid>
+                    <Grid container item direction="row" sm={1}>
+                        <Grid item>
+                            <Tooltip title={`Dependency for: ${valuesPassed.DependentFor.join(", ")}`}>
+                                <InfoIcon/>
+                            </Tooltip>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            )
+        }
+
+        const getCurrentPlugin = () => {
+            return _.isArray(selectedPlugin) === true ? selectedPlugin[props.index] : selectedPlugin;
+        }
+
+        return (
+            <Grid container direction="column">
+                {getMainPluginRow()}
+
+                {isLoading ?
+                    <Box sx={{minHeight: 100, padding: 10}}>
+                        <CircularProgress color="inherit"/>
+                    </Box> : _.isEmpty(_.get(getCurrentPlugin(), 'DependentPlugins')) === false &&
                     <Grid item>
-                        <Button color="primary" variant="outlined"
-                                onClick={() => props.handleRemoveFeaturer(props.index)}>
-                            Remove
-                        </Button>
+                        <Accordion expanded={expanded === _.get(getCurrentPlugin(), 'name') || expanded === true}
+                                   onChange={handleDependencyExpandChange(_.get(getCurrentPlugin(), 'name'))}>
+                            <AccordionSummary
+                                expandIcon={<ExpandMoreIcon/>}
+                            >
+                                <FormLabel>Dependent Plugins</FormLabel>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                                <Grid container direction="column" spacing={3} alignItems={"center"}>
+                                    {_.map(_.get(getCurrentPlugin(), 'DependentPlugins'), (dependentPlugin, index) => {
+                                        return getDependencyPluginRow(props, dependentPlugin, index);
+                                    })}
+                                </Grid>
+                            </AccordionDetails>
+                        </Accordion>
                     </Grid>
                 }
             </Grid>
         )
     }
-
-    const getDependencyPluginRow = (props, dependentPlugin, dependentPluginIndex) => {
-        let valuesPassed = isMultiple ? props.values[props.index] : props.values;
-        valuesPassed = _.find(valuesPassed.DependentPlugins, {"Name": dependentPlugin.Name});
-
-        let configurationUpdatePath = isMultiple ? `[${props.index}].DependentPlugins[${dependentPluginIndex}].Configuration` : `DependentPlugins[${dependentPluginIndex}].Configuration`
-
-        return (
-            <Grid container item direction="row" justify="space-between" alignItems="center"
-                  key={`dependent-${selectedPlugin.Name}`}>
-                <Grid item sm={7}>
-
-                    <Grid item container direction="row" alignItems="center" spacing={3}>
-                        <Grid item sm={10}>
-                            <Typography variant={"body2"}>{dependentPlugin.Name}</Typography>
-                        </Grid>
-                        <Grid item sm={1}>
-                            <ConfigurationModal
-                                values={valuesPassed}
-                                selectedPluginName={dependentPlugin.Name}
-                                plugins={props.plugins}
-                                updateValues={props.handleInputValue}
-                                updatePath={configurationUpdatePath}
-                                parentComponentName={props.name}
-                            />
-                        </Grid>
-                    </Grid>
-                </Grid>
-                <Grid item sm={4}>
-                    {_.get(valuesPassed, `ModelEndpoint`) != null && _.isEmpty(dependentPlugin.ModelEndpointOptions) !== true ?
-                        <FormSelect
-                            details={{
-                                label: "Associated Model",
-                                name: "ModelEndpoint",
-                                options: valuesPassed.ModelEndpointOptions,
-                                onChange: true,
-                                isRequired: true,
-                                displayName: (selectedModelEndpoint) => {
-                                    return `${selectedModelEndpoint.Name}:${selectedModelEndpoint.Version}`;
-                                }
-                            }}
-                            values={valuesPassed}
-                        /> :
-                        <Typography variant={"body2"}>No Models Associated</Typography>
-                    }
-                </Grid>
-            </Grid>
-        )
-    }
-
-    const getCurrentPlugin = () => {
-        return _.isArray(selectedPlugin) === true ? selectedPlugin[props.index] : selectedPlugin;
-    }
-
-    return (
-        <Grid container direction="column" spacing={3}>
-            {getMainPluginRow()}
-
-            {_.isEmpty(_.get(getCurrentPlugin(), 'DependentPlugins')) === false &&
-            <>
-                <Grid item>
-                    <FormLabel>Dependent Plugins</FormLabel>
-                    <Divider/>
-                </Grid>
-                {_.map(_.get(getCurrentPlugin(), 'DependentPlugins'), (dependentPlugin, index) => {
-                    return getDependencyPluginRow(props, dependentPlugin, index);
-                })}
-            </>
-            }
-        </Grid>
-    )
-};
+;

@@ -25,31 +25,39 @@ Currently, MRE supports multiple level of dependencies (i.e., DependentPlugins) 
 			"padding_seconds": "1",
 			"end_seq": "[['far','near'],['far','topview']]"
 		},
-		"DependentPlugins": [{
-			"Configuration": {
-				"Minimum-Confidence": "0.6"
+		"DependentPlugins": [
+			{
+				"Configuration": {
+					"Minimum-Confidence": "0.6"
+				},
+				"DependentFor": ["TennisSegmentation"],
+				"Name": "DependentPlugin1"
 			},
-			"DependentFor": ["TennisSegmentation"],
-			"Name": "DependentPlugin1"
-		},{
-			"DependentFor": ["DependentPlugin1"],
-			"Name": "DependentPlugin2"
-		},{
-			"DependentFor": ["DependentPlugin2"],
-			"Name": "DependentPlugin3"
-		},{
-			"DependentFor": ["DependentPlugin2"],
-			"Name": "DependentPlugin4"
-		},{
-			"DependentFor": ["DependentPlugin3", "DependentPlugin4"],
-			"Name": "DependentPlugin5"
-		},{
-			"DependentFor": ["DependentPlugin5"],
-			"Name": "DependentPlugin6"
-		},{
-			"DependentFor": ["DependentPlugin5"],
-			"Name": "DependentPlugin7"
-		}],
+			{
+				"DependentFor": ["DependentPlugin1"],
+				"Name": "DependentPlugin2"
+			},
+			{
+				"DependentFor": ["DependentPlugin2"],
+				"Name": "DependentPlugin3"
+			},
+			{
+				"DependentFor": ["DependentPlugin2"],
+				"Name": "DependentPlugin4"
+			},
+			{
+				"DependentFor": ["DependentPlugin3", "DependentPlugin4"],
+				"Name": "DependentPlugin5"
+			},
+			{
+				"DependentFor": ["DependentPlugin5"],
+				"Name": "DependentPlugin6"
+			},
+			{
+				"DependentFor": ["DependentPlugin5"],
+				"Name": "DependentPlugin7"
+			}
+		],
 		"Name": "TennisSegmentation"
 	}
 }

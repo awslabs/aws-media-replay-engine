@@ -113,9 +113,12 @@ export const SummaryView = (props) => {
                                                     variant={"body1"}>{dependentPlugin.Name}:{dependentPlugin.Version}</Link>
                                             </Grid>
                                             <Grid item sm={2}>
-                                                <Typography>
-                                                    Dependency for: {dependentPlugin.DependentFor.join(", ")}
-                                                </Typography>
+                                                {
+                                                    dependentPlugin.DependentFor &&
+                                                    <Typography>
+                                                        Dependency for: {dependentPlugin.DependentFor.join(", ")}
+                                                    </Typography>
+                                                }
                                             </Grid>
                                         </Grid>
                                     })}

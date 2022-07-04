@@ -160,8 +160,9 @@ def get_clip_metadata(name, program, start, duration, tracknumber, classifier, m
                     single_value_features.append(tmp_feature)
 
                 # Return Labels for Chart rendering
-                if f"{item['PluginName']}-{item['Label']}" not in unique_feature_labels:
-                    unique_feature_labels.append(f"{item['PluginName']}-{item['Label']}")
+                if 'Label' in item:
+                    if f"{item['PluginName']}-{item['Label']}" not in unique_feature_labels:
+                        unique_feature_labels.append(f"{item['PluginName']}-{item['Label']}")
             else:
                 # Only display Featurers in the Range Plugin Table
                 if item['PluginClass'] in ['Featurer', 'Labeler', 'Classifier']:
@@ -287,10 +288,11 @@ def create_feature(clipItem, startTime, tracknumber, clipType):
 def get_feature_clip(clipItem, clipItemStartTime, startTime):
     clip = {}
 
-    # clip[clipItem['Label']] = 1 # We set 1 as a Constant value to be Displayed on the Y Axis as Bar height
-    clip[f"{clipItem['PluginName']}-{clipItem['Label']}"] = 1
-    clip['featureAt'] = max(0, clipItemStartTime - startTime)
-    return clip
+    if 'Label' in clipItem:
+        clip[f"{clipItem['PluginName']}-{clipItem['Label']}"] = 1
+        clip['featureAt'] = max(0, clipItemStartTime - startTime)
+
+    return None if len(clip.keys()) == 0 else clip
 
 
 def create_range_event(clipItem, startTime, tracknumber, clipType):

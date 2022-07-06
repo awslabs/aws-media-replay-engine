@@ -486,17 +486,25 @@ def get_feature_in_segment(program, event, starttime, pluginname, attrname, attr
 
     plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
+    # We dont Expect more than couple of items to be returned by this Query since the Segment Start time is being filtered on
+    # There is no need to Paginate
     response = plugin_result_table.query(
-        IndexName=PROGRAM_EVENT_INDEX,
+        IndexName=PROGRAM_EVENT_PLUGIN_INDEX,
         ScanIndexForward=True,
-        ProjectionExpression="#start",
-        ExpressionAttributeNames={'#start': 'Start'},
-        KeyConditionExpression=Key("ProgramEvent").eq(f"{program}#{event}") & Key('Start').gte(starttime),
-        FilterExpression=Attr('PluginClass').is_in(['Classifier', 'Labeler', 'Featurer']) & Attr(attrname).eq(
-            True if attrvalue == "True" else False) & Attr('End').lte(endtime)
+        KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{pluginname}") & Key('Start').eq(starttime)
     )
 
-    return response
+    # Convert Param into bool since all plugins store the Output Attrib values as bool.
+    attribValueInBool = True if attrvalue == "True" else False
+
+    # Check if the Segment returned has the Output Attribute and the value being asked for
+    if 'Items' in response:
+        for item in response['Items']:
+            if attrname in item:
+                if item[attrname] == attribValueInBool:
+                    return response
+
+    return {}
 
 
 @plugin_api.route('/segments/all/program/{program}/event/{event}/classifier/{classifier}/replay', cors=True, methods=['GET'],

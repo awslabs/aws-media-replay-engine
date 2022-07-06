@@ -89,11 +89,11 @@ class ReplayEngine:
             # Reply Request. If yes, we calculate scores and pick the best segments. If no, we simply push the segments into DDB
             duration_result, duration = self._does_total_duration_of_all_segments_exceed_configured()
             if not duration_result:
-                debuginfo.append(f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
+                print(f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
 
                 self._persist_replay_metadata(self._segment_feature_maping, debuginfo)
                 print(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
-                debuginfo.append(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
+                print(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
             else:
                 
                 # If no Equal Distribution is sought, pick segments based on High Scores, duration
@@ -125,10 +125,10 @@ class ReplayEngine:
                             total_duration += segment_duration
                         else:
                             print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the replay request duration limit {replay_request_duration} secs")
-                            debuginfo.append(f"Ignoring segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {replay_request_duration} secs.")
+                            print(f"Ignoring segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {replay_request_duration} secs.")
 
 
-                    debuginfo.append(f"Duration if all segments considered would be {total_duration_all} secs")
+                    print(f"Duration if all segments considered would be {total_duration_all} secs")
 
                     # Finally Sort the Segments based on the Start time in Asc Order
                     sorted_final_segments = sorted(final_segments, key=lambda x: x['Start'], reverse=False)
@@ -152,25 +152,25 @@ class ReplayEngine:
                     start_of_first_segment_secs = first_segment['OptoStart'][self._audio_track] if self._is_segment_optimized(first_segment) else first_segment['Start']
                     end_of_last_segment_secs = last_segment['OptoEnd'][self._audio_track] if self._is_segment_optimized(last_segment) else last_segment['End']
 
-                    debuginfo.append(f"First Seg starts at {start_of_first_segment_secs} secs")
-                    debuginfo.append(f"Last Seg Ends at {end_of_last_segment_secs} secs")
+                    print(f"First Seg starts at {start_of_first_segment_secs} secs")
+                    print(f"Last Seg Ends at {end_of_last_segment_secs} secs")
 
                     total_segment_duration_in_secs = end_of_last_segment_secs - start_of_first_segment_secs
-                    debuginfo.append(f"total_segment_duration_in_secs = {total_segment_duration_in_secs} secs")
+                    print(f"total_segment_duration_in_secs = {total_segment_duration_in_secs} secs")
 
                     total_segment_duration_in_hrs = (end_of_last_segment_secs - start_of_first_segment_secs) / 3600 # Hours
-                    debuginfo.append(f"total_segment_duration_in_hrs = {total_segment_duration_in_hrs} hrs")
+                    print(f"total_segment_duration_in_hrs = {total_segment_duration_in_hrs} hrs")
 
                     # Find how many Time Groups we need. If we have more than 1 Hr lets divide into multiple groups.
                     if total_segment_duration_in_secs > 3600:
                         no_of_time_groups = (math.ceil(total_segment_duration_in_hrs)* 2) + TIMEGROUP_MULTIPLIER
                     else:
                         no_of_time_groups = TIMEGROUP_MULTIPLIER
-                    debuginfo.append(f"no_of_time_groups = {no_of_time_groups}")
+                    print(f"no_of_time_groups = {no_of_time_groups}")
 
                     # Calculate the TimeGroup time based on the Replay Request Duration
                     timegroup_time_in_secs = replay_request_duration / no_of_time_groups
-                    debuginfo.append(f"timegroup_time_in_secs = {timegroup_time_in_secs}")
+                    print(f"timegroup_time_in_secs = {timegroup_time_in_secs}")
 
                     # This represents the absolute time that should be added up for all TimeGroups
                     time_frame_in_time_group = round(total_segment_duration_in_secs / no_of_time_groups, 2)
@@ -221,9 +221,9 @@ class ReplayEngine:
                                 total_duration += segment_duration
                             else:
                                 print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the timegroup duration limit {timegroup_time_in_secs} secs")
-                                #debuginfo.append(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {timegroup_time_in_secs} secs.")
+                                #print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {timegroup_time_in_secs} secs.")
 
-                        #debuginfo.append(f"Duration if all segments within this timegroup considered would be {total_duration_all} secs")
+                        #print(f"Duration if all segments within this timegroup considered would be {total_duration_all} secs")
 
                         # Finally Sort the Segments based on the Start time in Asc Order
                         sorted_final_segments = sorted(final_segments, key=lambda x: x['Start'], reverse=False)
@@ -483,13 +483,10 @@ class ReplayEngine:
         startTime = ''
         endTime = ''
 
-        # If not Optimizers have been Configred use the Original Start/End time
-        if self._is_segment_optimized(segment):
-            startTime = Decimal(str(segment['OptoStart'][self._audio_track]))
-            endTime = Decimal(str(segment['OptoEnd'][self._audio_track]))
-        else:
-            startTime = Decimal(str(segment['Start']))
-            endTime = Decimal(str(segment['End']))
+        # Use the Segment Start time to find if a Feature exists in it or not. We dont care of the segment is optimized or not 
+        # as we care about a feature found in the segment
+        startTime = Decimal(str(segment['Start']))
+        endTime = Decimal(str(segment['End']))
 
         return self._dataplane._is_features_found_in_segment(self._program, self._event, startTime, feature['PluginName'], feature['AttribName'], feature['AttribValue'], endTime)
 
@@ -529,6 +526,8 @@ class ReplayEngine:
                         features_in_segment.append(feature)
             else:
                 if self._is_features_found_in_segment(segment, feature):
+                        print('=================_is_features_found_in_segment')
+                        print(feature)
                         features_in_segment.append(feature)
 
         # Only if we have features, map the segment with the features found

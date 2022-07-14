@@ -54,7 +54,15 @@ class EventDataExporter:
         print(json.dumps(all_plugin_output_attribute_names))
         print(json.dumps(plugins_in_profile))
 
-        return self._dataplane.get_all_event_segments_for_export(event_name, program_name, classifier, list(all_plugin_output_attribute_names), list(plugins_in_profile))
+        segments = []
+        temp_segments_dict = self._dataplane.get_all_event_segments_for_export(event_name, program_name, classifier, list(all_plugin_output_attribute_names), list(plugins_in_profile))
+        segments = temp_segments_dict['Segments']
+
+        while temp_segments_dict['LastStartValue']:
+            temp_segments_dict = self._dataplane.get_all_event_segments_for_export(event_name, program_name, classifier, list(all_plugin_output_attribute_names), list(plugins_in_profile), temp_segments_dict['LastStartValue'])
+            segments.extend(temp_segments_dict['Segments'])
+
+        return segments
 
     def _get_all_plugin_info(self):
         '''

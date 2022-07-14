@@ -1052,7 +1052,7 @@ class DataPlane:
 
         return api_response.json()
 
-    def get_all_event_segments_for_export(self, event, program, classifier, output_attributes, plugins_in_profile):
+    def get_all_event_segments_for_export(self, event, program, classifier, output_attributes, plugins_in_profile, last_start_time=None, limit=None):
         """
         Returns the Segment Metadata based on the segments found during Segmentation/Optimization process.
 
@@ -1072,6 +1072,11 @@ class DataPlane:
 	        "OutputAttributes": output_attributes,
             "PluginsInProfile": plugins_in_profile
         }
+        if last_start_time:
+             body["LastStartValue"] = last_start_time
+         
+        if limit:
+            body["Limit"] = limit
 
         api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
         

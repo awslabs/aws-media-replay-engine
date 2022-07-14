@@ -488,6 +488,10 @@ class ReplayEngine:
         startTime = Decimal(str(segment['Start']))
         endTime = Decimal(str(segment['End']))
 
+        # If StartTime and EndTime of a Segment is the same, dont bother
+        if startTime == endTime:
+            return False
+
         return self._dataplane._is_features_found_in_segment(self._program, self._event, startTime, feature['PluginName'], feature['AttribName'], feature['AttribValue'], endTime)
 
     def _record_segment_and_feature(self, segment, features):

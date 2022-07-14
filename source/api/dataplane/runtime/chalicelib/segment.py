@@ -418,7 +418,7 @@ def get_clip_preview_feedback(program, event, classifier, start_time, audio_trac
 def get_all_event_segments():
     """
     Returns the Segment Metadata based on the segments found during Segmentation/Optimization process.
-    
+
     Raises:
         404 - NotFoundError
         500 - ChaliceViewError
@@ -429,6 +429,10 @@ def get_all_event_segments():
     classifier = input['Classifier']
     output_attributes = input['OutputAttributes']  # List
     plugins_in_profile = input['PluginsInProfile']  # List
+    limit = int(input["Limit"]) if 'Limit' in input else 200
+    last_start_value = input["LastStartValue"] if 'LastStartValue' in input else None
+
+    
     print(f"output_attributes ...... {output_attributes}")
     print(f"plugins_in_profile ...... {plugins_in_profile}")
 
@@ -436,24 +440,32 @@ def get_all_event_segments():
     try:
         # Get Clip Feedback for every segment Clip
         clip_preview_table = ddb_resource.Table(CLIP_PREVIEW_FEEDBACK_TABLE_NAME)
+        plugin_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
         # Get Event Segment Details
         # From the PluginResult Table, get the Clips Info
-        plugin_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
-        response = plugin_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{name}#{classifier}"),
-            ScanIndexForward=True
-        )
+        if not last_start_value:
+            
+            query = {
+                'KeyConditionExpression': Key("PK").eq(f"{program}#{name}#{classifier}"),
+                'ScanIndexForward': True,
+                'Limit': limit
+            }
+        else:
+             query = {
+                'KeyConditionExpression': Key("PK").eq(f"{program}#{name}#{classifier}") & Key('Start').gt(last_start_value),
+                'ScanIndexForward': True,
+                'Limit': limit
+            }   
 
-        plugin_responses = response['Items']
 
-        while "LastEvaluatedKey" in response:
-            response = plugin_table.query(
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-                KeyConditionExpression=Key("PK").eq(f"{program}#{name}#{classifier}"),
-                ScanIndexForward=True
-            )
-            plugin_responses.extend(response["Items"])
+        response = plugin_table.query(**query)
+        plugin_responses = response['Items'] if 'Items' in response else None
+        if plugin_responses:
+            last_start_value = plugin_responses[len(plugin_responses) - 1]['Start']
+        else:
+            last_start_value = None
+
 
         all_segments = []
 
@@ -481,9 +493,7 @@ def get_all_event_segments():
             if 'OptimizedThumbnailLocation' in res:
                 segment_info['OptimizedThumbnailLocation'] = res['OptimizedThumbnailLocation']
 
-            for output_attrib in output_attributes:
-                if isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], output_attrib):
-                    segment_output_attributes.append(output_attrib)
+            segment_output_attributes = isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], output_attributes)
 
             if len(segment_output_attributes) > 0:
                 segment_info['FeaturesFound'] = segment_output_attributes
@@ -523,11 +533,16 @@ def get_all_event_segments():
         raise ChaliceViewError(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
 
     else:
-        return replace_decimals(all_segments)
+        return {
+            "Segments": replace_decimals(all_segments),
+            "LastStartValue": last_start_value
+        }
 
 
 
-def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, output_attribute):
+def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, output_attributes):
+
+    attributes_in_segment = []
 
     # For all Plugins in the profile, based on the Segment Start time +-1 
     # check if a Output Attribute exists with value True
@@ -556,10 +571,11 @@ def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, outp
 
         # Most cases this would just be One Segment matching the Start time
         for segment_item in segment_info:
-            if output_attribute in segment_item:
-                # If Attribute value is True, we have a Match
-                if segment_item[output_attribute]:
-                    return True
+            for output_attribute in output_attributes:
+                if output_attribute in segment_item:
+                    # If Attribute value is True, we have a Match
+                    if segment_item[output_attribute]:
+                        attributes_in_segment.append(output_attribute)
 
     
-    return False
+    return attributes_in_segment

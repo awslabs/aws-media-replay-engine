@@ -264,6 +264,19 @@
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="list-s3-buckets">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/s3/buckets</span><a class="headerlink" href="#list-s3-buckets" title="Permalink to this heading">¶</a></h2>
+<p>Get all S3 Buckets in deployed region</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>A list of S3 Buckets in region</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="generate-uuid">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/uuid</span><a class="headerlink" href="#generate-uuid" title="Permalink to this heading">¶</a></h2>
 <p>Generate a random UUID string using the Python ‘uuid’ module</p>
@@ -313,6 +326,7 @@
 <li><a class="reference internal" href="#list-medialive-channels"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/medialive/channels</span></a></li>
 <li><a class="reference internal" href="#list-mediatailor-channels"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/mediatailor/channels</span></a></li>
 <li><a class="reference internal" href="#list-mediatailor-playback-configurations"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/mediatailor/playbackconfigurations</span></a></li>
+<li><a class="reference internal" href="#list-s3-buckets"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/s3/buckets</span></a></li>
 <li><a class="reference internal" href="#generate-uuid"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/uuid</span></a></li>
 <li><a class="reference internal" href="#version"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/system/version</span></a></li>
 </ul>

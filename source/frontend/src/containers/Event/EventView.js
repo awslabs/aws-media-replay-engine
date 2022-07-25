@@ -53,6 +53,9 @@ const useStyles = makeStyles((theme) => ({
         zIndex: theme.zIndex.drawer + 1,
         color: '#fff',
     },
+    contentWrap: {
+        wordBreak: "break-word"
+    }
 }));
 
 export const EventView = () => {
@@ -208,6 +211,10 @@ export const EventView = () => {
             }
         });
     };
+
+    const getBucketUrl = (eventData) => {
+        return `https://s3.console.aws.amazon.com/s3/buckets/${eventData.SourceVideoBucket}?prefix=${eventData.Program}/${eventData.Name}/${eventData.Profile}/`
+    }
 
     const getTableRows = (rows) => {
         return (
@@ -368,6 +375,14 @@ export const EventView = () => {
                                             <Grid item>
                                                 <Typography variant="subtitle2">Channel:</Typography>
                                                 <Typography>{eventData.Channel}</Typography>
+                                            </Grid>
+                                            }
+                                            {eventData.SourceVideoBucket &&
+                                            <Grid item>
+                                                <Typography variant="subtitle2">S3 Source Upload Path:</Typography>
+                                                <Link className={classes.contentWrap} href={getBucketUrl(eventData)} target="_blank">
+                                                {eventData.SourceVideoBucket}/{eventData.Program}/{eventData.Name}/{eventData.Profile}
+                                                </Link>
                                             </Grid>
                                             }
                                             {eventData.SourceVideoUrl &&

@@ -12,7 +12,8 @@ import {
     FormLabel,
     Paper, Radio,
     RadioGroup,
-    TextField, Typography
+    TextField, Typography,
+    Chip
 } from "@material-ui/core";
 
 import Grid from "@material-ui/core/Grid";
@@ -25,6 +26,7 @@ import Box from "@material-ui/core/Box";
 import Button from "@material-ui/core/Button";
 import {FormHandler} from "./FormHandler";
 import {useHistory} from "react-router-dom";
+import InfoIcon from '@material-ui/icons/Info';
 import _ from "lodash";
 import DateTimePicker from 'react-datetime-picker/dist/entry.nostyle'
 import '../../common/DateTimePicker.css';
@@ -81,6 +83,10 @@ export const FormRenderer = (props) => {
         if (onChangeType === "Class Change") {
             updateTwoStates(e, {target: {name: "ModelEndpoints", value: []}})
         }
+        else{
+            onChangeType(e);
+            handleInputValue(e,onChangeType);
+        }
     };
 
     const {
@@ -102,6 +108,16 @@ export const FormRenderer = (props) => {
                                               handleInputValue={handleNestedInputValue}
                                               values={values[componentParameters.name]}
             />
+        else if (componentName === "ClickableInfoChip") {
+            return <Chip color="primary" icon={<InfoIcon />} 
+            label={componentParameters.label(values)}
+            variant={componentParameters.variant}
+            component="a"
+            target="_blank"
+            href={componentParameters.link(values)} 
+            clickable 
+            />;
+        }
     };
 
     return (

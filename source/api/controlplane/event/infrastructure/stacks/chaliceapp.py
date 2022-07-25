@@ -6,6 +6,7 @@ from aws_cdk import (
     CfnOutput,
     Fn,
     Stack,
+    aws_lambda as aws_lambda,
     aws_iam as iam
 )
 from chalice.cdk import Chalice
@@ -172,6 +173,18 @@ class ChaliceApp(Stack):
             )
         )
 
+        self.chalice_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:*BucketNotification*"
+                ],
+                resources=[
+                    "*"
+                ]
+            )
+        )
+
         self.chalice = Chalice(
             self,
             "ChaliceApp",
@@ -186,7 +199,8 @@ class ChaliceApp(Stack):
                     "CURRENT_EVENTS_TABLE_NAME": Fn.import_value("mre-current-event-table-name"),
                     "PROFILE_TABLE_NAME": Fn.import_value("mre-profile-table-name"),
                     "MEDIASOURCE_S3_BUCKET": Fn.import_value("mre-media-source-bucket-name"),
-                    "SQS_QUEUE_URL": Fn.import_value("mre-event-deletion-queue-name")
+                    "SQS_QUEUE_URL": Fn.import_value("mre-event-deletion-queue-name"),
+                    "TRIGGER_LAMBDA_ARN": Fn.import_value("mre-trigger-workflow-lambda-arn")
                 },
                 "tags": {
                     "Project": "MRE"
@@ -195,7 +209,6 @@ class ChaliceApp(Stack):
                 "iam_role_arn": self.chalice_role.role_arn
             }
         )
-
 
         CfnOutput(self, "mre-event-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Event API Url", export_name="mre-event-api-url" )
         

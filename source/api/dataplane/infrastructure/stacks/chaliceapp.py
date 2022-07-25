@@ -377,7 +377,8 @@ class ChaliceApp(Stack):
                     "Project": "MRE"
                 },
                 "manage_iam_role": False,
-                "iam_role_arn": self.chalice_role.role_arn
+                "iam_role_arn": self.chalice_role.role_arn,
+                "lambda_memory_size": 512
             }
         )
 

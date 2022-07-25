@@ -65,7 +65,8 @@ def create_event():
             "ContentGroup": string,
             "Start": timestamp,
             "DurationMinutes": integer,
-            "Archive": boolean
+            "Archive": boolean,
+            "SourceVideoBucket": string
         }
 
     Parameters:
@@ -84,6 +85,7 @@ def create_event():
         - Start: The Actual start DateTime of the event
         - DurationMinutes: The Total Event Duration
         - Archive: Backup the Source Video if true.
+        - SourceVideoBucket: S3 Bucket for VOD chunks
 
     Returns:
 
@@ -121,6 +123,7 @@ def create_event():
 
         event_table = ddb_resource.Table(EVENT_TABLE_NAME)
 
+        # MediaLive
         if "Channel" in event and event["Channel"]:
             # Check if the event start time is in the past
             if cur_utc_time >= start_utc_time:
@@ -132,6 +135,7 @@ def create_event():
             # Add or Update the CW Alarm for the MediaLive channel
             helpers.create_cloudwatch_alarm_for_channel(event["Channel"])
 
+        # Harvester
         if "SourceVideoAuth" in event:
             response = sm_client.create_secret(
                 Name=f"/MRE/Event/{event['Id']}/SourceVideoAuth",
@@ -154,6 +158,10 @@ def create_event():
 
             event["SourceVideoAuthSecretARN"] = response["ARN"]
             event.pop("SourceVideoAuth", None)
+
+
+        if "SourceVideoBucket" in event and event["SourceVideoBucket"]:
+            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"])
 
         print(f"Creating the event '{name}' in program '{program}'")
 
@@ -245,6 +253,7 @@ def list_events(path_params):
                     "SourceVideoUrl": string,
                     "SourceVideoAuth": object,
                     "SourceVideoMetadata": object,
+                    "SourceVideoBucket": string,
                     "BootstrapTimeInMinutes": integer,
                     "Profile": string,
                     "ContentGroup": string,
@@ -370,6 +379,7 @@ def list_events_by_content_group(content_group):
                         "SourceVideoUrl": string,
                         "SourceVideoAuth": object,
                         "SourceVideoMetadata": object,
+                        "SourceVideoBucket": string,
                         "BootstrapTimeInMinutes": integer,
                         "Profile": string,
                         "ContentGroup": string,
@@ -420,6 +430,7 @@ def list_events_all():
                         "SourceVideoUrl": string,
                         "SourceVideoAuth": object,
                         "SourceVideoMetadata": object,
+                        "SourceVideoBucket": string,
                         "BootstrapTimeInMinutes": integer,
                         "Profile": string,
                         "ContentGroup": string,
@@ -466,6 +477,7 @@ def get_event(name, program):
                 "SourceVideoUrl": string,
                 "SourceVideoAuth": object,
                 "SourceVideoMetadata": object,
+                "SourceVideoBucket": string,
                 "BootstrapTimeInMinutes": integer,
                 "Profile": string,
                 "ContentGroup": string,
@@ -530,6 +542,7 @@ def update_event(name, program):
             "SourceVideoUrl": string,
             "SourceVideoAuth": object,
             "SourceVideoMetadata": object,
+            "SourceVideoBucket": string,
             "BootstrapTimeInMinutes": integer,
             "Profile": string,
             "ContentGroup": string,

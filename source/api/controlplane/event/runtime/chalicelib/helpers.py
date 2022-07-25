@@ -10,11 +10,15 @@ from chalice import BadRequestError, NotFoundError
 PROFILE_TABLE_NAME = os.environ['PROFILE_TABLE_NAME']
 MEDIASOURCE_S3_BUCKET = os.environ['MEDIASOURCE_S3_BUCKET']
 SQS_QUEUE_URL = os.environ['SQS_QUEUE_URL']
+TRIGGER_LAMBDA_ARN = os.environ['TRIGGER_LAMBDA_ARN']
+
+NOTIFICATION_ID = "mre-workflow-trigger"
 
 medialive_client = boto3.client("medialive")
 ddb_resource = boto3.resource("dynamodb")
 cw_client = boto3.client("cloudwatch")
 sqs_client = boto3.client("sqs")
+s3_client = boto3.client("s3")
 
 def add_or_update_medialive_output_group(name, program, profile, channel_id):
     print(
@@ -415,3 +419,39 @@ def notify_event_deletion_queue(name, program, profile):
     except Exception as e:
         print(
             f"Unable to send a message to the SQS queue '{SQS_QUEUE_URL}' to notify the deletion of event '{name}' in program '{program}': {str(e)}")
+
+
+def s3_bucket_trigger_exists(bucket_name: str) -> bool:
+    try:
+        response = s3_client.get_bucket_notification_configuration(
+            Bucket=bucket_name
+        )
+        if response and 'LambdaFunctionConfigurations' in response:
+            for trigger in response['LambdaFunctionConfigurations']:
+                if trigger['LambdaFunctionArn'] == TRIGGER_LAMBDA_ARN:
+                    return True
+        return False
+    except Exception as e:
+        print(e)
+        raise Exception(f"Unable to check S3 triggers on {bucket_name}'")
+
+
+def create_s3_bucket_trigger(bucket_name: str) -> None:
+    try:
+        # Make sure bucket trigger for Lambda function doesn't already exist
+        if not s3_bucket_trigger_exists(bucket_name):
+            response = s3_client.put_bucket_notification_configuration(
+                Bucket=bucket_name,
+                NotificationConfiguration={
+                    "LambdaFunctionConfigurations": [
+                        {
+                            "Id": NOTIFICATION_ID,
+                            "LambdaFunctionArn": TRIGGER_LAMBDA_ARN,
+                            "Events": ["s3:ObjectCreated:*"]
+                        }
+                    ]
+                })
+            print(response)
+    except Exception as e:
+        print(e)
+        raise Exception(f"Unable to create Lambda trigger on '{bucket_name}'. Refer to README to ensure proper permissions.")

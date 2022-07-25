@@ -83,6 +83,12 @@
             "$id": "#/properties/Archive",
             "type": "boolean",
             "title": "The Archive Schema"
+        },
+        "SourceVideoBucket": {
+            "$id": "#/properties/SourceVideoBucket",
+            "type": "string",
+            "title": "The SourceVideoBucket schema",
+            "pattern": "^([a-z]+)([a-z0-9-]*)$"
         }
     },
     "additionalProperties": true,
@@ -95,6 +101,11 @@
         {
             "required": [
                 "SourceVideoUrl"
+            ]
+        },
+        {
+            "required": [
+                "SourceVideoBucket"
             ]
         }
     ],

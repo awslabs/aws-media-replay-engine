@@ -308,6 +308,95 @@ To delete the S3 bucket using AWS CLI, run the following command:
 aws s3 rb s3://<bucket-name> --force
 ```
 
+# Bucket Policy (BYOB)
+When utilizing a bucket where you are not the owner, only the bucket owner can configure notifications on a bucket. However, bucket owners can use a bucket policy to [grant permission to other users to set this configuration with s3:PutBucketNotification permission.](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketNotificationConfiguration.html)
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "TriggerPermission",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "lambda.amazonaws.com"
+            },
+            "Action": "s3:PutBucketNotification",
+            "Resource": "arn:aws:s3:::{BUCKET_NAME}",
+            "Condition": {
+                "StringEquals": {
+                    "aws:SourceAccount": "{ACCOUNT_NUMBER}"
+                }
+            }
+        }
+    ]
+}
+```
+If you have a restrictive bucket policy that would explicitly prevent bucket access when providing your own bucket to MRE workflow- add the following policy to your bucket to allow access
+```
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "MediaConvertRoleGet",
+			"Principal": {
+				"AWS": "arn:aws:iam::{ACCOUNT_NUMBER}:role/{MREMediaConvertIamRole from aws-mre-shared-resources stack}"
+			},
+			"Effect": "Allow",
+			"Action": [
+				"s3:GetObject",
+				"s3:ListBucket"
+			],
+			"Resource": [
+				"arn:aws:s3:::{BUCKET_NAME}",
+				"arn:aws:s3:::{BUCKET_NAME}/*"
+			]
+		},
+		{
+			"Sid": "ProbeVideoRoleGet",
+			"Principal": {
+				"AWS": "arn:aws:iam::{ACCOUNT_NUMBER}:role/{ProbeVideoLambdaRole from aws-mre-controlplane-profile stack}"
+			},
+			"Effect": "Allow",
+			"Action": [
+				"s3:GetObject",
+				"s3:ListBucket"
+			],
+			"Resource": [
+				"arn:aws:s3:::{BUCKET_NAME}",
+				"arn:aws:s3:::{BUCKET_NAME}/*"
+			]
+		},
+		{
+			"Sid": "AllowS3Trigger",
+			"Principal": {
+				"AWS": "arn:aws:iam::{ACCOUNT_NUMBER}:role/{ChaliceRole from aws-mre-controlplane-event stack}"
+			},
+			"Effect": "Allow",
+			"Action": [
+				"s3:*BucketNotification*",
+			],
+			"Resource": [
+				"arn:aws:s3:::{BUCKET_NAME}"
+			]
+		},
+        {
+			"Sid": "AllowS3Selection",
+			"Principal": {
+				"AWS": "arn:aws:iam::{ACCOUNT_NUMBER}:role/{ChaliceRole from aws-mre-controlplane-system stack}"
+			},
+			"Effect": "Allow",
+			"Action": [
+				"s3:List*Bucket*"
+			],
+			"Resource": [
+				"arn:aws:s3:::{BUCKET_NAME}"
+			]
+		}
+	]
+}
+```
+
+
 
 # Contributing
 

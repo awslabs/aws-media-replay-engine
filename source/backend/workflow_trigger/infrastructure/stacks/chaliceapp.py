@@ -2,6 +2,8 @@ import os
 import sys
 
 from aws_cdk import (
+    CfnOutput,
+    Aws,
     Stack,
     Duration,
     aws_iam as iam,
@@ -106,5 +108,20 @@ class ChaliceApp(Stack):
             s3n.LambdaDestination(self.trigger_mre_workflow_lambda),
             s3.NotificationKeyFilter(suffix=".ts")
         )
+
+        # BYOB permissions to allow S3 buckets to invoke SF
+        byob_permission = _lambda.CfnPermission(
+            self,
+            "s3_invocation",
+            action="lambda:InvokeFunction",
+            function_name=self.trigger_mre_workflow_lambda.function_name,
+            source_arn=f"arn:aws:s3:::*",
+            source_account=Aws.ACCOUNT_ID,
+            principal="s3.amazonaws.com",
+        )
+
+        CfnOutput(self, "mre-trigger-workflow-lambda-arn", value=self.trigger_mre_workflow_lambda.function_arn,
+                      description="ARN of the Lambda function to invoke with S3 Trigger",
+                      export_name="mre-trigger-workflow-lambda-arn")
 
         ### END: TriggerMREWorkflow LAMBDA ###

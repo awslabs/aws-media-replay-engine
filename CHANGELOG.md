@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.2.0] - 2022-07-25
+
+- Feature: Bring Your Own Bucket (BYOB) as the source for MRE Events. With this feature, you can stream video chunks to an existing S3 bucket in your AWS account and have them automatically processed by the MRE workflow provided an associated Event exists in MRE.
+- Fixed:
+    - Increased the Dataplane API Handler Lambda memory limit to 512 MB to avoid occasional processing timeouts and retries.
+    - Profile SummaryView page breaks if a profile is created in MRE versions prior to v2.1.0.
+    - Handle segments that don't have the optional Label attribute.
+    - Timeout issues during Event and Replay metadata export.
+- Improvements to the Replay engine query performance in order to avoid DDB throttling.
+
 ## [2.1.0] - 2022-06-15
 
 - Feature: Plugins can now have multiple levels of dependency (i.e., DependentPlugins) compared to just one level in the prior MRE versions. These multiple level plugin dependencies are handled during profile creation.

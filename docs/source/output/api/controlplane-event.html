@@ -178,7 +178,8 @@
     <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
     <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
-    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -199,6 +200,7 @@
 <li><p>Start: The Actual start DateTime of the event</p></li>
 <li><p>DurationMinutes: The Total Event Duration</p></li>
 <li><p>Archive: Backup the Source Video if true.</p></li>
+<li><p>SourceVideoBucket: S3 Bucket for VOD chunks</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>
@@ -230,6 +232,7 @@
             <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
             <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
             <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
@@ -295,6 +298,7 @@
             <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
             <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
             <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
@@ -511,6 +515,7 @@
     <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
     <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
     <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
@@ -543,6 +548,7 @@
     <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
     <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
     <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>

@@ -24,9 +24,11 @@ authorizer = IAMAuthorizer()
 ddb_resource = boto3.resource("dynamodb")
 medialive_client = boto3.client("medialive")
 mediatailor_client = boto3.client("mediatailor")
+s3_client = boto3.client("s3")
 
 FRAMEWORK_VERSION = os.environ['FRAMEWORK_VERSION']
 SYSTEM_TABLE_NAME = os.environ['SYSTEM_TABLE_NAME']
+REGION = os.getenv("AWS_REGION")
 
 API_SCHEMA = load_api_schema()
 
@@ -329,3 +331,32 @@ def list_system_configurations():
 
     else:
         return replace_decimals(configs)
+
+@app.route('/system/s3/buckets', cors=True, methods=['GET'], authorizer=authorizer)
+def list_s3_buckets():
+    """
+    Get all S3 Buckets in region
+
+    Returns:
+
+        A list of S3 Buckets in deployed region
+
+    Raises:
+        404 - NotFoundError
+        500 - ChaliceViewError
+    """
+    try:
+        print("Listing all the S3 buckets")
+
+        response = s3_client.list_buckets()
+        buckets = response["Buckets"]
+        return [
+            bucket["Name"]
+            # Only get the buckets from your region
+            # null location constraint means its us-east-1
+            for bucket in buckets if s3_client.get_bucket_location(Bucket=bucket["Name"]).get("LocationConstraint","us-east-1") == REGION
+        ]
+
+    except Exception as e:
+        print(f"Unable to list all the S3 buckets: {str(e)}")
+        raise ChaliceViewError(f"Unable to list all the S3 buckets: {str(e)}")

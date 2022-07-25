@@ -13,7 +13,7 @@ export const APIHandler = () => {
     const {errorMessage, setErrorMessage} = useSessionContext(false);
 
 
-    const query = async (type, api, url, options) => {
+    const query = async (type, api, url, options, queryOptions = {}) => {
         let retVal;
 
         if(_.get(options, 'disableLoader') !== true) {
@@ -29,6 +29,16 @@ export const APIHandler = () => {
                     break;
                 case "get":
                     response = await API.get(api, url, {queryStringParameters: options} || undefined);
+                    break;
+                case "get_cache":
+                    let cache_key = `${api}${url}`;
+                    let cache_response = API.Cache.getItem(cache_key);
+                    if (cache_response) {
+                        response = cache_response;
+                        break;
+                    }
+                    response = await API.get(api, url, {queryStringParameters: options} || undefined);
+                    API.Cache.setItem(cache_key, response, {expires: Date.now()+queryOptions?.ttl || 5000}) // Default cache is 5 seconds
                     break;
                 case "get_blob":
                         response = await API.get(api, url,

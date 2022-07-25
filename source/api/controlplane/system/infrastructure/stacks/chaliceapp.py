@@ -107,6 +107,20 @@ class ChaliceApp(Stack):
             )
         )
 
+        # Chalice IAM Role: S3 permissions
+        self.chalice_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:List*Bucket*",
+                    "s3:GetBucketLocation"
+                ],
+                resources=[
+                    "*"
+                ]
+            )
+        )
+
         self.chalice = Chalice(
             self,
             "ChaliceApp",

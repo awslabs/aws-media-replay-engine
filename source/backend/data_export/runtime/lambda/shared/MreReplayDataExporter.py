@@ -114,8 +114,8 @@ class ReplayDataExporter:
                         print(f"Inside = {segment['OptoStart'][self.__audioTrack]}")
                         if replay_result['OptoStart'] == segment['OptoStart'][self.__audioTrack]:
                             segment['FeaturesFound'] = replay_result['Features']
-                        if 'OutputAttributesFound' in segment:
-                            segment.pop('OutputAttributesFound')
+                            if 'OutputAttributesFound' in segment:
+                                segment.pop('OutputAttributesFound')
                         replay_segments.append(segment)
                 else:
                     if replay_result['Start'] == segment['Start']:

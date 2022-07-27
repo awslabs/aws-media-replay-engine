@@ -210,6 +210,7 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
                     method=api_method,
                     url=f"{dest_url}{uri_params}",
                     verify=True,
+                    params=app.current_request.query_params,
                     auth=get_iam_auth()
                 )
 

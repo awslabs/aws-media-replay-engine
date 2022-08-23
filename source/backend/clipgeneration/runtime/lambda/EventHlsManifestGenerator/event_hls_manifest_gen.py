@@ -90,15 +90,18 @@ def create_hls_manifest(event, context):
         keyPrefix = event['ClipGen']['Payload']['HLSOutputKeyPrefix']
         manifest_content = create_final_manifest(bucket, keyPrefix)
 
-        
+        print(f'manifest_content={manifest_content}')
+
         # Create final merged maniest file
         if len(manifest_content) > 0:
+            print('manifest_content created')
             create_manifest_file(manifest_content)
+            print('create_manifest_file created')
 
             event_name = event['Event']['Name']
             program_name = event['Event']['Program']
 
-            track = "0" if 'TrackNumber' not in event else str(event['TrackNumber'])
+            track = "1" if 'TrackNumber' not in event else str(event['TrackNumber'])
 
             # If no tracknumber found, we will only have one HlsMasterManifest - For Original Segments
             #if track == "0":
@@ -237,7 +240,7 @@ def read_first_manifest(firstManifest, bucket):
     s3 = boto3.resource('s3')
     first_manifest_content = s3.Object(bucket, firstManifest).get()['Body'].read().decode('utf-8').splitlines()
 
-    print(first_manifest_content)
+    print(f'first_manifest_content={first_manifest_content}')
 
     i = 1
     for line in first_manifest_content:

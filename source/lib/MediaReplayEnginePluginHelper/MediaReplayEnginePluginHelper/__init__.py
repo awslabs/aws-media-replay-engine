@@ -93,6 +93,9 @@ class OutputHelper:
         self.program = event["Event"]["Program"]
         self.event = event["Event"]["Name"]
         self.event_start = event["Event"]["Start"] if "Start" in event["Event"] else None
+        self.timecode_source = event["Event"]["TimecodeSource"] if "TimecodeSource" in event["Event"] else "NOT_EMBEDDED"
+        self.generate_orig_clips = event["Event"]["GenerateOrigClips"] if "GenerateOrigClips" in event["Event"] else None
+        self.generate_opto_clips = event["Event"]["GenerateOptoClips"] if "GenerateOptoClips" in event["Event"] else None
         self.audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
         self.audio_track = event["TrackNumber"] if "TrackNumber" in event else None
 
@@ -174,6 +177,15 @@ class OutputHelper:
         if self.event_start:
             new_event["Start"] = self.event_start
 
+        if self.timecode_source:
+            new_event["TimecodeSource"] = self.timecode_source
+
+        if self.generate_orig_clips is not None:
+            new_event["GenerateOrigClips"] = self.generate_orig_clips
+
+        if self.generate_opto_clips is not None:
+            new_event["GenerateOptoClips"] = self.generate_opto_clips
+        
         output = {
             "Event": new_event,
             "Input": {
@@ -209,6 +221,9 @@ class PluginHelper:
         self.program = event["Event"]["Program"]
         self.event = event["Event"]["Name"]
         self.event_start = event["Event"]["Start"] if "Start" in event["Event"] else None
+        self.timecode_source = event["Event"]["TimecodeSource"] if "TimecodeSource" in event["Event"] else "NOT_EMBEDDED"
+        self.generate_orig_clips = event["Event"]["GenerateOrigClips"] if "GenerateOrigClips" in event["Event"] else None
+        self.generate_opto_clips = event["Event"]["GenerateOptoClips"] if "GenerateOptoClips" in event["Event"] else None
         self.audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
 
         self.execution_id = event["Input"]["ExecutionId"]
@@ -363,6 +378,9 @@ class DataPlane:
             self.program = event["Event"]["Program"]
             self.event = event["Event"]["Name"]
             self.event_start = event["Event"]["Start"] if "Start" in event["Event"] else None
+            self.timecode_source = event["Event"]["TimecodeSource"] if "TimecodeSource" in event["Event"] else "NOT_EMBEDDED"
+            self.generate_orig_clips = event["Event"]["GenerateOrigClips"] if "GenerateOrigClips" in event["Event"] else None
+            self.generate_opto_clips = event["Event"]["GenerateOptoClips"] if "GenerateOptoClips" in event["Event"] else None
             self.audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
             
         self.audio_track = event["TrackNumber"] if "TrackNumber" in event else None
@@ -985,10 +1003,10 @@ class DataPlane:
 
         api_response = self.invoke_dataplane_api(path, method)
 
-        if 'Items' in api_response.json():
-            return True if len(api_response.json()['Items']) > 0 else False
+        #if 'Items' in api_response.json():
+        #    return True if len(api_response.json()['Items']) > 0 else False
 
-        return False
+        return False if not api_response.json() else True
 
 
     def get_all_segments_for_event(self, program, event, classifier):

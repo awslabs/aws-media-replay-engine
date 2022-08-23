@@ -141,7 +141,8 @@ def add_replay():
             "State": "REPLAY_CREATED",
             "Event": {
                 "Name": model['Event'],
-                "Program": model['Program']
+                "Program": model['Program'],
+                "ReplayId": model["ReplayId"]
             }
         }
 
@@ -372,7 +373,7 @@ def get_replay_by_program_event_id(program, event, id):
     if "Item" not in response:
         raise NotFoundError(f"Replay settings not found")
 
-    return response['Item']
+    return replace_decimals(response['Item'])
 
 
 ########################## Replay Changes Starts ######################
@@ -412,7 +413,7 @@ def update_replay_request_status(program, event, id, replaystatus):
            methods=['GET'], authorizer=authorizer)
 def get_all_replay_requests_for_completed_event(event, program, audioTrack):
     """
-    Returns all Complete Replay Requests for the Program/Event and Audio Track
+    Returns Queued Replay Requests for the Program/Event and Audio Track only if the Event is Complete
 
     Returns:
 
@@ -432,7 +433,7 @@ def get_all_replay_requests_for_completed_event(event, program, audioTrack):
         replay_request_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
         response = replay_request_table.query(
             KeyConditionExpression=Key("PK").eq(f"{program}#{eventname}"),
-            FilterExpression=Attr('Status').ne('Complete') & Attr('AudioTrack').eq(int(audioTrack)),
+            FilterExpression=Attr('Status').eq('Queued') & Attr('AudioTrack').eq(int(audioTrack)),
             ConsistentRead=True
         )
 
@@ -530,7 +531,7 @@ def get_all_replay_requests_for_event_optosegment_end(event, program, audioTrack
 
     response = replay_request_table.query(
         KeyConditionExpression=Key("PK").eq(f"{program}#{eventname}"),
-        FilterExpression=Attr('Status').ne('Complete') & Attr('AudioTrack').eq(int(audioTrack)),
+        FilterExpression=Attr('Status').ne('Complete') & Attr('Status').ne('Error') & Attr('AudioTrack').eq(int(audioTrack)),
         ConsistentRead=True
     )
 
@@ -561,7 +562,7 @@ def get_all_replays_for_segment_end(event, program):
 
     response = replay_request_table.query(
         KeyConditionExpression=Key("PK").eq(f"{program}#{eventname}"),
-        FilterExpression=Attr('Status').ne('Complete'),
+        FilterExpression=Attr('Status').ne('Complete') & Attr('Status').ne('Error'),
         ConsistentRead=True
     )
 

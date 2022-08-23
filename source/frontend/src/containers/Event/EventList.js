@@ -29,7 +29,7 @@ export const EventList = () => {
 
         setQueryParams({
             limit: 25,
-            ProjectionExpression: "Name, Start, Channel, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id, BootstrapTimeInMinutes, AudioTracks, DurationMinutes",
+            ProjectionExpression: "Name, Start, Channel, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id, BootstrapTimeInMinutes, AudioTracks, DurationMinutes, GenerateOptoClips, GenerateOrigClips, TimecodeSource",
             fromFilter: moment(pastWeek.toDate()).format("YYYY-MM-DDTHH:mm:ss") + "Z",
             toFilter: moment(tomorrow.toDate()).format("YYYY-MM-DDTHH:mm:ss") + "Z",
         })

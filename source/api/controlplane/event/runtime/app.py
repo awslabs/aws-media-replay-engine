@@ -66,7 +66,10 @@ def create_event():
             "Start": timestamp,
             "DurationMinutes": integer,
             "Archive": boolean,
-            "SourceVideoBucket": string
+            "SourceVideoBucket": string,
+            "GenerateOrigClips": boolean,
+            "GenerateOptoClips": boolean,
+            "TimecodeSource": string
         }
 
     Parameters:
@@ -85,7 +88,10 @@ def create_event():
         - Start: The Actual start DateTime of the event
         - DurationMinutes: The Total Event Duration
         - Archive: Backup the Source Video if true.
-        - SourceVideoBucket: S3 Bucket for VOD chunks
+        - SourceVideoBucket: S3 Bucket where Live or VOD video chunks would land to trigger the Event.
+        - GenerateOrigClips: Generate Original segment clips if true (Default is true).
+        - GenerateOptoClips: Generate Optimized segment clips if true (Default is true).
+        - TimecodeSource: Source of the embedded timecode in the Event video frames (Default is NOT_EMBEDDED).
 
     Returns:
 
@@ -120,6 +126,11 @@ def create_event():
         event["EdlLocation"] = {}
         event["PaginationPartition"] = "PAGINATION_PARTITION"
         event["StartFilter"] = event["Start"]
+
+        event["GenerateOrigClips"] = True if 'GenerateOrigClips' not in event else event['GenerateOrigClips']
+        event["GenerateOptoClips"] = True if 'GenerateOptoClips' not in event else event['GenerateOptoClips']
+
+        event["TimecodeSource"] = "NOT_EMBEDDED" if "TimecodeSource" not in event else event["TimecodeSource"]
 
         event_table = ddb_resource.Table(EVENT_TABLE_NAME)
 
@@ -159,7 +170,7 @@ def create_event():
             event["SourceVideoAuthSecretARN"] = response["ARN"]
             event.pop("SourceVideoAuth", None)
 
-
+        # S3 bucket source
         if "SourceVideoBucket" in event and event["SourceVideoBucket"]:
             helpers.create_s3_bucket_trigger(event["SourceVideoBucket"])
 
@@ -266,7 +277,10 @@ def list_events(path_params):
                     "Status": string,
                     "Id": uuid,
                     "Created": timestamp,
-                    "ContentGroup: string
+                    "ContentGroup: string,
+                    "GenerateOrigClips": boolean,
+                    "GenerateOptoClips": boolean,
+                    "TimecodeSource": string
                 },
                 ...
             ]
@@ -281,7 +295,6 @@ def list_events(path_params):
     """
     try:
         query_params = app.current_request.query_params
-        # query_params = event["queryStringParameters"]
         limit = 100
         filter_expression = None
         last_evaluated_key = None
@@ -392,7 +405,10 @@ def list_events_by_content_group(content_group):
                         "Status": string,
                         "Id": uuid,
                         "Created": timestamp,
-                        "ContentGroup: string
+                        "ContentGroup: string,
+                        "GenerateOrigClips": boolean,
+                        "GenerateOptoClips": boolean,
+                        "TimecodeSource": string
                     },
                     ...
                 ]
@@ -443,7 +459,10 @@ def list_events_all():
                         "Status": string,
                         "Id": uuid,
                         "Created": timestamp,
-                        "ContentGroup: string
+                        "ContentGroup: string,
+                        "GenerateOrigClips": boolean,
+                        "GenerateOptoClips": boolean,
+                        "TimecodeSource": string
                     },
                     ...
                 ]
@@ -456,6 +475,7 @@ def list_events_all():
     Raises:
         500 - ChaliceViewError
     """
+    
     return list_events(None)
 
 
@@ -489,7 +509,10 @@ def get_event(name, program):
                 "AudioTracks": list,
                 "Status": string,
                 "Id": uuid,
-                "Created": timestamp
+                "Created": timestamp,
+                "GenerateOrigClips": boolean,
+                "GenerateOptoClips": boolean,
+                "TimecodeSource": string
             }
 
     Raises:
@@ -548,7 +571,10 @@ def update_event(name, program):
             "ContentGroup": string,
             "Start": timestamp,
             "DurationMinutes": integer,
-            "Archive": boolean
+            "Archive": boolean,
+            "GenerateOrigClips": boolean,
+            "GenerateOptoClips": boolean,
+            "TimecodeSource": string
         }
 
     Returns:
@@ -646,7 +672,7 @@ def update_event(name, program):
                 event["SourceVideoAuthSecretARN"] = response["ARN"]
                 event.pop("SourceVideoAuth", None)
 
-        update_expression = "SET #Description = :Description, #ProgramId = :ProgramId, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive"
+        update_expression = "SET #Description = :Description, #ProgramId = :ProgramId, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive, #GenerateOrigClips = :GenerateOrigClips, #GenerateOptoClips = :GenerateOptoClips, #TimecodeSource = :TimecodeSource"
 
         expression_attribute_names = {
             "#Description": "Description",
@@ -655,7 +681,10 @@ def update_event(name, program):
             "#ContentGroup": "ContentGroup",
             "#Start": "Start",
             "#DurationMinutes": "DurationMinutes",
-            "#Archive": "Archive"
+            "#Archive": "Archive",
+            "#GenerateOrigClips": "GenerateOrigClips",
+            "#GenerateOptoClips": "GenerateOptoClips",
+            "#TimecodeSource": "TimecodeSource"
         }
 
         expression_attribute_values = {
@@ -668,7 +697,10 @@ def update_event(name, program):
             ":Start": event["Start"] if "Start" in event else response["Item"]["Start"],
             ":DurationMinutes": event["DurationMinutes"] if "DurationMinutes" in event else response["Item"][
                 "DurationMinutes"],
-            ":Archive": event["Archive"] if "Archive" in event else response["Item"]["Archive"]
+            ":Archive": event["Archive"] if "Archive" in event else response["Item"]["Archive"],
+            ":GenerateOrigClips": event["GenerateOrigClips"] if "GenerateOrigClips" in event else (response["Item"]["GenerateOrigClips"] if "GenerateOrigClips" in response["Item"] else True),
+            ":GenerateOptoClips": event["GenerateOptoClips"] if "GenerateOptoClips" in event else (response["Item"]["GenerateOptoClips"] if "GenerateOptoClips" in response["Item"] else True),
+            ":TimecodeSource": event["TimecodeSource"] if "TimecodeSource" in event else (response["Item"]["TimecodeSource"] if "TimecodeSource" in response["Item"] else "NOT_EMBEDDED")
         }
 
         if "Channel" not in response["Item"]:
@@ -969,6 +1001,55 @@ def store_frame_rate(name, program, frame_rate):
 
     else:
         print(f"Successfully stored the frame rate '{frame_rate}' of event '{name}' in program '{program}'")
+
+        return {}
+
+
+@app.route('/event/{name}/program/{program}/timecode/firstframe/{embedded_timecode}', cors=True, methods=['PUT'],
+           authorizer=authorizer)
+def store_first_frame_embedded_timecode(name, program, embedded_timecode):
+    """
+    Store the embedded timecode of the first frame of the first HLS video segment.
+
+    Returns:
+
+        None
+
+    Raises:
+        500 - ChaliceViewError
+    """
+    try:
+        name = urllib.parse.unquote(name)
+        program = urllib.parse.unquote(program)
+        embedded_timecode = urllib.parse.unquote(embedded_timecode)
+
+        print(
+            f"Storing the first frame embedded timecode '{embedded_timecode}' of event '{name}' in program '{program}' in the DynamoDB table '{EVENT_TABLE_NAME}'")
+
+        event_table = ddb_resource.Table(EVENT_TABLE_NAME)
+
+        event_table.update_item(
+            Key={
+                "Name": name,
+                "Program": program
+            },
+            UpdateExpression="SET #FirstEmbeddedTimecode = :FirstEmbeddedTimecode",
+            ExpressionAttributeNames={
+                "#FirstEmbeddedTimecode": "FirstEmbeddedTimecode"
+            },
+            ExpressionAttributeValues={
+                ":FirstEmbeddedTimecode": str(embedded_timecode)
+            }
+        )
+
+    except Exception as e:
+        print(
+            f"Unable to store the first frame embedded timecode '{embedded_timecode}' of event '{name}' in program '{program}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to store the first frame embedded timecode '{embedded_timecode}' of event '{name}' in program '{program}': {str(e)}")
+
+    else:
+        print(f"Successfully stored the first frame embedded timecode '{embedded_timecode}' of event '{name}' in program '{program}'")
 
         return {}
 

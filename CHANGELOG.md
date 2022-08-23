@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.3.0] - 2022-08-23
+
+- Feature: Support for Optional clip generation for original and optimized segments. When creating MRE Events, it is now possible to mark clip generation as optional for either original or optimized (or both) segments in an effort to save cost and processing latency.
+- Feature: Support for embedded timecode in the source video to handle multi-day events and reliable metadata synchronization. The timecode can either be ZERO_BASED or UTC_BASED.
+- Fixed:
+    - Default plugin configuration is not used if no configuration object is included in the Profile creation request.
+    - Handle optional HLS clip format in replay data export.
+    - Ignore 'In Progress' replays when getting eligible non-catchup replays in the replay engine.
+    - Some of the features not associated correctly with the segments during replay and export creation.
+
 ## [2.2.0] - 2022-07-25
 
 - Feature: Bring Your Own Bucket (BYOB) as the source for MRE Events. With this feature, you can stream video chunks to an existing S3 bucket in your AWS account and have them automatically processed by the MRE workflow provided an associated Event exists in MRE.

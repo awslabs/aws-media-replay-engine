@@ -4,7 +4,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
     <title>Aws-Mre-Controlplane-Event-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
     
@@ -179,7 +179,10 @@
     <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
     <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
     <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
-    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -200,7 +203,10 @@
 <li><p>Start: The Actual start DateTime of the event</p></li>
 <li><p>DurationMinutes: The Total Event Duration</p></li>
 <li><p>Archive: Backup the Source Video if true.</p></li>
-<li><p>SourceVideoBucket: S3 Bucket for VOD chunks</p></li>
+<li><p>SourceVideoBucket: S3 Bucket where Live or VOD video chunks would land to trigger the Event.</p></li>
+<li><p>GenerateOrigClips: Generate Original segment clips if true (Default is true).</p></li>
+<li><p>GenerateOptoClips: Generate Optimized segment clips if true (Default is true).</p></li>
+<li><p>TimecodeSource: Source of the embedded timecode in the Event video frames (Default is NOT_EMBEDDED).</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>
@@ -245,7 +251,10 @@
             <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
             <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
-            <span class="s2">&quot;ContentGroup: string</span>
+            <span class="s2">&quot;ContentGroup: string,</span>
+            <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
         <span class="p">},</span>
         <span class="o">...</span>
     <span class="p">]</span>
@@ -311,7 +320,10 @@
             <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
             <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
             <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
-            <span class="s2">&quot;ContentGroup: string</span>
+            <span class="s2">&quot;ContentGroup: string,</span>
+            <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
         <span class="p">},</span>
         <span class="o">...</span>
     <span class="p">]</span>
@@ -527,7 +539,10 @@
     <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
-    <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span>
+    <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -554,7 +569,10 @@
     <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
     <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
-    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -606,6 +624,18 @@
 <section class="chalice-route" id="put-event-status">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status/{status}</span><a class="headerlink" href="#put-event-status" title="Permalink to this heading">¶</a></h2>
 <p>Update the status of an event.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="store-first-frame-embedded-timecode">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstframe/{embedded_timecode}</span><a class="headerlink" href="#store-first-frame-embedded-timecode" title="Permalink to this heading">¶</a></h2>
+<p>Store the embedded timecode of the first frame of the first HLS video segment.</p>
 <p>Returns:</p>
 <blockquote>
 <div><p>None</p>
@@ -687,6 +717,7 @@
 <li><a class="reference internal" href="#update-event-with-replay"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span></a></li>
 <li><a class="reference internal" href="#get-event-status"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status</span></a></li>
 <li><a class="reference internal" href="#put-event-status"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status/{status}</span></a></li>
+<li><a class="reference internal" href="#store-first-frame-embedded-timecode"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstframe/{embedded_timecode}</span></a></li>
 <li><a class="reference internal" href="#get-first-pts"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts</span></a></li>
 <li><a class="reference internal" href="#store-first-pts"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts/{first_pts}</span></a></li>
 </ul>

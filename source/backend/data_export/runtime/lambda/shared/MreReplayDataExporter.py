@@ -59,7 +59,7 @@ class ReplayDataExporter:
     def _build_replay_request_payload(self):
         #Build Replay request payload
         replay_request = self._controlplane.get_replay_request(self._event_name, self._program_name, self._replay_request_id)
-        self.__audioTrack = replay_request['AudioTrack']
+        self.__audioTrack = str(int(replay_request['AudioTrack']))
 
         replay_payload = {}
         if 'DurationbasedSummarization' in replay_request:
@@ -82,7 +82,7 @@ class ReplayDataExporter:
             features.append(feature_selected)
 
         replay_payload['FeaturesSelected'] = features
-        replay_payload['ReplayFormat'] = "Mp4" if replay_request['CreateMp4'] else "Hls"
+        replay_payload['ReplayFormat'] = "Mp4" if replay_request['CreateMp4'] else "Hls" if replay_request['CreateHls'] else 'N/A'
         replay_payload['Resolutions'] = replay_request['Resolutions']
         replay_payload['Catchup'] = 'Y' if replay_request['Catchup'] else 'N'
 

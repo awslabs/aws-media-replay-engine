@@ -25,6 +25,7 @@ import randomColor from 'randomcolor';
 import {ClipPreviewModal} from "../../components/ClipPreviewFeedback/ClipPreviewModal";
 import {MultiSelectWithChips} from "../../components/MultiSelectWithChips/MultiSelectWithChips";
 import {ClipPlayer} from "../../components/ClipPreviewFeedback/ClipPlayer"
+import {ClipPlaceholder} from "../../components/ClipPreviewFeedback/ClipPlaceholder"
 import {RangeBarChart} from "../../components/ClipPreviewFeedback/RangeBarChart"
 import {RangeTable} from "../../components/ClipPreviewFeedback/RangeTable"
 import {FeatureBarChart} from "../../components/ClipPreviewFeedback/FeatureBarChart"
@@ -36,6 +37,7 @@ import {parseReplayDetails} from "../../components/Replay/common";
 import {AWS_COLOR_PALETTE} from "../../components/ClipPreviewFeedback/RangeColorPallete"
 import ArrowBackIosIcon from '@material-ui/icons/ArrowBackIos';
 import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos';
+
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -123,6 +125,7 @@ export const ClipPreview = () => {
         const [isClipsLoading, setIsClipsLoading] = React.useState(undefined);
         const [displayedClipList, setDisplayedClipList] = React.useState(undefined);
         const gridListRef = React.useRef();
+        const [isOptimizerConfiguredInProfile, setIsOptimizerConfiguredInProfile] = React.useState(false);
 
         const {query, isLoading, setIsLoading} = APIHandler();
 
@@ -179,9 +182,10 @@ export const ClipPreview = () => {
 
             let profileRes = await query('get', 'api', `profile/${origEventData.Profile}`, {disableLoader: true});
             profileRes = profileRes.data;
+
+            setIsOptimizerConfiguredInProfile(_.get(profileRes, 'Optimizer.Name') !== undefined ? true : false)
             setProfileClassifier(profileRes.Classifier.Name);
             setSelectedCard(clipData);
-
 
             // Set the Latest Event State
             // This call is Required to get the AudioTracks which are not otherwise readily available
@@ -192,6 +196,7 @@ export const ClipPreview = () => {
             setTotalClipPages(_.ceil(_.size(_.get(stateParams, 'allClipsData')) / MAX_CLIPS));
 
             let allClipsData = _.chunk(_.get(stateParams, 'allClipsData'), MAX_CLIPS);
+            
             _.forEach(allClipsData, page => {
                 _.forEach(page, (allc) => {
                     allc.id = uuidv1()
@@ -249,6 +254,7 @@ export const ClipPreview = () => {
                 setSelectedAudioTrack(audioTrack)
                 let profileRes = await query('get', 'api', `profile/${latestEvent.Profile}`, {disableLoader: true});
                 profileRes = profileRes.data;
+                setIsOptimizerConfiguredInProfile(_.get(profileRes, 'Optimizer.Name') !== undefined ? true : false)
 
                 setProfileClassifier(profileRes.Classifier.Name);
 
@@ -948,7 +954,7 @@ export const ClipPreview = () => {
                                     stateParams.mode === "EventClips" ?
                                         <Grid item>
                                             <Typography
-                                                color="textPrimary">{`Clip Preview / Program - ${stateParams.origEventData.Program} / Event- ${stateParams.origEventData.Name}`}
+                                                color="textPrimary">{`Clip Preview / Program - ${originalEventData.Program} / Event- ${originalEventData.Name}`}
                                             </Typography>
                                         </Grid> : stateParams.mode === "ReplayClips" &&
 
@@ -1019,6 +1025,8 @@ export const ClipPreview = () => {
                                                             ClipDetail={clipDetail}
                                                             onHighlightCard={handleHighlightCard}
                                                             highlightCard={clipDetail.selected}
+                                                            OriginalEventData={originalEventData}
+                                                            IsOptimizerConfiguredInProfile={isOptimizerConfiguredInProfile}
                                                         />
                                                     })
                                                     }
@@ -1081,21 +1089,29 @@ export const ClipPreview = () => {
                                             </div> :
                                             <Grid container item direction="column" spacing={5}>
                                                 <Grid container item direction="row" justify="space-between">
-                                                    <Grid item xs={optimizedClipLocation ? 5 : 8}>
-                                                        <ClipPlayer
-                                                            Title="Original"
-                                                            HandleOriginalThumbUp={handleOriginalThumbUp}
-                                                            HandleOriginalThumbDown={handleOriginalThumbDown}
-                                                            ThumbsUpColor={originalThumbsUpColor}
-                                                            ThumbsDownColor={originalThumbsDownColor}
-                                                            ClipLocation={originalClipLocation}
-                                                            Mode={clipPreviewMode}
-                                                            IsLoading={isLoading}
-                                                        />
+                                                    <Grid item xs={isOptimizerConfiguredInProfile ? 5 : 8} style={{textAlign: "-webkit-center", alignSelf: "center"}}>
+                                                        {
+                                                            originalEventData.GenerateOrigClips ? 
+                                                            <ClipPlayer
+                                                                Title="Original"
+                                                                HandleOriginalThumbUp={handleOriginalThumbUp}
+                                                                HandleOriginalThumbDown={handleOriginalThumbDown}
+                                                                ThumbsUpColor={originalThumbsUpColor}
+                                                                ThumbsDownColor={originalThumbsDownColor}
+                                                                ClipLocation={originalClipLocation}
+                                                                Mode={clipPreviewMode}
+                                                                IsLoading={isLoading}
+                                                            /> :
+                                                            <ClipPlaceholder 
+                                                                Title=""
+                                                                Message= "Original segment clip generation disabled"
+                                                            />
+                                                        }   
+                                                        
                                                     </Grid>
-
-                                                    {optimizedClipLocation &&
-                                                    <Grid item xs={5}>
+                                                    <Grid item xs={5} style={{alignSelf: "center", textAlign: "-webkit-center",}}>
+                                                    {
+                                                        (originalEventData.GenerateOptoClips && isOptimizerConfiguredInProfile ) ?
                                                         <ClipPlayer
                                                             Title="Optimized"
                                                             HandleOriginalThumbUp={handleOptimalThumbUp}
@@ -1105,19 +1121,27 @@ export const ClipPreview = () => {
                                                             ClipLocation={optimizedClipLocation}
                                                             Mode={clipPreviewMode}
                                                             IsLoading={isLoading}
-                                                        />
-                                                    </Grid>
+                                                        /> 
+                                                        :
+                                                        !originalEventData.GenerateOptoClips && isOptimizerConfiguredInProfile ?
+                                                        <ClipPlaceholder 
+                                                            Title=""
+                                                            Message= "Optimized segment clip generation disabled"
+                                                        />:
+                                                        <></>
+                                                        
                                                     }
                                                 </Grid>
+                                                </Grid>
                                                 <Grid container item direction="row" justify="space-between">
-                                                    <Grid item xs={optimizedClipLocation ? 5 : 8}>
+                                                    <Grid item xs={isOptimizerConfiguredInProfile ? 5 : 8}>
                                                         <RangeBarChart
                                                             RangeEventsCharts={originalRangeEventsCharts}
                                                             PluginLabels={originalPluginLabels}
                                                             RangeEventColors={allPluginNameColor}
                                                         />
                                                     </Grid>
-                                                    {optimizedClipLocation &&
+                                                    {isOptimizerConfiguredInProfile &&
                                                     <Grid item xs={5}>
                                                         <RangeBarChart
                                                             RangeEventsCharts={rangeEventsCharts}
@@ -1128,13 +1152,13 @@ export const ClipPreview = () => {
                                                     }
                                                 </Grid>
                                                 <Grid container item direction="row" justify="space-between">
-                                                    <Grid item xs={optimizedClipLocation ? 5 : 8}>
+                                                    <Grid item xs={isOptimizerConfiguredInProfile ? 5 : 8}>
                                                         <RangeTable
                                                             RangeEvents={originalRangeEvents}
                                                             RangeEventColors={allPluginNameColor}
                                                         />
                                                     </Grid>
-                                                    {optimizedClipLocation &&
+                                                    {isOptimizerConfiguredInProfile &&
                                                     <Grid item xs={5}>
                                                         <RangeTable
                                                             RangeEvents={rangeEvents}
@@ -1157,7 +1181,7 @@ export const ClipPreview = () => {
                                                     </Grid>
                                                 </Grid>
                                                 <Grid container item direction="row" justify="space-between">
-                                                    <Grid item xs={optimizedClipLocation ? 5 : 8}>
+                                                    <Grid item xs={isOptimizerConfiguredInProfile ? 5 : 8}>
                                                         <FeatureBarChart
                                                             Features={originalClipFeatures}
                                                             LegendHeight={20}
@@ -1166,7 +1190,7 @@ export const ClipPreview = () => {
                                                             Ticks={originalClipFeaturesTicks}
                                                         />
                                                     </Grid>
-                                                    {optimizedClipLocation &&
+                                                    {isOptimizerConfiguredInProfile &&
                                                     <Grid item xs={5}>
                                                         <FeatureBarChart
                                                             Features={clipFeatures}

@@ -116,13 +116,13 @@ class MreDataExporter(Stack):
         self.mre_event_data_export_rule = events.Rule(
             self,
             "MREEventDataExportRule",
-            description="Rule that captures the MRE Lifecycle Event CLIP_GEN_DONE and REPLAY_PROCESSED - Data Export",
+            description="Rule that captures the MRE Lifecycle Event CLIP_GEN_DONE, CLIP_GEN_DONE_WITH_CLIPS, REPLAY_PROCESSED_WITH_CLIP and REPLAY_PROCESSED - Data Export",
             enabled=True,
             event_bus=self.event_bus,
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["CLIP_GEN_DONE", "REPLAY_PROCESSED"]
+                    "State":  ["CLIP_GEN_DONE", "CLIP_GEN_DONE_WITH_CLIPS", "REPLAY_PROCESSED", "REPLAY_PROCESSED_WITH_CLIP"]
                 }
             ),
             targets=[

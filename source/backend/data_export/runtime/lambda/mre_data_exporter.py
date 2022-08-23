@@ -20,13 +20,12 @@ s3_client = boto3.client("s3")
 eb_client = boto3.client("events")
 
 
-
 def GenerateDataExport(event, context):
     print(json.dumps(event))
     controlplane = ControlPlane()
 
     # Export Event Data when Clips are being generated
-    if event['detail']['Event']['EventType'] == "EVENT_CLIP_GEN":
+    if event['detail']['Event']['EventType'] in ["EVENT_CLIP_GEN", "CLIP_GEN_DONE_WITH_CLIPS"]:
         event_name = event['detail']['Event']['EventInfo']['Event']['Name']
         program_name = event['detail']['Event']['EventInfo']['Event']['Program']
 
@@ -64,7 +63,7 @@ def GenerateDataExport(event, context):
             ]
         )
     # Export Replay Data when Replay has been generated
-    elif event['detail']['Event']['EventType'] == "REPLAY_GEN_DONE":
+    elif event['detail']['Event']['EventType'] in ["REPLAY_GEN_DONE", "REPLAY_GEN_DONE_WITH_CLIP"]:
         print(" Export Replay Data")
         replay_exporter =  ReplayDataExporter(event)
         replay_results = replay_exporter.generate_replay_data()
@@ -91,7 +90,7 @@ def GenerateDataExport(event, context):
                 "Program": event['detail']['Event']['Program'],
                 "ReplayId": event['detail']['Event']['ReplayId'],
                 "ReplayExportS3Location": f"s3://{ExportOutputBucket}/{s3_location_key_prefix}",
-                "EventType": "REPLAY_DATA"
+                "EventType": "REPLAY_DATA_EXPORT"
             }
         }
         eb_client.put_events(

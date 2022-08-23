@@ -227,6 +227,7 @@ class EventDataExporter:
         event['Start'] = event_info['Start']
         event['AudioTracksFound'] = event_info['AudioTracks']
         event['AllOutputAttributes'] = all_plugin_output_attribute_names
+        event['EmbeddedTimecodeSource'] = "NOT_EMBEDDED" if 'TimecodeSource' not in event_info else event_info['TimecodeSource']
 
         if 'ProgramId' in event_info:
             event['ProgramId'] = event_info['ProgramId']

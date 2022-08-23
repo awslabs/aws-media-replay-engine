@@ -89,6 +89,22 @@
             "type": "string",
             "title": "The SourceVideoBucket schema",
             "pattern": "^([a-z]+)([a-z0-9-]*)$"
+        },
+        "GenerateOrigClips": {
+            "$id": "#/properties/GenerateOrigClips",
+            "type": "boolean",
+            "title": "The GenerateOrigClips Schema"
+        },
+        "GenerateOptoClips": {
+            "$id": "#/properties/GenerateOptoClips",
+            "type": "boolean",
+            "title": "The GenerateOptoClips Schema"
+        },
+        "TimecodeSource": {
+            "$id": "#/properties/TimecodeSource",
+            "type": "string",
+            "title": "The TimecodeSource Schema",
+            "enum": ["ZERO_BASED", "UTC_BASED", "NOT_EMBEDDED"]
         }
     },
     "additionalProperties": true,

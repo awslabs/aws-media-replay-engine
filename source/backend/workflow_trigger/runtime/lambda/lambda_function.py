@@ -38,15 +38,20 @@ def lambda_handler(event, context):
     profile = s3_key.split("/")[3]
     
     try:
-        print(f"Getting the Event Start time and StepFunction ARN from the Control plane")
-        event_start_time = controlplane.get_event(p_event, program)["Start"]
+        print(f"Getting the Event details and StepFunction ARN from the Control plane")
+        mre_event = controlplane.get_event(p_event, program)
+        event_start_time = mre_event["Start"]
+        generate_orig_clips = mre_event["GenerateOrigClips"]
+        generate_opto_clips = mre_event["GenerateOptoClips"]
         sfn_arn = controlplane.get_profile(profile)["StateMachineArn"]
         
         sfn_input = {
             "Event": {
                 "Name": p_event,
                 "Program": program,
-                "Start": event_start_time
+                "Start": event_start_time,
+                "GenerateOrigClips": generate_orig_clips,
+                "GenerateOptoClips": generate_opto_clips
             },
             "Input": {
                 "ExecutionId": execution_id,

@@ -116,6 +116,10 @@ class ReplayEngine:
                     total_duration = 0
                     final_segments = []
                     
+                    # Event if the last segment time makes the overall time to beyond the Duration limit,
+                    # lets add that segment. The rest of the segments will be ignored since the Duration limit
+                    # will be crossed.
+                    last_segment_crossed_duration_limit = False
                     for segment in sorted_segments:
                         segment_duration = self._get_segment_duration_in_secs(segment)
                         total_duration_all += segment_duration
@@ -124,8 +128,13 @@ class ReplayEngine:
                             final_segments.append(segment)
                             total_duration += segment_duration
                         else:
-                            print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the replay request duration limit {replay_request_duration} secs")
-                            print(f"Ignoring segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {replay_request_duration} secs.")
+                            if not last_segment_crossed_duration_limit:
+                                last_segment_crossed_duration_limit = True
+                                final_segments.append(segment)
+                                total_duration += segment_duration
+                            else:
+                                print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the replay request duration limit {replay_request_duration} secs")
+                                print(f"Ignoring segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {replay_request_duration} secs.")
 
 
                     print(f"Duration if all segments considered would be {total_duration_all} secs")
@@ -212,6 +221,10 @@ class ReplayEngine:
                         total_duration = 0
                         final_segments = []
                         
+                        # Event if the last segment time makes the overall time to beyond the Duration limit,
+                        # lets add that segment. The rest of the segments will be ignored since the Duration limit
+                        # will be crossed.
+                        last_segment_crossed_duration_limit = False
                         for segment in sorted_segments:
                             segment_duration = self._get_segment_duration_in_secs(segment)
                             total_duration_all += segment_duration
@@ -220,7 +233,12 @@ class ReplayEngine:
                                 final_segments.append(segment)
                                 total_duration += segment_duration
                             else:
-                                print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the timegroup duration limit {timegroup_time_in_secs} secs")
+                                if not last_segment_crossed_duration_limit:
+                                    last_segment_crossed_duration_limit = True
+                                    final_segments.append(segment)
+                                    total_duration += segment_duration
+                                else:
+                                    print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the timegroup duration limit {timegroup_time_in_secs} secs")
                                 #print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {timegroup_time_in_secs} secs.")
 
                         #print(f"Duration if all segments within this timegroup considered would be {total_duration_all} secs")
@@ -247,27 +265,22 @@ class ReplayEngine:
     def _calculate_segment_scores_basedon_weights(self, segments_with_features):
 
         '''
-            Weights of 0 - 10 => Multiplyer of 1
-            Weights of 10 - 20 => Multiplyer of 2
-            ... 
-            Weights of 90 - 100 => Multiplyer of 10
-
             Seg 1
-                |-> Feature 1 - Weight 10
+                |-> Feature 1 - Weight 1
                 |-> Feature 2 - Weight 50
                 |-> Feature 3 - Weight 90
             Seg 2
-                |-> Feature 1 - Weight 0
+                |-> Feature 1 - Weight 1
                 |-> Feature 2 - Weight 80
                 |-> Feature 3 - Weight 0
             Seg 3
                 |-> Feature 1 - Weight 45
-                |-> Feature 2 - Weight 80
+                |-> Feature 2 - Weight 86
                 |-> Feature 3 - Weight 15
 
-            Seg 1 Score = 10 * 1 + 50 * 5 + 90 * 10 = 1160 
-            Seg 2 Score = 0 * 1 + 80 * 5 + 0 * 10 = 80 
-            Seg 3 Score = 45 * 4 + 80 * 5 + 15 * 2 = 610
+            Seg 1 Score = 1  + 50 + 90 = 141
+            Seg 2 Score = 1 + 80 + 0 = 81 
+            Seg 3 Score = 45 + 86 + 15 = 146
 
             Sort Segments based on Scores - Desc
             Pick Segments Top down to meet the Duration
@@ -283,9 +296,10 @@ class ReplayEngine:
     def _calculate_score(self, segment):
         total_score = 0
         for feature in segment['Features']:
-            multiplier = self._get_multiplier(feature['Weight'])
-            feature['MultiplierChosen'] = multiplier
-            total_score += feature['Weight'] * multiplier
+            #multiplier = self._get_multiplier(feature['Weight'])
+            #feature['MultiplierChosen'] = multiplier
+            feature['MultiplierChosen'] = feature['Weight']
+            total_score += feature['Weight'] #* multiplier
 
         return total_score
         
@@ -363,6 +377,11 @@ class ReplayEngine:
         controlplane = ControlPlane()
         controlplane.update_replay_request_status(program, event, replayId, "Complete")
         
+    @staticmethod
+    def _mark_replay_error(replayId, program, event):
+        from MediaReplayEngineWorkflowHelper import ControlPlane
+        controlplane = ControlPlane()
+        controlplane.update_replay_request_status(program, event, replayId, "Error")
 
     def __mark_replay_in_progress(self):
         self._controlplane.update_replay_request_status(self._program, self._event, self.__event['ReplayRequest']['ReplayId'], "In Progress")
@@ -372,7 +391,13 @@ class ReplayEngine:
         self._segments_created_so_far = self._dataplane.get_all_segments_for_event(self._program, self._event, self._classifier)
 
     def _get_event(self):
-        return self._controlplane.get_event(self._event, self._program)
+        return self._controlplane.get_event(self._event, self._program, )
+
+    @staticmethod
+    def get_replay(event, program, replay_request_id):
+        from MediaReplayEngineWorkflowHelper import ControlPlane
+        controlplane = ControlPlane()
+        return controlplane.get_replay_request(event, program, replay_request_id)
 
 
     def _get_frame_rate(self):

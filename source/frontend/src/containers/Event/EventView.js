@@ -73,6 +73,7 @@ export const EventView = () => {
     const [selectedProfile, setSelectedProfile] = React.useState(false);
     const [nextToken, setNextToken] = React.useState(undefined);
     const [lastPage, setLastPage] = React.useState(0);
+    const [isOptimizerConfiguredInProfile, setIsOptimizerConfiguredInProfile] = React.useState(false);
 
     const {query, isLoading} = APIHandler();
 
@@ -116,6 +117,8 @@ export const EventView = () => {
         let profileRes = await query('get', 'api', `profile/${eventData.Profile}`, {shouldContinueLoading: true});
         let profileClassifier = _.get(profileRes, 'data.Classifier.Name');
         setProfileClassifierState(profileClassifier);
+        
+        setIsOptimizerConfiguredInProfile(_.get(profileRes, 'data.Optimizer.Name') !== undefined ? true : false)
 
         if (profileClassifier) {
             let response = await query('get', 'api-data-plane', `event/${eventData.Name}/program/${eventData.Program}/profileClassifier/${profileClassifier}/track/1/segments/v2`,
@@ -181,7 +184,8 @@ export const EventView = () => {
                 clipdata: clipInfo,
                 allClipsData: clips,
                 origEventData: eventData,
-                mode: 'EventClips'
+                mode: 'EventClips',
+                IsOptimizerConfiguredInProfile: isOptimizerConfiguredInProfile
             }
         });
     };
@@ -216,6 +220,18 @@ export const EventView = () => {
         return `https://s3.console.aws.amazon.com/s3/buckets/${eventData.SourceVideoBucket}?prefix=${eventData.Program}/${eventData.Name}/${eventData.Profile}/`
     }
 
+    const getClipCaption = (eventData) => {
+        if (!eventData.GenerateOrigClips && !isOptimizerConfiguredInProfile){
+            return "No optimizer set. Original Clip gen disabled"
+        }
+        else if (!eventData.GenerateOrigClips && !eventData.GenerateOptoClips){
+            return "Original, Optimized segment clip generation disabled"
+        }
+        else if (!eventData.GenerateOrigClips && eventData.GenerateOptoClips){
+            return "Original segment clip generation disabled"
+        }
+    }
+
     const getTableRows = (rows) => {
         return (
             _.map(rows, (row) => {
@@ -224,11 +240,47 @@ export const EventView = () => {
                         handleDetailsView(row, allClips)
                     }}>
                         <TableCell align="left" style={{width: 270}}>
-                            <Card style={{height: 130, width: 230, padding: 0}}>
+                            {
+                                !eventData.GenerateOrigClips ? // display static img when original clips are not be generated
+                                !eventData.GenerateOptoClips ? // display static img when optimized clips are not be generated
+                                <Card style={{height: 80, width: 230, padding: 0, textAlign: "-webkit-center"}}>
+                                    
+
+                                    <CardContent style={{padding: 2}}>
+                                        <Typography variant="caption">
+                                            {
+                                               getClipCaption(eventData) 
+                                            }
+                                        </Typography>
+                                    </CardContent>
+                                </Card>    
+                                : 
+                                !isOptimizerConfiguredInProfile ?
+                                    <Card style={{height: 80, width: 230, padding: 0, textAlign: "-webkit-center"}}>
+                                        
+
+                                        <CardContent style={{padding: 2}}>
+                                            <Typography variant="caption">
+                                                {
+                                                "No Optimizer set. Original clip gen disabled."
+                                                }
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                :
+                                <Card style={{height: 130, width: 230, padding: 0}}>
+                                <CardMedia
+                                    component="img"
+                                    image={row.OptimizedThumbnailLocation}/>
+                                </Card>
+                                :
+                                <Card style={{height: 130, width: 230, padding: 0}}>
                                 <CardMedia
                                     component="img"
                                     image={row.OriginalThumbnailLocation}/>
-                            </Card>
+                                </Card>
+                            }
+                            
                         </TableCell>
                         <TableCell align="left">{row.StartTime}</TableCell>
                         <TableCell align="left">{row.Label}</TableCell>
@@ -306,7 +358,7 @@ export const EventView = () => {
                                     <CardContent className={classes.cardContainer}>
                                         <Grid item container direction="column" spacing={3}>
                                             <Grid item>
-                                                <Typography variant="h2" style={{paddingRight: 5, paddingLeft: 5}}>Clips Detected</Typography>
+                                                <Typography variant="h2" style={{paddingRight: 5, paddingLeft: 5}}>Segments detected</Typography>
                                             </Grid>
                                             <Grid item>
                                                 <>
@@ -357,7 +409,7 @@ export const EventView = () => {
                                                         _.isEmpty(rows) && isLoading === false &&
                                                         <Grid container direction="row" item justify="center">
                                                             <Typography variant={"h6"}>
-                                                                No clips detected for this Event.
+                                                                No segments detected for this Event.
                                                             </Typography>
                                                         </Grid>
                                                     }
@@ -370,7 +422,7 @@ export const EventView = () => {
                             <Grid container item direction="column" xs={2}>
                                 <Card>
                                     <CardContent className={classes.cardContainer}>
-                                        <Grid container direction="column" spacing={3}>
+                                        <Grid container direction="column" spacing={2}>
                                             {eventData.Channel &&
                                             <Grid item>
                                                 <Typography variant="subtitle2">Channel:</Typography>
@@ -443,6 +495,18 @@ export const EventView = () => {
                                                 }}>
                                                     View Replays
                                                 </Link>
+                                            </Grid>
+                                            <Grid item>
+                                                <Typography variant="subtitle2">Gen Original Segment clip:</Typography>
+                                                <Typography>{eventData.GenerateOrigClips ? "Yes" : "No"}</Typography>
+                                            </Grid>
+                                            <Grid item>
+                                                <Typography variant="subtitle2">Gen Optimized Segment clip:</Typography>
+                                                <Typography>{eventData.GenerateOptoClips ? "Yes" : "No"}</Typography>
+                                            </Grid>
+                                            <Grid item>
+                                                <Typography variant="subtitle2">Embedded Timecode Src:</Typography>
+                                                <Typography>{eventData.TimecodeSource === undefined ? "NOT_EMBEDDED" : eventData.TimecodeSource}</Typography>
                                             </Grid>
                                         </Grid>
                                     </CardContent>

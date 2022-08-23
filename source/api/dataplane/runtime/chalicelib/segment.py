@@ -493,7 +493,7 @@ def get_all_event_segments():
             if 'OptimizedThumbnailLocation' in res:
                 segment_info['OptimizedThumbnailLocation'] = res['OptimizedThumbnailLocation']
 
-            segment_output_attributes = isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], output_attributes)
+            segment_output_attributes = isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], res['End'], output_attributes)
 
             if len(segment_output_attributes) > 0:
                 segment_info['FeaturesFound'] = segment_output_attributes
@@ -540,42 +540,41 @@ def get_all_event_segments():
 
 
 
-def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, output_attributes):
+def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, segment_end, output_attributes):
 
     attributes_in_segment = []
 
-    # For all Plugins in the profile, based on the Segment Start time +-1 
+    # For all Plugins in the profile, based on the Segment Start and End time
     # check if a Output Attribute exists with value True
     plugin_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
     for plugin in plugins:
 
         response = plugin_table.query(
-            KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{plugin}") & Key('Start').between(
-                segment_start - decimal.Decimal(0.1), segment_start + decimal.Decimal(0.1)),
+            KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{plugin}") & Key('Start').between(round(segment_start, 3), round(segment_end, 3)),
             ScanIndexForward=True,
             IndexName='ProgramEventPluginName_Start-index'
         )
 
-        segment_info = response["Items"]
+        feature_info = response["Items"]
 
         while "LastEvaluatedKey" in response:
             response = plugin_table.query(
-                KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{plugin}") & Key('Start').between(
-                segment_start - decimal.Decimal(0.1), segment_start + decimal.Decimal(0.1)),
+                KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{plugin}") & Key('Start').between(round(segment_start, 3), round(segment_end, 3)),
                 ScanIndexForward=True,
                 ExclusiveStartKey=response["LastEvaluatedKey"],
                 IndexName='ProgramEventPluginName_Start-index'
             )
-            segment_info.extend(response["Items"])
+            feature_info.extend(response["Items"])
 
         # Most cases this would just be One Segment matching the Start time
-        for segment_item in segment_info:
+        for feature_item in feature_info:
             for output_attribute in output_attributes:
-                if output_attribute in segment_item:
+                if output_attribute in feature_item:
                     # If Attribute value is True, we have a Match
-                    if segment_item[output_attribute]:
-                        attributes_in_segment.append(output_attribute)
+                    if feature_item[output_attribute]:
+                        if output_attribute not in attributes_in_segment:
+                            attributes_in_segment.append(output_attribute)
 
     
     return attributes_in_segment

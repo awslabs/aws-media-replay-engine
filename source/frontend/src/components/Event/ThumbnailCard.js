@@ -55,15 +55,29 @@ export const ThumbnailCard = (props) => {
       
     const open = Boolean(anchorEl);
 
+   
+
     return (
         <>
-            <GridListTile className={classes.cardRoot} key={props.ClipDetail.OriginalClipLocation} onMouseEnter={handlePopoverOpen} onMouseLeave={handlePopoverClose} onClick={handleOnClick} >
-                <Card style={{backgroundColor: props.highlightCard ? "white" : "black", padding: 5}} >
-                    <CardMedia
-                        style={{ height: "4vw", width: "7vw" }}
-                        image={props.ClipDetail.OriginalThumbnailLocation}
-                    />
-                </Card>
+            <GridListTile className={classes.cardRoot} key={props.key} onMouseEnter={handlePopoverOpen} onMouseLeave={handlePopoverClose} onClick={handleOnClick} >
+                {
+                    !props.OriginalEventData.GenerateOrigClips && (!props.IsOptimizerConfiguredInProfile || !props.OriginalEventData.GenerateOptoClips) ? 
+                    <Card style={{height: "4vw", width: "7vw", padding: 0}}>
+                        <CardContent style={{textAlign: "left", padding: 10}}>
+                            <Typography variant="caption">
+                                {
+                                    !props.IsOptimizerConfiguredInProfile ? "No optimizer set. Original Clip gen disabled" : "All Clip gen disabled"
+                                }
+                            </Typography>
+                        </CardContent>
+                    </Card>   : 
+                    <Card style={{backgroundColor: props.highlightCard ? "white" : "black", padding: 5}} >
+                        <CardMedia
+                            style={{ height: "4vw", width: "7vw" }}
+                            image={props.OriginalEventData.GenerateOrigClips ? props.ClipDetail.OriginalThumbnailLocation : props.ClipDetail.OptimizedThumbnailLocation}
+                        />
+                    </Card>
+                }
                 <GridListTileBar
                     title={`Starts at ${props.ClipDetail.StartTime} secs`}
                     classes={{

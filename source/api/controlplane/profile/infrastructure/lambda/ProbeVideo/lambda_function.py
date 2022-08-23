@@ -12,6 +12,7 @@
 import os
 import traceback
 from datetime import date, datetime, time, timedelta
+from dateutil import parser
 
 import ffmpeg
 
@@ -22,12 +23,13 @@ from MediaReplayEngineWorkflowHelper import ControlPlane
 controlplane = ControlPlane()
 
 
-def get_first_pts(p_event, program, frame_rate, first_key_frame):
+def get_first_pts(p_event, program, mre_event, frame_rate, first_key_frame):
     print(f"Getting the first pts timecode for event '{p_event}' in program '{program}'")
     
-    first_pts = controlplane.get_first_pts(p_event, program)
+    if "FirstPts" in mre_event:
+        first_pts = mre_event["FirstPts"]
     
-    if not first_pts:
+    else:
         print(f"First pts timecode for event '{p_event}' in program '{program}' not found. Initializing from the first key frame.")
         first_pts = first_key_frame["pkt_pts_time"]
         
@@ -36,6 +38,72 @@ def get_first_pts(p_event, program, frame_rate, first_key_frame):
         controlplane.store_frame_rate(p_event, program, frame_rate)
     
     return float(first_pts)
+
+
+def get_frame_time_from_timecode(frame_timecode, frame_rate):
+    if not frame_timecode:
+        return None
+
+    bfr = frame_timecode.replace(';', ':').replace('.', ':').split(':')
+    return (int(bfr[0]) * 60 * 60) + (int(bfr[1]) * 60) + int(bfr[2]) + (int(bfr[3]) * round(frame_rate / 1000, 3))
+
+
+def get_frame_embedded_timecode(frame):
+    is_timecode_embedded = False
+    frame_timecode = None
+
+    if "tags" in frame and "timecode" in frame["tags"]: # Look for embedded timecode in tags
+        frame_timecode = frame["tags"]["timecode"]
+        is_timecode_embedded = True
+
+    elif "side_data_list" in frame: # Look for embedded timecode in sidedata
+        for side_data in frame["side_data_list"]:
+            if "timecodes" in side_data:
+                frame_timecode = side_data["timecodes"][0]["value"]
+                is_timecode_embedded = True
+                break
+
+    return is_timecode_embedded, frame_timecode
+
+
+def get_first_frame_embedded_timecode(p_event, program, mre_event, timecode_source, first_key_frame):
+    print(f"Getting the embedded timecode value of the first key frame for event '{p_event}' in program '{program}'")
+
+    if "FirstEmbeddedTimecode" in mre_event:
+        first_frame_embedded_timecode = mre_event["FirstEmbeddedTimecode"]
+
+    else:
+        print(f"Embedded timecode value of the first key frame for event '{p_event}' in program '{program}' not found. Initializing from the first key frame.")
+        is_timecode_embedded, first_frame_embedded_timecode = get_frame_embedded_timecode(first_key_frame)
+
+        if is_timecode_embedded:
+            print("Embedded timecode found in the first key frame")
+            print(f"Storing the embedded timecode of the first key frame in DynamoDB")
+            controlplane.store_first_frame_embedded_timecode(p_event, program, first_frame_embedded_timecode)
+
+        else:
+            print(f"Embedded timecode not found in the first key frame even though TimecodeSource of the event is set to '{timecode_source}'")
+            print("Falling back to ffmpeg probed relative frame time")
+
+    return first_frame_embedded_timecode
+
+
+def get_relative_frame_time_from_timecode(frame_timecode, frame_rate, first_frame_time, event_start_dt, cur_day_dt):
+    frame_time = get_frame_time_from_timecode(frame_timecode, frame_rate)
+    event_start_day_dt = event_start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if frame_time >= first_frame_time: # Continuous UTC time
+        frame_start_dt = event_start_day_dt + timedelta(seconds=frame_time)
+
+    else: # Possible UTC timecode reset
+        frame_start_dt = cur_day_dt + timedelta(seconds=frame_time)
+
+    event_start_epoch = event_start_dt.timestamp()
+    frame_start_epoch = frame_start_dt.timestamp()
+    relative_frame_time = round(frame_start_epoch - event_start_epoch, 3)
+
+    return relative_frame_time
+
 
 def probe_video(media_path, select_streams, show_frames=False):
     if select_streams == "v:0":
@@ -56,13 +124,16 @@ def probe_video(media_path, select_streams, show_frames=False):
                 result.append(stream['index'])
     
     return result
-    
+
+
 def lambda_handler(event, context):
     print("Lambda got the following event:\n", event)
     
     program = event["Event"]["Program"]
     p_event = event["Event"]["Name"]
     p_event_start = event["Event"]["Start"]
+    generate_orig_clips = event["Event"]["GenerateOrigClips"] if "GenerateOrigClips" in event["Event"] else True
+    generate_opto_clips = event["Event"]["GenerateOptoClips"] if "GenerateOptoClips" in event["Event"] else True
     audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
     execution_id = event["Input"]["ExecutionId"]
     bucket = event["Input"]["Media"]["S3Bucket"]
@@ -102,14 +173,36 @@ def lambda_handler(event, context):
         # Get ffprobe frame output
         key_frames = probe_video(media_path, select_streams="v:0", show_frames=True)
         
-        # Get the pts timecode of the first frame of the first HLS video segment
-        first_pts = get_first_pts(p_event, program, frame_rate, key_frames[0])
+        # Get all the required MRE event metadata
+        mre_event = controlplane.get_event(p_event, program)
+        first_pts = get_first_pts(p_event, program, mre_event, frame_rate, key_frames[0])
+        timecode_source = mre_event["TimecodeSource"] if "TimecodeSource" in mre_event else "NOT_EMBEDDED"
+
+        if timecode_source != "NOT_EMBEDDED":
+            first_frame_embedded_timecode = get_first_frame_embedded_timecode(p_event, program, mre_event, timecode_source, key_frames[0])
+            first_frame_time = get_frame_time_from_timecode(first_frame_embedded_timecode, frame_rate)
+            event_start_dt = parser.parse(p_event_start)
+            cur_day_dt = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         
         offset = 0
         
         for index, frame in enumerate(key_frames):
-            pkt_pts_time = float(frame["pkt_pts_time"])
-            frame_time = round(pkt_pts_time - first_pts, 3) # Zero-based timecode
+            if timecode_source != "NOT_EMBEDDED" and first_frame_embedded_timecode: # Use embedded timecode if present
+                _, frame_timecode = get_frame_embedded_timecode(frame)
+
+                if timecode_source == "UTC_BASED":
+                    frame_time = get_relative_frame_time_from_timecode(frame_timecode, frame_rate, first_frame_time, event_start_dt, cur_day_dt)
+                else:
+                    frame_time = get_frame_time_from_timecode(frame_timecode, frame_rate)
+
+                pkt_pts_time = round(frame_time + first_pts, 3)
+
+                if index == 0:
+                    start_pts_time = pkt_pts_time
+
+            else: # Fallback to relative frame time
+                pkt_pts_time = float(frame["pkt_pts_time"])
+                frame_time = round(pkt_pts_time - first_pts, 3)
             
             if index == 0: # Calculate offset used in restarting the frame number for each new HLS video segment
                 offset = frame_time
@@ -144,6 +237,9 @@ def lambda_handler(event, context):
                 "Name": p_event,
                 "Program": program,
                 "Start": p_event_start,
+                "TimecodeSource": timecode_source,
+                "GenerateOrigClips": generate_orig_clips,
+                "GenerateOptoClips": generate_opto_clips,
                 "AudioTracks": audio_tracks
             },
             "Input": {
@@ -177,4 +273,3 @@ def lambda_handler(event, context):
         print(f"Encountered an exception while probing the HLS segment file '{bucket}/{key}': {str(e)}")
         print(traceback.format_exc())
         raise MREExecutionError(e)
-        

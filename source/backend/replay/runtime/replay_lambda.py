@@ -18,53 +18,99 @@ OUTPUT_BUCKET = os.environ['OutputBucket']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 eb_client = boto3.client("events")
 
+
+
+def FindFeaturesInSegment(event, context):
+    try:
+        print("FindFeaturesInSegment")
+        print(json.dumps(event))
+        return {
+            "FeaturesInSegments": {}
+        }
+    except Exception as e:
+        #TODO
+        mark_replay_error("", "", "")
+        raise
+
 def CreateReplay(event, context):
     '''
         Gets Invoked within the Map state. 
     '''
    
     print(event)
+    replay: ReplayEngine = None
+    try:
+        process_replay, msg = should_replay_be_processed(event)
+        if process_replay:
 
-    process_replay, msg = should_replay_be_processed(event)
-    if process_replay:
+            # Within a Map state, if the EVENT has ended, update the Incoming dict with the AudioTrack
+            # passed from the Map State
+            if event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
+                event['detail']['Event']['AudioTrack'] = str(event['ReplayRequest']['AudioTrack'])
+                
 
-        # Within a Map state, if the EVENT has ended, update the Incoming dict with the AudioTrack
-        # passed from the Map State
-        if event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
-            event['detail']['Event']['AudioTrack'] = str(event['ReplayRequest']['AudioTrack'])
+            # If SEGMENT_END comes in, check if an Optimizer is attached to the Profile.
+            # If yes, Do not create a Replay
+            if event['detail']['State'] == 'SEGMENT_END':
 
-        # If SEGMENT_END comes in, check if an Optimizer is attached to the Profile.
-        # If yes, Do not create a Replay
-        if event['detail']['State'] == 'SEGMENT_END':
+                from MediaReplayEngineWorkflowHelper import ControlPlane
+                controlplane = ControlPlane()
+                response = controlplane.get_profile(event['detail']['Segment']['ProfileName'])
 
-            from MediaReplayEngineWorkflowHelper import ControlPlane
-            controlplane = ControlPlane()
-            response = controlplane.get_profile(event['detail']['Segment']['ProfileName'])
+                # There's an optimizer configured and has values in it, skip replay creation.
+                # This is because, replays will get created when Segments are optimized.
+                if 'Optimizer' in response:
+                    if len(response['Optimizer']) > 0:
+                        return {
+                            "Status": f"Replay not processed as the Profile has an Optimizer configured."
+                        }
 
-            # There's an optimizer configured and has values in it, skip replay creation.
-            # This is because, replays will get created when Segments are optimized.
-            if 'Optimizer' in response:
-                if len(response['Optimizer']) > 0:
-                    return {
-                        "Status": f"Replay not processed as the Profile has an Optimizer configured."
+            runId = str(uuid.uuid4())
+            start_time = datetime.datetime.now()
+            print(f"------- Starting replay creation run id {runId} ----------------- {start_time}")
+            replay = ReplayEngine(event)
+            replay._create_replay()
+            end_time = datetime.datetime.now()
+            print(f"------- replay metadata creation end run id {runId}----------------- {end_time}")
+
+            # Notify EventBridge when Replay data has been determined and saved
+            # Also check if Replay Video is being created, If yes .. do not Publish
+            # as the event would be published after Videos have been generated
+            if not event['ReplayRequest']['CreateMp4'] and not event['ReplayRequest']['CreateHls']:
+                detail = {
+                    "State": "REPLAY_PROCESSED",
+                    "Event": {
+                        "Event": replay._event,
+                        "Program": replay._program,
+                        "ReplayId": event['ReplayRequest']['ReplayId'],
+                        "EventType": "REPLAY_GEN_DONE"
                     }
-
-        runId = str(uuid.uuid4())
-        start_time = datetime.datetime.now()
-        print(f"------- Starting replay creation run id {runId} ----------------- {start_time}")
-        replay = ReplayEngine(event)
-        replay._create_replay()
-        end_time = datetime.datetime.now()
-        print(f"------- Starting replay end run id {runId}----------------- {end_time}")
-        return {
-            "Status": "Replay Processed",
-            "RunId": runId
-        }
-        
-    else:
-        return {
-            "Status": msg
-        }
+                }
+                eb_client.put_events(
+                    Entries=[
+                        {
+                            "Source": "awsmre",
+                            "DetailType": "Base Replay Data Exported",
+                            "Detail": json.dumps(detail),
+                            "EventBusName": EB_EVENT_BUS_NAME
+                        }
+                    ]
+                )
+            
+            return {
+                "Status": "Replay Processed",
+                "RunId": runId
+            }
+            
+        else:
+            return {
+                "Status": msg
+            }
+    except Exception as e:
+        print(e)
+        if replay:
+            mark_replay_error(event['ReplayRequest']['ReplayId'], replay._event, replay._program)
+        raise
 
 ##@app.lambda_function()
 def GetEligibleReplays(event, context):
@@ -82,6 +128,7 @@ def GetEligibleReplays(event, context):
     if event['detail']['State'] == 'REPLAY_CREATED':
         event_name = event['detail']['Event']['Name']
         program_name = event['detail']['Event']['Program']
+        replay_id = event['detail']['Event']['ReplayId']
         
         all_replays = []
         response = get_event(event_name, program_name)
@@ -90,10 +137,14 @@ def GetEligibleReplays(event, context):
             if 'AudioTracks' not in response:
                 raise (Exception('Event does not have AudioTracks'))
 
-            for audioTrack in response['AudioTracks']: 
-                replays = ReplayEngine.get_all_replay_requests_for_completed_events(event_name, program_name, audioTrack)
-                all_replays.extend(replays)
+            # Process the newly created Replay Request given that the event is Complete
+            replay = ReplayEngine.get_replay(event_name, program_name, replay_id)
+            all_replays.append(replay)
 
+            # for audioTrack in response['AudioTracks']: 
+            #     replays = ReplayEngine.get_all_replay_requests_for_completed_events(event_name, program_name, audioTrack)
+            #     all_replays.extend(replays)
+        
             return { "AllReplays": all_replays }
         else:
             return {
@@ -207,6 +258,9 @@ def mark_replay_complete(event, context):
 
     return event['MapResult'] # Used to generate Maser m3u8 files
 
+def mark_replay_error(replayId, event_name, program):
+    ReplayEngine._mark_replay_error(replayId, program, event_name)
+
 def update_replay_with_mp4_location(event, context):
     from MediaReplayEngineWorkflowHelper import ControlPlane
     controlplane = ControlPlane()
@@ -263,19 +317,19 @@ def update_replay_with_mp4_location(event, context):
 
     # Notify EventBridge
     detail = {
-        "State": "REPLAY_PROCESSED",
+        "State": "REPLAY_PROCESSED_WITH_CLIP",
         "Event": {
             "Event": event_name,
             "Program": program_name,
             "ReplayId": replay_request_id,
-            "EventType": "REPLAY_GEN_DONE"
+            "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
         }
     }
     eb_client.put_events(
         Entries=[
             {
                 "Source": "awsmre",
-                "DetailType": "Base Replay Data Exported",
+                "DetailType": "Base Replay Data with replay clips Exported",
                 "Detail": json.dumps(detail),
                 "EventBusName": EB_EVENT_BUS_NAME
             }
@@ -375,19 +429,19 @@ def generate_master_playlist(event, context):
 
         # Notify EventBridge
         detail = {
-            "State": "REPLAY_PROCESSED",
+            "State": "REPLAY_PROCESSED_WITH_CLIP",
             "Event": {
                 "Event": event_name,
                 "Program": program_name,
                 "ReplayId": replay_request_id,
-                "EventType": "REPLAY_GEN_DONE"
+                "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
             }
         }
         eb_client.put_events(
             Entries=[
                 {
                     "Source": "awsmre",
-                    "DetailType": "Base Replay Data Exported",
+                    "DetailType": "Base Replay Data with replay clips Exported",
                     "Detail": json.dumps(detail),
                     "EventBusName": EB_EVENT_BUS_NAME
                 }

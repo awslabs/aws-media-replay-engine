@@ -143,6 +143,23 @@ class ReplayStack(Stack):
                     ]
         )
 
+        # Function: FindFeatureInSegment
+        self.get_features_in_segment_lambda = _lambda.Function(
+            self,
+            "MRE-replayFindFeatureInSegment",
+            description="MRE - Finds features in event segments - From Cache / DDB",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
+            handler="replay_lambda.FindFeaturesInSegment",
+            role=self.replay_lambda_role,
+            memory_size=512,
+            timeout=Duration.minutes(15),
+            environment=self.replay_environment_config,
+            layers=[self.mre_workflow_helper_layer,
+                    self.mre_plugin_helper_layer
+                    ]
+        )
+
         # Function: GetEligibleReplays
         self.get_eligible_replays_lambda = _lambda.Function(
             self,
@@ -168,6 +185,24 @@ class ReplayStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_8,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.mark_replay_complete",
+            role=self.replay_lambda_role,
+            memory_size=256,
+            timeout=Duration.minutes(6),
+            environment=self.replay_environment_config,
+            layers=[self.mre_workflow_helper_layer,
+                    self.mre_plugin_helper_layer
+                    ]
+        )
+
+
+        # Function: MarkReplayError
+        self.mark_replay_error_lambda = _lambda.Function(
+            self,
+            "MRE-replay-MarkReplayError",
+            description="MRE - Mark a Replay status as Error",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
+            handler="replay_lambda.mark_replay_error",
             role=self.replay_lambda_role,
             memory_size=256,
             timeout=Duration.minutes(6),
@@ -323,7 +358,18 @@ class ReplayStack(Stack):
             lambda_function=_lambda.Function.from_function_arn(self, 'GetEligibleReplaysLambda',
                                                                self.get_eligible_replays_lambda.function_arn),
             retry_on_service_exceptions=True,
-            result_path="$.ReplayResult"
+            result_path="$.ReplayResult",
+
+        )
+        
+
+        findFeaturesInSegmentTask = tasks.LambdaInvoke(
+            self,
+            "FindFeaturesInSegment",
+            lambda_function=_lambda.Function.from_function_arn(self, 'FindFeaturesInSegmentLambda',
+                                                               self.get_features_in_segment_lambda.function_arn),
+            retry_on_service_exceptions=True,
+            result_path="$.FeaturesInSegments"
         )
 
         createReplayTask = tasks.LambdaInvoke(
@@ -421,8 +467,20 @@ class ReplayStack(Stack):
             items_path="$.ReplayResult.Payload.AllReplays",
             result_path="$.MapResult"
         )
+
+        # mapTask.add_catch(
+        #     tasks.LambdaInvoke(
+        #     self,
+        #     "MarkReplayAsError",
+        #     lambda_function=_lambda.Function.from_function_arn(self, 'MRE-replay-MarkReplayError1',
+        #                                                        self.mark_replay_error_lambda.function_arn),
+        #     payload=sfn.TaskInput.from_json_path_at("$")
+        # ))
+
+        
         replay_definition = getEligibleReplaysTask.next(
             mapTask.iterator(
+                findFeaturesInSegmentTask.next(
                 createReplayTask.next(sfn.Choice(
                     self,
                     "GenerateReplayVideoOutput?"
@@ -449,7 +507,7 @@ class ReplayStack(Stack):
                                 updateReplayWithMp4Task.next(allOkTask))
                                 .otherwise(waitFiveSecondsTaskMp4.next(checkMp4JobStatusTask)))))
                                       .otherwise(allOkTask)
-                                      )
+                                      ))
             ).next(completeReplayTask)
         )
 

@@ -193,7 +193,7 @@ def profile_state_definition_helper(name, profile):
             PLUGIN_TABLE_NAME: {
                 "Keys": batch_get_keys,
                 "ConsistentRead": True,
-                "ProjectionExpression": "#Name, #Class, #ExecutionType, #SupportedMediaType, #StateDefinition, #DependentPlugins, #Enabled, #Latest",
+                "ProjectionExpression": "#Name, #Class, #ExecutionType, #SupportedMediaType, #StateDefinition, #DependentPlugins, #Enabled, #Latest, #Configuration",
                 "ExpressionAttributeNames": {
                     "#Name": "Name",
                     "#Class": "Class",
@@ -202,7 +202,8 @@ def profile_state_definition_helper(name, profile):
                     "#StateDefinition": "StateDefinition",
                     "#DependentPlugins": "DependentPlugins",
                     "#Enabled": "Enabled",
-                    "#Latest": "Latest"
+                    "#Latest": "Latest",
+                    "#Configuration": "Configuration"
                 }
             }
         }
@@ -227,7 +228,8 @@ def profile_state_definition_helper(name, profile):
             "StateDefinition": item["StateDefinition"],
             "DependentPlugins": item["DependentPlugins"] if "DependentPlugins" in item else [],
             "Enabled": item["Enabled"],
-            "Latest": f"v{item['Latest']}"
+            "Latest": f"v{item['Latest']}",
+            "Configuration": item["Configuration"]
         }
 
     # Check if any of the plugins present in the request does not exist or is disabled in the system
@@ -253,25 +255,37 @@ def profile_state_definition_helper(name, profile):
                         f"Unable to create profile '{name}': Dependent plugin '{d_plugin}' for plugin '{plugin}' is disabled in the system")
 
     # Add SupportedMediaType to all the DependentPlugins in the shortened_profile
+
+
+    set_default_configuration(shortened_profile["Classifier"],plugin_definitions[shortened_profile["Classifier"]['Name']])
+
     for index, d_plugin in enumerate(shortened_profile["Classifier"]["DependentPlugins"]):
         shortened_profile["Classifier"]["DependentPlugins"][index]["SupportedMediaType"] = \
             plugin_definitions[d_plugin["Name"]]["SupportedMediaType"]
+        set_default_configuration(shortened_profile["Classifier"]["DependentPlugins"][index],plugin_definitions[d_plugin["Name"]])
 
     if "Optimizer" in shortened_profile:
+        set_default_configuration(shortened_profile["Optimizer"],plugin_definitions[shortened_profile["Optimizer"]['Name']])
         for index, d_plugin in enumerate(shortened_profile["Optimizer"]["DependentPlugins"]):
             shortened_profile["Optimizer"]["DependentPlugins"][index]["SupportedMediaType"] = \
                 plugin_definitions[d_plugin["Name"]]["SupportedMediaType"]
+            set_default_configuration(shortened_profile["Optimizer"]["DependentPlugins"][index],plugin_definitions[d_plugin["Name"]])
 
     if "Labeler" in shortened_profile:
+        set_default_configuration(shortened_profile["Labeler"],plugin_definitions[shortened_profile["Labeler"]['Name']])
         for index, d_plugin in enumerate(shortened_profile["Labeler"]["DependentPlugins"]):
             shortened_profile["Labeler"]["DependentPlugins"][index]["SupportedMediaType"] = \
                 plugin_definitions[d_plugin["Name"]]["SupportedMediaType"]
+            set_default_configuration(shortened_profile["Labeler"]["DependentPlugins"][index],plugin_definitions[d_plugin["Name"]])
 
     if "Featurers" in shortened_profile:
         for p_index in range(len(shortened_profile["Featurers"])):
+            set_default_configuration(shortened_profile["Featurers"][p_index],plugin_definitions[shortened_profile["Featurers"][p_index]['Name']])
             for c_index, d_plugin in enumerate(shortened_profile["Featurers"][p_index]["DependentPlugins"]):
                 shortened_profile["Featurers"][p_index]["DependentPlugins"][c_index]["SupportedMediaType"] = \
                     plugin_definitions[d_plugin["Name"]]["SupportedMediaType"]
+                set_default_configuration(shortened_profile["Featurers"][p_index]["DependentPlugins"][c_index], \
+                     plugin_definitions[d_plugin["Name"]])
 
     return (json.dumps(
         generate_profile_state_definition(name, classifier, optimizer, labeler, featurers, plugin_definitions,
@@ -299,7 +313,6 @@ def get_model_endpoint_from_ddb(model):
         raise BadRequestError(f"Model endpoint '{model_name}' with version '{model_version}' is disabled in the system")
 
     return response["Item"]["Endpoint"]
-
 
 def generate_profile_state_definition(profile_name, classifier, optimizer, labeler, featurers, plugin_definitions, shortened_profile, internal_lambda_arns):
     print(f"Generating state machine definition for profile '{profile_name}'")
@@ -1009,3 +1022,9 @@ def get_featurers_state_definition_branch_list(plugins_list, expected_class, plu
         branch_list.append(child_branch)
     
     return branch_list
+
+def set_default_configuration(profile_obj: dict, plugin_definition_obj: dict):
+    # If there is no configuration; grab it from plugin_definition
+    if 'Configuration' in profile_obj and profile_obj['Configuration']:
+        return
+    profile_obj['Configuration'] = plugin_definition_obj['Configuration']

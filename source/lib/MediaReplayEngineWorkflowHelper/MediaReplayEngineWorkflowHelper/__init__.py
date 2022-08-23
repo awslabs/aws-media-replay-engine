@@ -147,6 +147,24 @@ class ControlPlane:
         
         return api_response.json()
 
+    def store_first_frame_embedded_timecode(self, event, program, embedded_timecode):
+        """
+        Method to store the embedded timecode of the first frame of the first HLS video segment in the Control plane.
+
+        :param event: Event present in the input payload passed to Lambda
+        :param program: Program present in the input payload passed to Lambda
+        :param embedded_timecode: Embedded timecode of the first frame of the first HLS video segment
+
+        :return: Control plane response
+        """
+
+        path = f"/event/{event}/program/{program}/timecode/firstframe/{embedded_timecode}"
+        method = "PUT"
+
+        api_response = self.invoke_controlplane_api(path, method)
+
+        return api_response.json()
+
     def store_audio_tracks(self, event, program, audio_tracks):
         """
         Method to store the audio track details identified after probing the first HLS video segment in the Control plane.

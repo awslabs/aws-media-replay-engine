@@ -9,7 +9,7 @@ import boto3
 import urllib3
 from datetime import datetime
 from botocore.config import Config
-
+import time
 
 MAX_INPUTS_PER_JOB = int(os.environ['MediaConvertMaxInputJobs']) # This can be 150 as per the MediaConvert Quota
 OUTPUT_BUCKET = os.environ['OutputBucket'] 
@@ -21,39 +21,30 @@ urllib3.disable_warnings()
 ssm = boto3.client('ssm')
 eb_client = boto3.client("events")
 
-'''
-    Indicates whether a Segment has Optimization Metadata within
-'''
+def should_generate_original_clips(event) -> bool:
+    return event['Event']['GenerateOrigClips']
 
-#@app.lambda_function()
-def GenerateClips(event, context):
+def should_generate_optimized_clips(event) -> bool:
+    return event['Event']['GenerateOptoClips']
 
-    from MediaReplayEnginePluginHelper import DataPlane
-    dataplane = DataPlane(event)
 
-    # Contains Job IDs for all the HLS Jobs. We will need to 
-    # check if all Jobs have completed before creating the Aggregated
-    # m3u8 file
-    all_hls_clip_job_ids = []
+def get_original_segment_dict(segment, audioTrack):
+    return {
+        "Start": segment['Start'],
+        "End": segment['End'],
+        "OriginalClipStatus": "Success",
+        "OriginalClipLocation": "",
+        "OriginalThumbnailLocation": "",
+        "AudioTrack": audioTrack
+    }
 
-    # If Segments key not present (In case of Batch Processing), call API to get Segments.
-    # For now, we will process every Segment as they are created in Near Real time
-    #input_segments = event['Segments']
-
+def get_all_original_optimized_segments(event):
     optimized_segments = []
-    nonoptimized_segments = []
-    hls_input_settings_for_segments = []
+    non_optimized_segments = []
 
-    audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
-    
-    input_segments = event
-    for segment in input_segments['Segments']:
-
-        # Track Segments which have Optimized Start and End Times
-        #if "OptoEnd" in segment and "OptoStart" in segment:
-        #    if len(segment['OptoEnd']) > 0 and len(segment['OptoStart']) > 0 :
-        #Ignore Starts that have -1 in it
+    for segment in event['Segments']:
         if "OptoEnd" in segment and "OptoStart" in segment:
+            #Ignore OptoStarts that have -1 in it
             if get_OptoStart(segment, event) != -1:
                 optimized_segments.append(segment)
         
@@ -62,55 +53,133 @@ def GenerateClips(event, context):
             if "End" in segment and "Start" in segment:
                 #Ignore Starts that have -1 in it
                 if segment['Start'] != -1:
-                    nonoptimized_segments.append(segment)
+                    non_optimized_segments.append(segment)
+    
+    return optimized_segments, non_optimized_segments
 
-    # Create a Optimized Clip for Optimized Segments
+def build_opto_hls_settings(optimized_segments, dataplane, event):
+    hls_input_settings_for_segments = []
+    for optsegment in optimized_segments:
+        opto_start, opto_end = get_OptoStart(optsegment, event), get_OptoEnd(optsegment, event)
+        chunks = dataplane.get_chunks_for_segment(opto_start, opto_end)
+        audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
+        hls_input_setting = build_hls_input(optsegment, event, chunks ,audioTrack)
+        hls_input_settings_for_segments.extend(hls_input_setting)
+    return hls_input_settings_for_segments
+
+
+def build_orig_hls_settings(original_segments, dataplane, event):
+    # A NonOpt Clip needs to be created for every segment
+    hls_inputs = []
+    for segment in original_segments:
+        chunks = dataplane.get_chunks_for_segment(segment['Start'], segment['End'])
+        audiotracks = event['Event']['AudioTracks']
+        for track in audiotracks:
+            hls_input = build_hls_input(segment, event, chunks, track)
+            hls_inputs.extend(hls_input)
+
+    return hls_inputs
+
+
+def process_optimized_segments(optimized_segments, dataplane, event):
+    #hls_input_settings_for_segments = []
+    media_convert_job_ids = []
     for optsegment in optimized_segments:
 
-        print("--- OPTO SEGMENT PROCESSED-------------")
-        print(optsegment['Start'])
+        print("--- Processing Optimized segments -------------")
+        print(f"optsegment['Start'] = {optsegment['Start']}")
 
-        
-        chunks = dataplane.get_chunks_for_segment(get_OptoStart(optsegment, event), get_OptoEnd(optsegment, event))
-        print('Got Chunks from API based for Optimized Segments)')
+        opto_start, opto_end = get_OptoStart(optsegment, event), get_OptoEnd(optsegment, event)
+
+        chunks = dataplane.get_chunks_for_segment(opto_start, opto_end)
+        print('Got Chunks from API based for Optimized Segment)')
         print(f" optimized_segments chunks: {chunks}")
-        keyprefix, hls_input_settings = create_optimized_MP4_clips(optsegment, event, chunks)
+        print(f"opto_start={opto_start}")
+        print(f"opto_end={opto_end}")
+
+        keyprefix, job_ids  = create_optimized_MP4_clips(optsegment, event, chunks)
+        media_convert_job_ids.extend(job_ids)
 
         # Only if we are dealing with Optimization, we will consider HLS Inputs for Opto Segments.
-        if 'Optimizer' in event['Profile']:
-            hls_input_settings_for_segments.extend(hls_input_settings)
-        
+        #if 'Optimizer' in event['Profile']:
+        #    hls_input_settings_for_segments.extend(hls_input_settings)
+
+    return media_convert_job_ids
+
+def get_media_convert_job_status(jobId):
+    # get the account-specific mediaconvert endpoint for this region
+    endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
+
+    # Customizing Exponential backoff
+    # Retries with additional client side throttling.
+    boto_config = Config(
+        retries = {
+            'max_attempts': 10,
+            'mode': 'adaptive'
+        }
+    )
+    # add the account-specific endpoint to the client session 
+    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
+    job_response = client.get_job(Id=jobId)
+    return job_response['Job']['Status']
+
+def are_jobs_complete(jobIds) -> bool:
+    for job in jobIds:
+        job_status = get_media_convert_job_status(job)
+
+        if job_status == "COMPLETE":
+            return True
+        elif job_status == "ERROR":
+            raise ValueError('One of the Media Convert Jobs has failed')
+
+    return False
+
+def process_original_segments(nonoptimized_segments, dataplane, event, genClips):
 
     # A NonOpt Clip needs to be created for every segment
     nonoptimized_segments_with_tracks = []
+    media_convert_job_ids = []
     for segment in nonoptimized_segments:
 
-        print("--- NON OPTO SEGMENT PROCESSED-------------")
-        print(segment['Start'])
+        print("---  Processing Original segments -------------")
+        print(f"segment['Start'] = {segment['Start']}")
 
         chunks = dataplane.get_chunks_for_segment(segment['Start'], segment['End'])
-        print('Got Chunks from API based for NonOptimized Segments)')
-        print(f" nonoptimized_segments chunks: {chunks}")
-        segs, hls_inputs = create_non_optimized_MP4_clip_per_audio_track(segment, event, chunks)
-        nonoptimized_segments_with_tracks.extend(segs)
+        print('Got Chunks from API based for Original Segments)')
+        print(f" Original_segments chunks: {chunks}")
 
-        # If we are dealing with Optimization, we don't have to consider HLS Inputs for Original Segments.
-        # Only when we have no Optimizer configured, we consider HLS Inputs from Original Segments to generate HLS for Original Segs.
-        if 'Optimizer' not in event['Profile']:
-            hls_input_settings_for_segments.extend(hls_inputs)
+        if genClips:
+            segs, job_ids = create_non_optimized_MP4_clip_per_audio_track(segment, event, chunks)
+            nonoptimized_segments_with_tracks.extend(segs)
+            media_convert_job_ids.extend(job_ids)
+        else:
+            audiotracks = event['Event']['AudioTracks']
+            segments = []
+            for track in audiotracks:
+                seg = get_original_segment_dict(segment, track)
+                seg['OriginalClipStatus'] = "Not Attempted"
+                segments.append(seg)
+            nonoptimized_segments_with_tracks.extend(segments)
+       
+    return nonoptimized_segments_with_tracks, media_convert_job_ids
 
-    # SAVE ALL NON OPT SEGMENTS PER AUDIO TRACK
-    if len(nonoptimized_segments_with_tracks) > 0:  
-        print(f"Processed Non Opt Segments before saving - {nonoptimized_segments_with_tracks}")
-        dataplane.save_clip_results(nonoptimized_segments_with_tracks)
+def publish_to_MRE_bus(event, clipsGenerated=False, segments=None) -> None:
 
-        detail = {
-            "State": "CLIP_GEN_DONE",
+    detail = {
+            "State": "CLIP_GEN_DONE" if not clipsGenerated else "CLIP_GEN_DONE_WITH_CLIPS",
             "Event": {
                 "EventInfo": event,
                 "EventType": "EVENT_CLIP_GEN"
             }
         }
+    
+    # Publish Clip location Info when available.
+    if clipsGenerated and segments:
+       detail['ClipInfo'] = segments
+
+    print(f"Publishing to EB - {detail['State']}")
+    print(f"Publishing to EB - {detail}")
+    try:
         eb_client.put_events(
             Entries=[
                 {
@@ -121,25 +190,124 @@ def GenerateClips(event, context):
                 }
             ]
         )
+        print(f"Published {detail['State']}")
+    except Exception as e:
+        print(e)
+        print('Error while publishing CLIP_GEN_DONE or CLIP_GEN_DONE_WITH_CLIPS event to EB')
 
+# Save Segment info whether Clips are generated or not
+def save_original_segment_info(dataplane, event, nonoptimized_segments_with_tracks):
+    if nonoptimized_segments_with_tracks:
+        print(f"Processed Non Opt Segments before saving into Plugin Results - {nonoptimized_segments_with_tracks}")
+        dataplane.save_clip_results(nonoptimized_segments_with_tracks)
+
+    publish_to_MRE_bus(event, clipsGenerated=should_generate_original_clips(event), segments=nonoptimized_segments_with_tracks)
+    
+
+
+def save_optimized_segment_info(event, audioTrack, dataplane):
+    results = []
+
+    optimizedClipStatus = "Not Attempted" if not should_generate_optimized_clips(event) else "Success"
+    originalClipStatus = "Not Attempted" if not should_generate_original_clips(event) else "Success"
+
+    for segment in event['Segments']:
+        # We are dealing with an Optimized Segment
+        if "OptimizedS3KeyPrefix" in segment:
+            optimizedClipLocation = "" if not should_generate_optimized_clips(event) else segment["OptimizedS3KeyPrefix"]
+            optimizedThumbnailLocation = "" if not should_generate_optimized_clips(event) else segment["OptimizedThumbnailS3KeyPrefix"]
+            
+
+            if "OriginalS3KeyPrefix" in segment:
+                originalClipLocation = "" if not should_generate_original_clips(event) else segment["OriginalS3KeyPrefix"]
+
+                results.append({
+                    "Start": segment['Start'],
+                    "End": segment['End'],
+                    "OriginalClipStatus": originalClipStatus,
+                    "OriginalClipLocation": originalClipLocation,
+                    "OptoStart": get_OptoStart(segment, event),
+                    "OptoEnd": get_OptoEnd(segment, event),
+                    "OptimizedClipStatus": optimizedClipStatus,
+                    "OptimizedClipLocation": optimizedClipLocation,
+                    "OptimizedThumbnailLocation": optimizedThumbnailLocation,
+                    "AudioTrack": audioTrack
+                })
+            else:
+                results.append({
+                    "Start": segment['Start'],
+                    "End": segment['End'],
+                    "OptoStart": get_OptoStart(segment, event),
+                    "OptoEnd": get_OptoEnd(segment, event),
+                    "OptimizedClipStatus": optimizedClipStatus,
+                    "OptimizedClipLocation": optimizedClipLocation,
+                    "OptimizedThumbnailLocation": optimizedThumbnailLocation,
+                    "AudioTrack": audioTrack
+                })
+
+    if results:
+        print(f"Processed Optimized Segments before saving - {results}")
+        dataplane.save_clip_results(results)
+        publish_to_MRE_bus(event, clipsGenerated=should_generate_optimized_clips(event), segments=results)
+
+    return results
+
+def create_HLS_clips(inputSettings, index, batch_id, audioTrack):
+
+    if len(inputSettings) == 0:
+        return None
+    unqid = str(uuid.uuid4())
+    try:
+        
+        job_settings_filename = os.path.join(os.path.dirname(__file__), 'job_settings_hls.json')
+                
+        with open(job_settings_filename) as json_data:
+            jobSettings = json.load(json_data)
+            
+        job_output_destination = f"s3://{OUTPUT_BUCKET}/HLS/{batch_id}/{audioTrack}/"
+        
+        jobSettings["OutputGroups"][0]["OutputGroupSettings"]["HlsGroupSettings"]["Destination"] = job_output_destination
+        
+        jobSettings["OutputGroups"][0]['Outputs'][0]["NameModifier"] = f"Part-{unqid}"
+
+        jobSettings["OutputGroups"][0]["OutputGroupSettings"]["HlsGroupSettings"]["AdditionalManifests"] =  [{
+                                                                                                                "ManifestNameModifier": f"Batch-{unqid}",
+                                                                                                                "SelectedOutputs": [
+                                                                                                                        f"Part-{unqid}"
+                                                                                                                    ]
+                                                                                                            }]
+        
+        jobSettings['Inputs'] = inputSettings
+
+        # Convert the video using AWS Elemental MediaConvert
+        jobMetadata = { 'BatchId': batch_id }
+
+        return create_job(jobMetadata, jobSettings)
+
+    except Exception as e:
+        print ('Exception: %s' % e)
+        raise
+
+
+def create_hls_output(hls_input_settings_for_segments, event, audioTrack, batch_id):
+
+    all_hls_clip_job_ids = []
 
     # For HLS Clips, divide the Entire Segment List to Smaller Chunks to meet the MediaConvert Quota Limits of 150 Inputs per Job
     # We create a MediaConvert Job per segment group (which can have a Max of 150 Inputs configured - build_input_settings)
     
     groups_of_input_settings = [hls_input_settings_for_segments[x:x+MAX_INPUTS_PER_JOB] for x in range(0, len(hls_input_settings_for_segments), MAX_INPUTS_PER_JOB)]
     index = 1
-    #batch_id = f"{str(event['Event']['Name']).lower()}-{str(event['Event']['Program']).lower()}"
-    batch_id = str(uuid.uuid4())
+    
 
     #----------- HLS Clips Gen ------------------------------------
-    #if audioTrack > 0:
 
     print("---------------- ALL groups_of_input_settings")
     print(groups_of_input_settings)
 
     # For Opto segments, AudioTrack would be passed to the Step function
     if 'Optimizer' in event['Profile']:
-        print("---- CReating Opto HLS -----------")
+        print("---- Creating Opto HLS -----------")
         # Launch a Media Convert Job with a Max of 150 Inputs
         for inputsettings in groups_of_input_settings:
             # Each Input setting will have the relevant AudioTrack embedded.
@@ -172,71 +340,84 @@ def GenerateClips(event, context):
                         all_hls_clip_job_ids.append(job['Job']['Id'])
                     index += 1
 
-    #----------- HLS Clips Gen Ends ------------------------------------
+    return all_hls_clip_job_ids, batch_id
 
-    # Persist Output Artifacts generated from MediaConvert Jobs into DDB
-    results = []
+def GenerateClips(event, context):
 
-    for segment in input_segments['Segments']:
+    from MediaReplayEnginePluginHelper import DataPlane
+    dataplane = DataPlane(event)
 
-        # We are dealing with an Optimized Segment
-        if "OptimizedS3KeyPrefix" in segment:
-            if "OriginalS3KeyPrefix" in segment:
-                results.append({
-                    "Start": segment['Start'],
-                    "End": segment['End'],
-                    "OriginalClipStatus": "Success",
-                    "OriginalClipLocation": segment["OriginalS3KeyPrefix"],
-                    "OptoStart": get_OptoStart(segment, event),
-                    "OptoEnd": get_OptoEnd(segment, event),
-                    "OptimizedClipStatus": "Success",
-                    "OptimizedClipLocation": segment["OptimizedS3KeyPrefix"],
-                    "OptimizedThumbnailLocation": segment["OptimizedThumbnailS3KeyPrefix"],
-                    "AudioTrack": audioTrack
-                })
-            else:
-                results.append({
-                    "Start": segment['Start'],
-                    "End": segment['End'],
-                    "OptoStart": get_OptoStart(segment, event),
-                    "OptoEnd": get_OptoEnd(segment, event),
-                    "OptimizedClipStatus": "Success",
-                    "OptimizedClipLocation": segment["OptimizedS3KeyPrefix"],
-                    "OptimizedThumbnailLocation": segment["OptimizedThumbnailS3KeyPrefix"],
-                    "AudioTrack": audioTrack
-                })
+    # Contains Job IDs for all the HLS Jobs. We will need to 
+    # check if all Jobs have completed before creating the Aggregated
+    # m3u8 file
+    all_hls_clip_job_ids = []
 
-        #elif "OriginalS3KeyPrefix" in segment: # We are dealing with an Original Segment
+    # If Segments key not present (In case of Batch Processing), call API to get Segments.
+    # For now, we will process every Segment as they are created in Near Real time
+    #input_segments = event['Segments']
 
-        #     results.append({
-        #         "Start": segment['Start'],
-        #         "End": segment['End'],
-        #         "OriginalClipStatus": "Success" if "OriginalS3KeyPrefix" in segment else "Failure",
-        #         "OriginalClipLocation": segment["OriginalS3KeyPrefix"],
-        #         "OriginalThumbnailLocation": segment["OriginalThumbnailS3KeyPrefix"]
-        #     })
+    optimized_segments = []
+    nonoptimized_segments = []
+    audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
 
-    if len(results) > 0:
-        print(f"Processed Segments before saving - {results}")
-        dataplane.save_clip_results(results)
+    # Get all the Original and Optimized segments to be processed
+    optimized_segments, nonoptimized_segments = get_all_original_optimized_segments(event)
 
-        detail = {
-            "State": "CLIP_GEN_DONE",
-            "Event": {
-                "EventInfo": event,
-                "EventType": "EVENT_CLIP_GEN"
-            }
-        }
-        eb_client.put_events(
-            Entries=[
-                {
-                    "Source": "awsmre",
-                    "DetailType": "Clip Gen Status",
-                    "Detail": json.dumps(detail),
-                    "EventBusName": EB_EVENT_BUS_NAME
-                }
-            ]
-        )
+    # Create a Optimized Clip for Optimized Segments
+    hls_input_settings_for_segments = []
+    nonoptimized_segments_with_tracks = []
+    opto_results = []
+    # Create Clips for Optimized Segments
+    if optimized_segments:
+        
+        hls_input_settings_for_segments = build_opto_hls_settings(optimized_segments, dataplane, event)
+
+        # Generate MP4 Clips for Optimized Segments only when asked for
+        if should_generate_optimized_clips(event):
+            print('Processing Optimized segments ...')
+            job_ids = process_optimized_segments(optimized_segments, dataplane, event)
+
+            # Lets Wait for the Clips generation jobs to complete
+            while not are_jobs_complete(job_ids):
+                time.sleep(5)
+                print('Waiting for Opto Clip Gen jobs to complete ...')
+        else:
+            print('Not Processing Optimized segments since Clip gen was set to False.. Proceeding to Save segments')
+
+        # Save all Optimized Segment info per audio track into Plugin Results
+        opto_results = save_optimized_segment_info(event, audioTrack, dataplane)
+        print('Optimized segments Saved !!')
+
+    # Create Clips for Original Segments
+    if nonoptimized_segments:
+
+        # Only when we have no Optimizer configured we generate HLS 
+        # output from the HLS Settings corresponding to Orig segments
+        if 'Optimizer' not in event['Profile']:
+            hls_input_settings_for_segments = build_orig_hls_settings(nonoptimized_segments, dataplane, event)
+
+        # Generate MP4 Clips for Optimized Segments only when asked for
+        if should_generate_original_clips(event):
+            print('Processing Original segments ...')
+            nonoptimized_segments_with_tracks, job_ids =  process_original_segments(nonoptimized_segments, dataplane, event, should_generate_original_clips(event))
+
+            # Lets Wait for the Clips generation jobs to complete
+            while not are_jobs_complete(job_ids):
+                time.sleep(5)
+                print('Waiting for Orig Clip Gen jobs to complete ...')
+        else:
+            print('Not Processing Original segments since Clip gen was set to False. Proceeding to Save segments')
+
+        # Save all Original Segment info into Plugin Results
+        save_original_segment_info(dataplane, event, nonoptimized_segments_with_tracks)
+        print('Original segments with ClipInfo Saved !!')
+
+        
+    # Generate HLS output from the HLS Settings corresponding to Orig or Opto segments.
+    all_hls_clip_job_ids = []
+    batch_id = str(uuid.uuid4())
+    print(f'Proceeding to create HLS output ... {hls_input_settings_for_segments}')
+    all_hls_clip_job_ids, batch_id = create_hls_output(hls_input_settings_for_segments, event, audioTrack, batch_id)
 
     # For Opto segments, AudioTrack would be passed to the Step function
     if 'Optimizer' in event['Profile']:
@@ -244,7 +425,7 @@ def GenerateClips(event, context):
             "MediaConvertJobs" : all_hls_clip_job_ids,
             "HLSOutputKeyPrefix": f"HLS/{batch_id}/{audioTrack}/",
             "OutputBucket": OUTPUT_BUCKET,
-            "Result": results,
+            "Result": opto_results,
             "Event": event['Event'],
             "Input": event['Input']
         }
@@ -253,7 +434,7 @@ def GenerateClips(event, context):
             "MediaConvertJobs" : all_hls_clip_job_ids,
             "OutputBucket": OUTPUT_BUCKET,
             "HLSOutputKeyPrefix": f"HLS/{batch_id}/",
-            "Result": results,
+            "Result": opto_results,
             "Event": event['Event'],
             "Input": event['Input']
         }
@@ -661,7 +842,8 @@ def build_input_settings(dataplane, segment_group, event):
 
 def create_optimized_MP4_clips(segment, event, chunks):
 
-    hls_input_setting = []
+    #hls_input_setting = []
+    media_convert_job_ids = []
 
     try:
         job_settings_filename = os.path.join(os.path.dirname(__file__), 'job_settings_mp4.json')
@@ -675,7 +857,7 @@ def create_optimized_MP4_clips(segment, event, chunks):
         # Also use the AudioTrack in the Output video key prefix
         audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
 
-        hls_input_setting = build_hls_input(segment, event, chunks ,audioTrack)
+        #hls_input_setting = build_hls_input(segment, event, chunks ,audioTrack)
 
         #------------- Update MediaConvert AudioSelectors Input -------------
 
@@ -769,7 +951,8 @@ def create_optimized_MP4_clips(segment, event, chunks):
             # Convert the video using AWS Elemental MediaConvert
             jobid = str(uuid.uuid4())
             jobMetadata = {'JobId': jobid}
-            create_job(jobMetadata, jobSettings)
+            job_response = create_job(jobMetadata, jobSettings)
+            media_convert_job_ids.append(job_response['Job']['Id'])
             
         elif len(chunks) > 1:
             for chunk_index in range(len(chunks)):
@@ -805,7 +988,8 @@ def create_optimized_MP4_clips(segment, event, chunks):
             # Convert the video using AWS Elemental MediaConvert
             jobid = str(uuid.uuid4())
             jobMetadata = { 'JobId': jobid }
-            create_job(jobMetadata, jobSettings)
+            job_response = create_job(jobMetadata, jobSettings)
+            media_convert_job_ids.append(job_response['Job']['Id'])
 
         # Update the Segment with the S3KeyPrefix
         segment['OptimizedS3KeyPrefix'] = f"{job_output_destination}.mp4"
@@ -817,7 +1001,7 @@ def create_optimized_MP4_clips(segment, event, chunks):
         print ('Exception: %s' % e)
         raise
     
-    return keyprefix, hls_input_setting
+    return keyprefix, media_convert_job_ids
 
 def create_job(jobMetadata, jobSettings):
 
@@ -841,13 +1025,13 @@ def create_job(jobMetadata, jobSettings):
 def create_non_optimized_MP4_clip_per_audio_track(segment, event, chunks):
     audiotracks = event['Event']['AudioTracks']
     segments = []
-    hls_inputs = []
+    media_convert_job_ids = []
     for track in audiotracks:
-        seg, hls_input = create_non_optimized_MP4_clips(segment, event, chunks, int(track))
+        seg, job_ids = create_non_optimized_MP4_clips(segment, event, chunks, int(track))
         segments.append(seg)
-        hls_inputs.extend(hls_input)
+        media_convert_job_ids.extend(job_ids)
     
-    return segments, hls_inputs
+    return segments, media_convert_job_ids
 
 
 def is_end_time_less_than_start_time(endtime, starttime):
@@ -859,7 +1043,8 @@ def is_end_time_less_than_start_time(endtime, starttime):
     return True
 
 def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
-    hls_input = []
+    #hls_input = []
+    media_convert_job_ids = []
 
     try:
         
@@ -868,7 +1053,7 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
         with open(job_settings_filename) as json_data:
             jobSettings = json.load(json_data)
 
-        hls_input = build_hls_input(segment, event, chunks ,audioTrack)
+        #hls_input = build_hls_input(segment, event, chunks ,audioTrack)
         
         #------------- Update MediaConvert AudioSelectors Input -------------
 
@@ -937,8 +1122,9 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
             # Convert the video using AWS Elemental MediaConvert
             jobid = str(uuid.uuid4())
             jobMetadata = {'JobId': jobid}
-            create_job(jobMetadata, jobSettings)
-            
+            job_response = create_job(jobMetadata, jobSettings)
+            media_convert_job_ids.append(job_response['Job']['Id'])
+
         elif len(chunks) > 1:
             for chunk_index in range(len(chunks)):
                 
@@ -962,53 +1148,16 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
             # Convert the video using AWS Elemental MediaConvert
             jobid = str(uuid.uuid4())
             jobMetadata = { 'JobId': jobid }
-            create_job(jobMetadata, jobSettings)
+            job_response = create_job(jobMetadata, jobSettings)
+            media_convert_job_ids.append(job_response['Job']['Id'])
         
     except Exception as e:
         print ('Exception: %s' % e)
         raise
+    
+    orig_segment = get_original_segment_dict(segment, audioTrack)
+    orig_segment["OriginalClipLocation"] = f"{job_output_destination}.mp4"
+    orig_segment["OriginalThumbnailLocation"] = f"{thumbnail_job_output_destination}.0000000.jpg"
 
-    return {
-            "Start": segment['Start'],
-            "End": segment['End'],
-            "OriginalClipStatus": "Success",
-            "OriginalClipLocation": f"{job_output_destination}.mp4",
-            "OriginalThumbnailLocation": f"{thumbnail_job_output_destination}.0000000.jpg",
-            "AudioTrack": audioTrack
-        }, hls_input
+    return orig_segment, media_convert_job_ids
 
-def create_HLS_clips(inputSettings, index, batch_id, audioTrack):
-
-    if len(inputSettings) == 0:
-        return None
-    unqid = str(uuid.uuid4())
-    try:
-        
-        job_settings_filename = os.path.join(os.path.dirname(__file__), 'job_settings_hls.json')
-                
-        with open(job_settings_filename) as json_data:
-            jobSettings = json.load(json_data)
-            
-        job_output_destination = f"s3://{OUTPUT_BUCKET}/HLS/{batch_id}/{audioTrack}/"
-        
-        jobSettings["OutputGroups"][0]["OutputGroupSettings"]["HlsGroupSettings"]["Destination"] = job_output_destination
-        
-        jobSettings["OutputGroups"][0]['Outputs'][0]["NameModifier"] = f"Part-{unqid}"
-
-        jobSettings["OutputGroups"][0]["OutputGroupSettings"]["HlsGroupSettings"]["AdditionalManifests"] =  [{
-                                                                                                                "ManifestNameModifier": f"Batch-{unqid}",
-                                                                                                                "SelectedOutputs": [
-                                                                                                                        f"Part-{unqid}"
-                                                                                                                    ]
-                                                                                                            }]
-        
-        jobSettings['Inputs'] = inputSettings
-
-        # Convert the video using AWS Elemental MediaConvert
-        jobMetadata = { 'BatchId': batch_id }
-
-        return create_job(jobMetadata, jobSettings)
-
-    except Exception as e:
-        print ('Exception: %s' % e)
-        raise

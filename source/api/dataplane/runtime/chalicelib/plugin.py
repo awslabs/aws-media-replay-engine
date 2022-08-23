@@ -486,23 +486,37 @@ def get_feature_in_segment(program, event, starttime, pluginname, attrname, attr
 
     plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
-    # We dont Expect more than couple of items to be returned by this Query since the Segment Start time is being filtered on
-    # There is no need to Paginate
+    # We dont need to get all the attributes to find if a feature exists in segment or not.
     response = plugin_result_table.query(
+        ProjectionExpression="#start, #optoStart, #end, #optoEnd, #outputAttribute",
+        ExpressionAttributeNames={'#start': 'Start', '#optoStart': 'OptoStart',
+                                  '#end': 'End', '#optoEnd': 'OptoEnd', '#outputAttribute': attrname},
         IndexName=PROGRAM_EVENT_PLUGIN_INDEX,
         ScanIndexForward=True,
-        KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{pluginname}") & Key('Start').eq(starttime)
+        KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{pluginname}") & Key('Start').between(round(starttime, 3), round(endtime, 3))
     )
+
+    feature_items = response["Items"]
+    while "LastEvaluatedKey" in response:
+        response = plugin_result_table.query(
+            IndexName=PROGRAM_EVENT_PLUGIN_INDEX,
+            ProjectionExpression="#start, #optoStart, #end, #optoEnd, #outputAttribute",
+            ExpressionAttributeNames={'#start': 'Start', '#optoStart': 'OptoStart',
+                                  '#end': 'End', '#optoEnd': 'OptoEnd', '#outputAttribute': attrname},
+            ScanIndexForward=True,
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+            KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{event}#{pluginname}") & Key('Start').between(round(starttime, 3), round(endtime, 3))
+        )
+    feature_items.extend(response["Items"])
 
     # Convert Param into bool since all plugins store the Output Attrib values as bool.
     attribValueInBool = True if attrvalue == "True" else False
 
     # Check if the Segment returned has the Output Attribute and the value being asked for
-    if 'Items' in response:
-        for item in response['Items']:
-            if attrname in item:
-                if item[attrname] == attribValueInBool:
-                    return response
+    for item in feature_items:
+        if attrname in item:
+            if item[attrname] == attribValueInBool:
+                return item
 
     return {}
 

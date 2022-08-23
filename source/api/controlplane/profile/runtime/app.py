@@ -17,6 +17,7 @@ from botocore.client import ClientError
 from jsonschema import validate, ValidationError
 from chalicelib import DecimalEncoder
 from chalicelib import profile_state_dfn_helper as state_definition_helper
+from chalicelib import profile_creation_helper as profile_creation_helper
 from chalicelib import load_api_schema, replace_decimals
 from chalice import Chalice
 
@@ -236,37 +237,7 @@ def create_profile():
 
         # === Enrich profile by adding the latest version number of all the plugins provided in the profile ===
         # Classifier and its DependentPlugins
-        profile["Classifier"]["Version"] = plugin_definitions[profile["Classifier"]["Name"]]["Latest"]
-
-        if "DependentPlugins" in profile["Classifier"]:
-            for index, d_plugin in enumerate(profile["Classifier"]["DependentPlugins"]):
-                profile["Classifier"]["DependentPlugins"][index]["Version"] = plugin_definitions[d_plugin["Name"]]["Latest"]
-
-        # Optimizer and its DependentPlugins
-        if "Optimizer" in profile:
-            profile["Optimizer"]["Version"] = plugin_definitions[profile["Optimizer"]["Name"]]["Latest"]
-
-            if "DependentPlugins" in profile["Optimizer"]:
-                for index, d_plugin in enumerate(profile["Optimizer"]["DependentPlugins"]):
-                    profile["Optimizer"]["DependentPlugins"][index]["Version"] = plugin_definitions[d_plugin["Name"]]["Latest"]
-
-        # Labeler and its DependentPlugins
-        if "Labeler" in profile:
-            profile["Labeler"]["Version"] = plugin_definitions[profile["Labeler"]["Name"]]["Latest"]
-
-            if "DependentPlugins" in profile["Labeler"]:
-                for index, d_plugin in enumerate(profile["Labeler"]["DependentPlugins"]):
-                    profile["Labeler"]["DependentPlugins"][index]["Version"] = plugin_definitions[d_plugin["Name"]]["Latest"]
-
-        # Featurers and their DependentPlugins
-        if "Featurers" in profile:
-            for p_index, featurer in enumerate(profile["Featurers"]):
-                profile["Featurers"][p_index]["Version"] = plugin_definitions[featurer["Name"]]["Latest"]
-
-                if "DependentPlugins" in featurer:
-                    for c_index, d_plugin in enumerate(featurer["DependentPlugins"]):
-                        profile["Featurers"][p_index]["DependentPlugins"][c_index]["Version"] = plugin_definitions[d_plugin["Name"]]["Latest"]
-        # === End of enrichment ===
+        profile_creation_helper.enrich_profile(profile,plugin_definitions)
 
         profile_table = ddb_resource.Table(PROFILE_TABLE_NAME)
 

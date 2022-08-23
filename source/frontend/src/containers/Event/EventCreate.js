@@ -30,11 +30,19 @@ export const EventCreate = () => {
         S3_BUCKET:'S3 Bucket'
     };
 
+    const timeCodes = {
+        UNDEFINED: '',
+        NONE:'NOT_EMBEDDED',
+        UTC:'UTC_BASED',
+        ZERO_BASED:'ZERO_BASED'
+    };
+
     const [programOptions, setProgramOptions] = React.useState([]);
     const [profileOptions, setProfileOptions] = React.useState([]);
     const [profilesData, setProfilesData] = React.useState([]);
     const [channelOptions, setChannelOptions] = React.useState([]);
     const [bucketOptions, setBucketOptions] = React.useState([]);
+    const [timeCodeOptions, setTimeCodeOptions] = React.useState(Object.values(timeCodes));
     const [sourceOptions, setSourceOptions] = React.useState(Object.values(sourceTypes));
 
     const {query, isLoading, setIsLoading} = APIHandler();
@@ -77,6 +85,10 @@ export const EventCreate = () => {
         })();
     }, []);
 
+    const onTimeCodeChange= async (value) => {
+        console.log(value)
+    }
+
     const onSourceChange = async (value) => {
         if (value == sourceTypes.MEDIALIVE) {
             const channelOptions = await fetchChannels();
@@ -116,7 +128,10 @@ export const EventCreate = () => {
         SourceVideoMetadata: "",
         BootstrapTimeInMinutes: 0,
         SourceSelection: sourceTypes.UNDEFINED,
-        SourceVideoBucket: sourceTypes.UNDEFINED
+        SourceVideoBucket: sourceTypes.UNDEFINED,
+        GenerateOrigClips: true,
+        GenerateOptoClips: true,
+        TimecodeSource: timeCodes.NONE
     };
 
     const inputFieldsMap = {
@@ -162,6 +177,13 @@ export const EventCreate = () => {
                     return _.find(profilesData, {"Name": values.Profile})["ContentGroups"];
                 }
             },
+        },
+        TimecodeSource: {
+            name: "TimecodeSource",
+            label: "Embedded Timecode Source",
+            type: "select",
+            isRequired: true,
+            options: timeCodeOptions
         },
         SourceSelect: {
             name: "SourceSelection",
@@ -286,11 +308,23 @@ export const EventCreate = () => {
             isRequired: true,
             size: 3
         },
+        
         Archive: {
             name: "Archive",
             label: "Archive the event",
             type: "checkbox",
         },
+        GenOriginalClip: {
+            name: "GenerateOrigClips",
+            label: "Generate Original Segment Clips",
+            type: "checkbox",
+        },
+        GenOptimizedClip: {
+            name: "GenerateOptoClips",
+            label: "Generate Optimized Segment Clips",
+            type: "checkbox",
+        }
+        
     }
 
     return (

@@ -52,7 +52,6 @@ def store_plugin_result():
             "PluginName": string,
             "PluginClass": string,
             "ModelEndpoint": string,
-            "Configuration": object,
             "OutputAttributesNameList": list,
             "Location": object,
             "Results": list
@@ -241,7 +240,6 @@ def store_plugin_result():
                     item["ChunkNumber"] = result["ChunkNumber"]
                     item["PluginClass"] = result["PluginClass"]
                     item["ModelEndpoint"] = result["ModelEndpoint"] if "ModelEndpoint" in result else ""
-                    item["Configuration"] = result["Configuration"] if "Configuration" in result else {}
                     item["Location"] = result["Location"]
 
                     if audio_track is not None:
@@ -538,10 +536,10 @@ def get_segments_for_event(program, event, classifier):
     plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
     response = plugin_result_table.query(
-        ProjectionExpression="#start, #originalClipLocation, #optimizedClipLocation, #optoStart, #pluginClass, #end, #optoEnd",
+        ProjectionExpression="#start, #originalClipLocation, #optimizedClipLocation, #optoStart, #pluginClass, #end, #optoEnd, #hourElapsed",
         ExpressionAttributeNames={'#start': 'Start', '#originalClipLocation': 'OriginalClipLocation',
                                   '#optimizedClipLocation': 'OptimizedClipLocation', '#optoStart': 'OptoStart',
-                                  '#pluginClass': 'PluginClass', '#end': 'End', '#optoEnd': 'OptoEnd'},
+                                  '#pluginClass': 'PluginClass', '#end': 'End', '#optoEnd': 'OptoEnd', '#hourElapsed': 'HourElapsed'},
         KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
         ScanIndexForward=True
     )
@@ -550,10 +548,10 @@ def get_segments_for_event(program, event, classifier):
 
     while "LastEvaluatedKey" in response:
         response = plugin_result_table.query(
-            ProjectionExpression="#start, #originalClipLocation, #optimizedClipLocation, #optoStart, #pluginClass, #end, #optoEnd",
+            ProjectionExpression="#start, #originalClipLocation, #optimizedClipLocation, #optoStart, #pluginClass, #end, #optoEnd, #hourElapsed",
             ExpressionAttributeNames={'#start': 'Start', '#originalClipLocation': 'OriginalClipLocation',
                                       '#optimizedClipLocation': 'OptimizedClipLocation', '#optoStart': 'OptoStart',
-                                      '#pluginClass': 'PluginClass', '#end': 'End', '#optoEnd': 'OptoEnd'},
+                                      '#pluginClass': 'PluginClass', '#end': 'End', '#optoEnd': 'OptoEnd', '#hourElapsed': 'HourElapsed'},
             ExclusiveStartKey=response["LastEvaluatedKey"],
             KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
             ScanIndexForward=True

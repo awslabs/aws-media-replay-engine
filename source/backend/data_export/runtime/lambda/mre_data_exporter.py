@@ -25,9 +25,14 @@ def GenerateDataExport(event, context):
     controlplane = ControlPlane()
 
     # Export Event Data when Clips are being generated
-    if event['detail']['Event']['EventType'] in ["EVENT_CLIP_GEN", "CLIP_GEN_DONE_WITH_CLIPS"]:
-        event_name = event['detail']['Event']['EventInfo']['Event']['Name']
-        program_name = event['detail']['Event']['EventInfo']['Event']['Program']
+    if event['detail']['Event']['EventType'] in ["EVENT_CLIP_GEN"]:
+
+        if event['detail']['Event']['EventType'] == "EVENT_CLIP_GEN":
+            event_name = event['detail']['Event']['EventInfo']['Event']['Name']
+            program_name = event['detail']['Event']['EventInfo']['Event']['Program']
+        else:
+            event_name = event['detail']['Event']['EventInfo']['EventName']
+            program_name = event['detail']['Event']['EventInfo']['ProgramName']
 
         event_data_gen = EventDataExporter(event)
         event_data = event_data_gen.generate_event_data()
@@ -74,7 +79,7 @@ def GenerateDataExport(event, context):
         s3_location_key_prefix = f"base_replay_export/{replay_id}/{replay_id}_replay_export.json"
         s3_client.upload_file("/tmp/replay_export.json", ExportOutputBucket, s3_location_key_prefix)    
 
-        #Update the S3 Location for the Event in DDB
+        #Update the S3 Location for the Replay in DDB
         controlplane.update_replay_data_export_location(
             event['detail']['Event']['Event'], 
             event['detail']['Event']['Program'], 

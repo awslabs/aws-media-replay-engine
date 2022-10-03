@@ -78,11 +78,6 @@
             "title": "The ModelEndpoint Schema",
             "pattern": "^(.*)$"
         },
-        "Configuration": {
-            "$id": "#/properties/Configuration",
-            "type": "object",
-            "title": "The Configuration Schema"
-        },
         "OutputAttributesNameList": {
             "$id": "#/properties/OutputAttributesNameList",
             "type": "array",

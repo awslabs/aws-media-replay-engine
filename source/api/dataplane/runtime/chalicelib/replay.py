@@ -13,16 +13,25 @@ from chalice import ChaliceViewError
 from boto3.dynamodb.conditions import Key, Attr
 from chalicelib import load_api_schema
 from chalicelib.common import populate_segment_data_matching, get_event_segment_metadata
-
+import time
+import gzip
 
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 REPLAY_RESULT_TABLE_NAME = os.environ['REPLAY_RESULT_TABLE_NAME']
+JOB_TRACKER_TABLE_NAME = os.environ['JOB_TRACKER_TABLE_NAME']
 
 authorizer = IAMAuthorizer()
 ddb_resource = boto3.resource("dynamodb")
 API_SCHEMA = load_api_schema()
 
 replay_api = Blueprint(__name__)
+
+class DecimalEncoder(json.JSONEncoder):
+  def default(self, obj):
+    if isinstance(obj, Decimal):
+      return float(obj)
+    return json.JSONEncoder.default(self, obj)
+
 
 @replay_api.route('/event/{name}/program/{program}/profileClassifier/{classifier}/track/{tracknumber}/replay/{replayId}/segments/v2',
     cors=True, methods=['GET'], authorizer=authorizer)
@@ -73,7 +82,8 @@ def get_matching_replay_segments_v2(name, program, classifier, tracknumber, repl
 
         if len(replay_results_query['Items']) > 0:
             try:
-                replay_clips = match_replays_with_segments(replay_results_query['Items'][0]['ReplayResults'], program, name,
+                replay_results = json.loads(gzip.decompress(bytes(replay_results_query['Items'][0]['ReplayResults'])).decode('utf-8'))
+                replay_clips = match_replays_with_segments(replay_results, program, name,
                                                         classifier, tracknumber, last_evaluated_key, limit)
             except KeyError:
                 pass
@@ -133,7 +143,9 @@ def get_matching_replay_segments(name, program, classifier, tracknumber, replayI
             replay_results_response.extend(response['Items'])
 
         for replay_result in replay_results_response:
-            for result in replay_result['ReplayResults']:
+
+            tmp_replay_results = json.loads(gzip.decompress(bytes(replay_result['ReplayResults'])).decode('utf-8'))
+            for result in tmp_replay_results:
                 # print(f"Replay Start = {type(result['Start'])}")
                 for segment in segment_metadata['Segments']:
                     # print(type(segment['StartTime']))
@@ -174,12 +186,56 @@ def get_replay_segments(name, program, replayId):
             replay_results_response.extend(response['Items'])
 
         if len(replay_results_response) > 0:
-            return replay_results_response[0]['ReplayResults'] if 'ReplayResults' in replay_results_response[0] else []
+            if 'ReplayResults' in replay_results_response[0]:
+                tmp_replay_results = json.loads(gzip.decompress(bytes(replay_results_response[0]['ReplayResults'])).decode('utf-8'))
+                return tmp_replay_results
+            else:
+                return []
         else:
             return []
     else:
         return []
 
+def create_replay_result(replay_results_table, replay_result):
+    program = replay_result["Program"]
+    event = replay_result["Event"]
+    replay_id = replay_result["ReplayId"]
+    profile = replay_result["Profile"]
+    classifier = replay_result["Classifier"]
+    
+    additional_info = []
+    total_score = replay_result["TotalScore"]
+    lastSegmentStartTime = replay_result["LastSegmentStartTime"]
+
+
+    json_data = json.dumps(replay_result['ReplayResults'], indent=2, cls=DecimalEncoder)
+    # Convert to bytes
+    encoded = json_data.encode('utf-8')
+    compressed_replay_results = gzip.compress(encoded)
+
+    replay_results = compressed_replay_results
+
+    try:
+        replay_results_table.put_item(
+            Item={
+                "CreatedOn": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "UpdatedOn": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "ReplayId": replay_id,
+                "ProgramEventReplayId": f"{program}#{event}#{replay_id}",
+                "Event": event,
+                "Program": program,
+                "Profile": profile,
+                "Classifier": classifier,
+                "TotalScore": total_score,
+                "LastSegmentStartTime": lastSegmentStartTime,
+                "DebugInfo": [],
+                "ReplayResults": replay_results
+            },
+            ConditionExpression="attribute_not_exists(ProgramEventReplayId)",
+        )
+    except ddb_resource.meta.client.exceptions.ConditionalCheckFailedException as e: 
+        #Ignore this since we issue an update later
+        pass
 
 
 @replay_api.route('/replay/result', cors=True, methods=['POST'], authorizer=authorizer)
@@ -214,17 +270,25 @@ def update_replay_results():
     replay_id = replay_result["ReplayId"]
     profile = replay_result["Profile"]
     classifier = replay_result["Classifier"]
-    replay_results = replay_result["ReplayResults"]
+
+    init_replay_results = replay_result["ReplayResults"]
+    json_data = json.dumps(init_replay_results, indent=2, cls=DecimalEncoder)
+    # Convert to bytes
+    encoded = json_data.encode('utf-8')
+    replay_results = gzip.compress(encoded) # Replay Results can be rather large. Compressing it to be below 400KB
+
+    #replay_results = replay_result["ReplayResults"]
     additional_info = replay_result["AdditionalInfo"]
     total_score = replay_result["TotalScore"]
+    lastSegmentStartTime = replay_result["LastSegmentStartTime"]
 
     update_expression = []
     expression_attribute_names = {}
     expression_attribute_values = {}
 
-    update_expression.append("#CreatedOn = :CreatedOn")
-    expression_attribute_names["#CreatedOn"] = "CreatedOn"
-    expression_attribute_values[":CreatedOn"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    update_expression.append("#UpdatedOn = :UpdatedOn")
+    expression_attribute_names["#UpdatedOn"] = "UpdatedOn"
+    expression_attribute_values[":UpdatedOn"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     update_expression.append("#ReplayId = :ReplayId")
     expression_attribute_names["#ReplayId"] = "ReplayId"
@@ -250,6 +314,12 @@ def update_replay_results():
     expression_attribute_names["#TotalScore"] = "TotalScore"
     expression_attribute_values[":TotalScore"] = total_score
 
+    update_expression.append("#LastSegmentStartTime = :LastSegmentStartTime")
+    expression_attribute_names["#LastSegmentStartTime"] = "LastSegmentStartTime"
+    expression_attribute_values[":LastSegmentStartTime"] = lastSegmentStartTime
+
+    
+
     # Upsert will first Insert an Empty list and then append Debug Information if any found
     # This will serve as a Audit Trail on which segments were Included/Excluded for every Segment End event processing
     update_expression.append("#DebugInfo = list_append(if_not_exists(#DebugInfo, :initialDebugInfo), :DebugInfo)")
@@ -265,16 +335,24 @@ def update_replay_results():
     if len(replay_results) > 0:
         replay_results_table = ddb_resource.Table(REPLAY_RESULT_TABLE_NAME)
 
-        replay_results_table.update_item(
-            Key={"ProgramEventReplayId": f"{program}#{event}#{replay_id}"},
-            UpdateExpression="SET " + ", ".join(update_expression),
-            ExpressionAttributeNames=expression_attribute_names,
-            ExpressionAttributeValues=expression_attribute_values
-        )
+        create_replay_result(replay_results_table, replay_result)
 
-        return "Replay results updated"
+        # Handle Race conditions - Based on the LastSegmentStartTime which should be less than the 
+        # new value. If the value is more, we are trying to update an older 
+        # replay result.
+        try:
+            replay_results_table.update_item(
+                Key={"ProgramEventReplayId": f"{program}#{event}#{replay_id}"},
+                UpdateExpression="SET " + ", ".join(update_expression),
+                ConditionExpression="attribute_exists(LastSegmentStartTime) and LastSegmentStartTime <= :LastSegmentStartTime",
+                ExpressionAttributeNames=expression_attribute_names,
+                ExpressionAttributeValues=expression_attribute_values
+            )
+        except ddb_resource.meta.client.exceptions.ConditionalCheckFailedException as e: 
+            print(f'POSSIBLE RACE CONDITION!! Got lastSegmentStartTime={str(lastSegmentStartTime)} ')
+            return False
 
-    return ""
+    return True
 
 
 def match_replays_with_segments(replay_items, program, event_name, classifier, tracknumber, last_evaluated_key_input, limit):
@@ -310,3 +388,54 @@ def match_replays_with_segments(replay_items, program, event_name, classifier, t
     return result
 
 
+@replay_api.route('/job/status/{job_id}',cors=True, methods=['GET'], authorizer=authorizer)
+def get_job_status(job_id):
+    jobid = urllib.parse.unquote(job_id)
+
+    job_tracker_table = ddb_resource.Table(JOB_TRACKER_TABLE_NAME)
+    response = job_tracker_table.query(
+        KeyConditionExpression=Key("JobId").eq(jobid)
+    )
+
+    if 'Items' in response:
+        return response['Items']
+    else:
+        return []
+
+@replay_api.route('/job/create/{job_id}',cors=True, methods=['POST'], authorizer=authorizer)
+def create_job(job_id):
+    jobid = urllib.parse.unquote(job_id)
+    job_tracker_table = ddb_resource.Table(JOB_TRACKER_TABLE_NAME)
+
+    job_details = {}
+    job_details["JobId"] = jobid
+    job_details["Status"] = "CREATED"
+    job_details["ttl"] = int(time.time()) + 18000 # 5 hrs * 3600 = 18000 secs // TTL of 5 Hrs
+    job_tracker_table.put_item(Item=job_details)
+
+
+@replay_api.route('/job/update/{job_id}/{status}',cors=True, methods=['POST'], authorizer=authorizer)
+def update_job_status(job_id, status):
+    jobid = urllib.parse.unquote(job_id)
+    status = urllib.parse.unquote(status)
+
+    job_tracker_table = ddb_resource.Table(JOB_TRACKER_TABLE_NAME)
+
+    update_expression = []
+    expression_attribute_names = {}
+    expression_attribute_values = {}
+
+    update_expression.append("#Status = :Status")
+    expression_attribute_names["#Status"] = "Status"
+    expression_attribute_values[":Status"] = status
+
+    update_expression.append("#ttl = :ttl")
+    expression_attribute_names["#ttl"] = "ttl"
+    expression_attribute_values[":ttl"] = int(time.time()) + 18000 # 5 hrs * 3600 = 18000 secs // TTL of 5 Hrs
+
+    job_tracker_table.update_item(
+        Key={"JobId": jobid},
+        UpdateExpression="SET " + ", ".join(update_expression),
+        ExpressionAttributeNames=expression_attribute_names,
+        ExpressionAttributeValues=expression_attribute_values
+    )

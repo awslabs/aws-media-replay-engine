@@ -127,6 +127,7 @@ def add_replay():
         model["HlsThumbnailLoc"] = '-'
         model["Mp4Location"] = {}
         model["Mp4ThumbnailLocation"] = {}
+        model["IgnoredSegments"] = []
 
         print(f"Adding the Replay Request '{model['Program']}#{model['Event']}'")
 
@@ -1134,6 +1135,45 @@ def store_replay_export_data():
         print(f"Successfully stored the Replay data export of event '{event_name}' in program '{program}'")
 
         return {}
+
+
+@app.route('/replay/update/ignore/segment/cache', cors=True, methods=['PUT'],authorizer=authorizer)
+def update_segments_to_be_ignored():
+    """
+    Updates name of segment cache files which do not have matching Features configured for a Replay
+
+    Returns:
+
+        None
+        
+    """
+    
+    payload = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
+    event = payload['Name']
+    program = payload['Program']
+    segment_cache_name = payload['SegmentCacheName']
+    replay_id = payload['ReplayId']
+
+    replay_request_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
+
+    update_expression = []
+    expression_attribute_names = {}
+    expression_attribute_values = {}
+
+    update_expression.append("#IgnoredSegments = list_append(if_not_exists(#IgnoredSegments, :initialIgnoredSegments), :IgnoredSegments)")
+    expression_attribute_names["#IgnoredSegments"] = "IgnoredSegments"
+    expression_attribute_values[":IgnoredSegments"] = [segment_cache_name] 
+    expression_attribute_values[":initialIgnoredSegments"] = []
+
+    replay_request_table.update_item(
+        Key={
+                "PK": f"{program}#{event}",
+                "ReplayId": replay_id
+            },
+        UpdateExpression="SET " + ", ".join(update_expression),
+        ExpressionAttributeNames=expression_attribute_names,
+        ExpressionAttributeValues=expression_attribute_values
+    )
 
 
 @app.route('/replay/export/data/{id}/event/{event}/program/{program}', cors=True, methods=['GET'],

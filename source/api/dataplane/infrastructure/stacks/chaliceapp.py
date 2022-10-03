@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
 
 from aws_cdk import (
     RemovalPolicy,
@@ -23,6 +24,11 @@ FRAME_PROGRAM_EVENT_INDEX = "ProgramEvent-index"
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX  = "ProgramEventTrack-index"
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = "ProgramEventClassifierStart-index"
 
+# Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
+sys.path.append('../../../')
+
+from shared.infrastructure.helpers import common
+
 RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
 
@@ -31,6 +37,22 @@ class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
+
+        # Get the existing MRE Segment Cache bucket
+        self.segment_cache_bucket_name = common.MreCdkCommon.get_segment_cache_bucket_name(self)
+
+        # JobTracking Table
+        self.job_tracking_table = ddb.Table(
+            self,
+            "JobTracker",
+            partition_key=ddb.Attribute(
+                name="JobId",
+                type=ddb.AttributeType.STRING
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute="ttl"
+        )
 
         # Frame Table
         self.frame_table = ddb.Table(
@@ -223,7 +245,9 @@ class ChaliceApp(Stack):
                     self.plugin_result_table.table_arn,
                     f"{self.plugin_result_table.table_arn}/index/*",
                     self.clip_preview_feedback_table.table_arn,
-                    f"{self.clip_preview_feedback_table.table_arn}/index/*"
+                    f"{self.clip_preview_feedback_table.table_arn}/index/*",
+                    self.job_tracking_table.table_arn,
+                    f"{self.job_tracking_table.table_arn}/index/*",
                 ]
             )
         )
@@ -307,6 +331,22 @@ class ChaliceApp(Stack):
             )
         )
 
+        # Event Deletion Handler Lambda IAM Role: S3 permissions
+        self.event_deletion_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:Get*",
+                    "s3:Delete*",
+                    "s3:List*"
+                ],
+                resources=[
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}",
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}/*"
+                ]
+            )
+        )
+
         # Event Deletion Handler Lambda IAM Role: CloudWatch Logs permissions
         self.event_deletion_lambda_role.add_to_policy(
             iam.PolicyStatement(
@@ -339,7 +379,8 @@ class ChaliceApp(Stack):
                 "FRAME_TABLE_NAME": self.frame_table.table_name,
                 "FRAME_PROGRAM_EVENT_INDEX": FRAME_PROGRAM_EVENT_INDEX,
                 "CHUNK_TABLE_NAME": self.chunk_table.table_name,
-                "WORKFLOW_EXECUTION_TABLE_ARN": self.workflow_execution_table_arn
+                "WORKFLOW_EXECUTION_TABLE_ARN": self.workflow_execution_table_arn,
+                "SEGMENT_CACHE_BUCKET": self.segment_cache_bucket_name,
             }
         )
 
@@ -371,7 +412,8 @@ class ChaliceApp(Stack):
                     "PROGRAM_EVENT_INDEX": PROGRAM_EVENT_INDEX,
                     "PROGRAM_EVENT_PLUGIN_INDEX": PROGRAM_EVENT_PLUGIN_INDEX,
                     "CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX": CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX,
-                    "CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX": CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX
+                    "CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX": CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX,
+                    "JOB_TRACKER_TABLE_NAME": self.job_tracking_table.table_name
                 },
                 "tags": {
                     "Project": "MRE"

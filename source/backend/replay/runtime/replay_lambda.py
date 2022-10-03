@@ -10,34 +10,33 @@ import json
 import uuid
 import datetime
 from botocore.config import Config
+import subprocess
+from queue import Queue
+import threading
+from shared.CacheSyncManager import CacheSyncManager
+from random import randint
+
+from subprocess import Popen
+from MediaReplayEngineWorkflowHelper import ControlPlane
+controlplane = ControlPlane()
+from MediaReplayEnginePluginHelper import DataPlane
 
 s3_client = boto3.client("s3")
 ssm = boto3.client('ssm')
+
+EFS_PATH = "/mnt/efs"
 
 OUTPUT_BUCKET = os.environ['OutputBucket']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 eb_client = boto3.client("events")
 
 
-
-def FindFeaturesInSegment(event, context):
-    try:
-        print("FindFeaturesInSegment")
-        print(json.dumps(event))
-        return {
-            "FeaturesInSegments": {}
-        }
-    except Exception as e:
-        #TODO
-        mark_replay_error("", "", "")
-        raise
-
 def CreateReplay(event, context):
     '''
-        Gets Invoked within the Map state. 
+        This is the entry point for MRE Replay Creation.
     '''
    
-    print(event)
+    print(f"Event passed to the Replay function = {event}")
     replay: ReplayEngine = None
     try:
         process_replay, msg = should_replay_be_processed(event)
@@ -49,27 +48,27 @@ def CreateReplay(event, context):
                 event['detail']['Event']['AudioTrack'] = str(event['ReplayRequest']['AudioTrack'])
                 
 
-            # If SEGMENT_END comes in, check if an Optimizer is attached to the Profile.
+            # If SEGMENT_CACHED comes in, check if an Optimizer is attached to the Profile.
             # If yes, Do not create a Replay
-            if event['detail']['State'] == 'SEGMENT_END':
-
-                from MediaReplayEngineWorkflowHelper import ControlPlane
-                controlplane = ControlPlane()
-                response = controlplane.get_profile(event['detail']['Segment']['ProfileName'])
-
-                # There's an optimizer configured and has values in it, skip replay creation.
-                # This is because, replays will get created when Segments are optimized.
-                if 'Optimizer' in response:
-                    if len(response['Optimizer']) > 0:
-                        return {
-                            "Status": f"Replay not processed as the Profile has an Optimizer configured."
-                        }
+            if skip_segment_when_optimizer_configured(event):
+                return {
+                    "Status": "Replay Not Processed",
+                    "Reason": "Got SEGMENT_CACHED. Ignoring this run of replay since we expect to process OPTIMIZED_SEGMENT_CACHED as an Opto is Configured"
+                }
 
             runId = str(uuid.uuid4())
             start_time = datetime.datetime.now()
             print(f"------- Starting replay creation run id {runId} ----------------- {start_time}")
             replay = ReplayEngine(event)
-            replay._create_replay()
+            replay_result = replay._create_replay()
+
+            
+            if not replay_result:
+                return {
+                    "Status": "Replay Not Processed",
+                    "RunId": runId
+                }
+
             end_time = datetime.datetime.now()
             print(f"------- replay metadata creation end run id {runId}----------------- {end_time}")
 
@@ -96,32 +95,54 @@ def CreateReplay(event, context):
                         }
                     ]
                 )
-            
+
             return {
                 "Status": "Replay Processed",
                 "RunId": runId
             }
             
         else:
+            print(msg)
             return {
-                "Status": msg
+                "Status": "Replay Not Processed",
+                "Reason": msg
             }
     except Exception as e:
         print(e)
-        if replay:
+        
+        # Only when we are dealing with a Non Catch up replay, we update the Replay Status as Error
+        if replay and not event['ReplayRequest']['Catchup']:
             mark_replay_error(event['ReplayRequest']['ReplayId'], replay._event, replay._program)
         raise
 
-##@app.lambda_function()
+def skip_segment_when_optimizer_configured(event):
+     # If SEGMENT_CACHED comes in, check if an Optimizer is attached to the Profile.
+    # If yes, Do not create a Replay
+    if event['detail']['State'] == 'SEGMENT_CACHED':
+
+        # from MediaReplayEngineWorkflowHelper import ControlPlane
+        # controlplane = ControlPlane()
+        response = controlplane.get_profile(event['detail']['Segment']['ProfileName'])
+
+        # There's an optimizer configured and has values in it, skip replay creation.
+        # This is because, replays will get created when Segments are optimized.
+        if 'Optimizer' in response:
+            if len(response['Optimizer']) > 0:
+                print("Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED event.")
+                return True
+
+    return False
+
+
 def GetEligibleReplays(event, context):
     """
        Gets all eligible Replay Requests to be processed
     """
 
-    from MediaReplayEngineWorkflowHelper import ControlPlane
-    controlplane = ControlPlane()
+    # from MediaReplayEngineWorkflowHelper import ControlPlane
+    # controlplane = ControlPlane()
     
-    print(event)
+    print(f"Getting eligible replays event payload = {event}")
 
     # Only if the Event has Completed, then create a replay for the Event
     # Supports use case of Creating Replays for Past/Completed Events
@@ -138,7 +159,9 @@ def GetEligibleReplays(event, context):
                 raise (Exception('Event does not have AudioTracks'))
 
             # Process the newly created Replay Request given that the event is Complete
-            replay = ReplayEngine.get_replay(event_name, program_name, replay_id)
+            #replay = ReplayEngine.get_replay(event_name, program_name, replay_id)
+            replay = controlplane.get_replay_request(event_name, program_name, replay_id)
+
             all_replays.append(replay)
 
             # for audioTrack in response['AudioTracks']: 
@@ -167,12 +190,12 @@ def GetEligibleReplays(event, context):
             raise (Exception('Event does not have AudioTracks'))
 
         for audioTrack in response['AudioTracks']: 
-            replays = ReplayEngine._get_all_replays_for_event_end(event_name, program_name, audioTrack)
+            replays = controlplane.get_all_replay_requests_for_event_opto_segment_end(program_name, event_name, int(audioTrack))
             all_replays.extend(replays)
 
         return { "AllReplays": all_replays }
 
-    elif event['detail']['State'] == 'OPTIMIZED_SEGMENT_END':
+    elif event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
 
         replay = ReplayEngine(event)
         replays = replay._get_all_replays_for_opto_segment_end()
@@ -184,12 +207,11 @@ def GetEligibleReplays(event, context):
                 "AllReplays": replays
             }
 
-    elif event['detail']['State'] == 'SEGMENT_END':
+    elif event['detail']['State'] == 'SEGMENT_CACHED':
 
         event_name = event['detail']['Segment']['Event']
         program_name = event['detail']['Segment']['Program']
-        
-        replays = ReplayEngine._get_all_replays_for_segment_end(event_name, program_name)
+        replays = controlplane.get_all_replays_for_segment_end(event_name, program_name)
     
         if len(replays) == 0:
             print('No Reply requests found for the Program/Event/Status Combo')
@@ -200,17 +222,17 @@ def GetEligibleReplays(event, context):
 
 
 def get_event(event_name, program_name):
-    from MediaReplayEngineWorkflowHelper import ControlPlane
-    controlplane = ControlPlane()
     return controlplane.get_event(event_name, program_name)
 
 
 def should_replay_be_processed(event):
-
+    '''
+        Checks if the Current Replay should be Processed 
+    '''
     
     # If the Event received is SEGMENT based, we will only create Replay Clips
     # for CatchUp Replay Requests
-    if event['detail']['State'] == 'SEGMENT_END' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_END':
+    if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
         if not event['ReplayRequest']['Catchup']:
             return False, f"Replay not processed as Catchup is Disabled."
     
@@ -224,28 +246,30 @@ def should_replay_be_processed(event):
             program_name = event['detail']['Event']['Program']
 
             
-            response = get_event(event_name, program_name)
-            all_replays = []
+            #response = get_event(event_name, program_name)
+            #all_replays = []
             #for item in response['Items']:
                 
-            if 'AudioTracks' in response:
-                for audioTrack in response['AudioTracks']: 
-                    replays = ReplayEngine._get_all_replays_for_event_end(event_name, program_name, audioTrack)
-                    all_replays.extend(replays)
-            else:
-                # If No Audio Tracks were found, this could be due to no Optimizer Configured.
-                # Get all the Replay Requests for AudioTrack 1
-                replays = ReplayEngine._get_all_replays_for_segment_end(event_name, program_name)
-                all_replays.extend(replays)
+            # if 'AudioTracks' in response:
+            #     for audioTrack in response['AudioTracks']: 
+            #         replays = ReplayEngine._get_all_replays_for_event_end(event_name, program_name, audioTrack)
+            #         #DO NOT mark Non Catch Up replays as Complete
+            #         for replay in replays:
+            #             if replay["Catchup"]:
+            #                 all_replays.append(replay)
+            # else:
+            #     # If No Audio Tracks were found, this could be due to no Optimizer Configured.
+            #     # Get all the Replay Requests for AudioTrack 1
+            #     replays = ReplayEngine._get_all_replays_for_segment_end(event_name, program_name)
+            #     all_replays.extend(replays)
 
-            for replay in all_replays:
-                ReplayEngine._mark_replay_complete(replay['ReplayId'], program_name, event_name)
+            #for replay in all_replays:
+            controlplane.update_replay_request_status(program_name, event_name, event['ReplayRequest']['ReplayId'], "Complete")
                     
-            return False, "Ignoring the creation of Replay for EVENT_END since the last CatchUp Segment has been processed."
+            return False, "Marking Replay COMPLETE since EVENT_END was received."
 
     return True, ""
 
-##@app.lambda_function()
 def mark_replay_complete(event, context):
     print(event)
     
@@ -254,16 +278,16 @@ def mark_replay_complete(event, context):
         program_name = event['detail']['Event']['Program']
 
         for replay in event['ReplayResult']['Payload']['AllReplays']:
-            ReplayEngine._mark_replay_complete(replay['ReplayId'], program_name, event_name)
+            controlplane.update_replay_request_status(program_name, event_name, replay['ReplayId'], "Complete")
+
 
     return event['MapResult'] # Used to generate Maser m3u8 files
 
 def mark_replay_error(replayId, event_name, program):
-    ReplayEngine._mark_replay_error(replayId, program, event_name)
+    controlplane.update_replay_request_status(program, event_name, replayId, "Error")
 
 def update_replay_with_mp4_location(event, context):
-    from MediaReplayEngineWorkflowHelper import ControlPlane
-    controlplane = ControlPlane()
+
 
     event_name = event['ReplayRequest']['Event']
     program_name = event['ReplayRequest']['Program']
@@ -337,7 +361,7 @@ def update_replay_with_mp4_location(event, context):
     )
 
 
-#@app.lambda_function()
+
 def generate_master_playlist(event, context):
     '''
         Generates a master Playlist with various Quality levels representing different resolutions
@@ -352,8 +376,8 @@ def generate_master_playlist(event, context):
         720p/TestProgram_AK555_1_00002Part-1.m3u8
     '''
 
-    from MediaReplayEngineWorkflowHelper import ControlPlane
-    controlplane = ControlPlane()
+    #from MediaReplayEngineWorkflowHelper import ControlPlane
+    #controlplane = ControlPlane()
 
     playlist_content = []
     playlist_content.append('#EXTM3U')
@@ -508,7 +532,7 @@ def get_resolution_hls_desc(resolution):
     elif resolution.lower() == "360p":
         return "#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=640x360"
 
-#@app.lambda_function()
+
 def generate_hls_clips(event, context):
 
     #1. Get Replay Segments
@@ -528,62 +552,46 @@ def generate_mp4_clips(event, context):
     return mp4_gen.generate_mp4()
 
 def check_mp4_job_status(event, context):
-    endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
-
-    # Customizing Exponential backoff
-    # Retries with additional client side throttling.
-    boto_config = Config(
-        retries = {
-            'max_attempts': 10,
-            'mode': 'adaptive'
-        }
-    )
-    # add the account-specific endpoint to the client session x
-    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
-    
+    dataplane = DataPlane({})
     all_jobs_complete = True
+    
     for jobResult in event['CreateMp4JobsResult']["Payload"]:
         for jobMetData in jobResult['JobMetadata']:
-            try:
-                response = client.get_job(Id=jobMetData['JobsId'])
-                if response['Job']['Status'] != 'COMPLETE':
+            job_id = jobMetData['JobsId']
+            job_detail = dataplane.get_media_convert_job_detail(job_id)
+            print(f'Media Convert Job Detail = {job_detail} ')
+            if len(job_detail) > 0:
+                job_status = job_detail[0]["Status"]
+                if job_status == 'CREATED':
                     all_jobs_complete = False
                     break
-            except Exception as e:
-                # get_job may fail with a TooManyRequest exception. Lets have the State machine re-try this in the subsequent execution
-                all_jobs_complete = False
+            else:
+                print('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
+                all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
 
     return { "Status": "Complete" } if all_jobs_complete else { "Status": "InComplete" }
 
-#@app.lambda_function()
+
 def check_Hls_job_status(event, context):
-
-    endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
-
-    # Customizing Exponential backoff
-    # Retries with additional client side throttling.
-    boto_config = Config(
-        retries = {
-            'max_attempts': 10,
-            'mode': 'adaptive'
-        }
-    )
-    # add the account-specific endpoint to the client session x
-    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
-    
+    dataplane = DataPlane({})
     all_jobs_complete = True
+    
     for jobResult in event['CreateHlsJobsResult']["Payload"]:
         for jobMetData in jobResult['JobMetadata']:
-            try:
-                response = client.get_job(Id=jobMetData['JobsId'])
-                if response['Job']['Status'] != 'COMPLETE':
+            job_id = jobMetData['JobsId']
+            job_detail = dataplane.get_media_convert_job_detail(job_id)
+            print(f'Media Convert Job Detail = {job_detail} ')
+            if len(job_detail) > 0:
+                job_status = job_detail[0]["Status"]
+                if job_status == 'CREATED':
                     all_jobs_complete = False
                     break
-            except Exception as e:
-                # get_job may fail with a TooManyRequest exception. Lets have the State machine re-try this in the subsequent execution
-                all_jobs_complete = False
+            else:
+                print('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
+                all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
 
     return { "Status": "Complete" } if all_jobs_complete else { "Status": "InComplete" }
+
 
 def get_output_filename(keyPrefix, file_extn):
     
@@ -596,3 +604,51 @@ def get_output_filename(keyPrefix, file_extn):
                     manifests.append(content['Key'])
 
         return manifests
+
+
+def update_job_status(event, context):
+    '''
+        This Handler is Invoked by EventBridge when MediaConvert Job Status changes to either 'COMPLETE' or 'ERROR'
+        A EventBridge rule configures this Lambda Handler as a Trigger. This Handler will update the Status of the 
+        Job in the DDB Table JobTracker
+
+        A Sample Payload passed to this handler is shown below
+
+        {
+            "version": "0",
+            "id": "",
+            "detail-type": "MediaConvert Job State Change",
+            "source": "aws.mediaconvert",
+            "account": "",
+            "time": "",
+            "region": "us-east-2",
+            "resources": [
+                "arn:aws:mediaconvert"
+            ],
+            "detail": {
+                "timestamp": ,
+                "accountId": "",
+                "queue": "queue",
+                "jobId": "1662660985490-XXXXXXXXXXXXXXX",
+                "status": "COMPLETE",
+                "userMetadata": {
+                    "BatchId": "62119357-db53-4464-8e1d-0ad66370fbb5"
+                },
+                "outputGroupDetails": [
+                    {
+                        
+                    },
+                    {
+                        
+                    }
+                ]
+            }
+        }
+
+    '''
+
+    dataplane = DataPlane({})
+    job_id = event['detail']['jobId']
+
+    # Updates Job Status to either 'COMPLETE' or 'ERROR'
+    dataplane.update_media_convert_job_status(job_id, event['detail']['status'])

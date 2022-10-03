@@ -111,7 +111,15 @@ class ChaliceApp(Stack):
             source_dir=RUNTIME_SOURCE_DIR,
             stage_config={
                 "environment_variables": {
-                    "SERVICE_DISC_SERVICE_ID": Fn.import_value("mre-service-disc-service-id"),
+                    "PLUGIN_URL": Fn.import_value("mre-plugin-api-url"),
+                    "MODEL_URL" : Fn.import_value("mre-model-api-url"),
+                    "CONTENT_GROUP_URL" : Fn.import_value("mre-contentgroup-api-url"),
+                    "EVENT_URL": Fn.import_value("mre-event-api-url"),
+                    "PROFILE_URL" : Fn.import_value("mre-profile-api-url"),
+                    "PROGRAM_URL" : Fn.import_value("mre-program-api-url"),
+                    "REPLAY_URL" : Fn.import_value("mre-replay-api-url"),
+                    "SYSTEM_URL" : Fn.import_value("mre-system-api-url"),
+                    "WORKFLOW_URL" : Fn.import_value("mre-workflow-api-url"),
                     "API_AUTH_SECRET_KEY_NAME": "mre_hsa_api_auth_secret"
                 },
                 "tags": {

@@ -108,15 +108,16 @@ class ReplayDataExporter:
                 print(f"segment info = {segment}")
                 
                 # Compare OptoStart and OptoEnd when Optimized
-                if 'OptoStart' in replay_result and len(segment['OptoStart'].keys()) > 0:
-                    #if self.__audioTrack in segment['OptoStart']:
-                    print(f"Inside = {replay_result['OptoStart']}")
-                    print(f"Inside = {segment['OptoStart'][self.__audioTrack]}")
-                    if replay_result['OptoStart'] == segment['OptoStart'][self.__audioTrack]:
-                        segment['FeaturesFound'] = replay_result['Features']
-                        if 'OutputAttributesFound' in segment:
-                            segment.pop('OutputAttributesFound')
-                        replay_segments.append(segment)
+                if 'OptoStart' in replay_result and 'OptoStart' in segment:
+                    if len(segment['OptoStart'].keys()) > 0:
+                        #if self.__audioTrack in segment['OptoStart']:
+                        print(f"Inside = {replay_result['OptoStart']}")
+                        print(f"Inside = {segment['OptoStart'][self.__audioTrack]}")
+                        if replay_result['OptoStart'] == segment['OptoStart'][self.__audioTrack]:
+                            segment['FeaturesFound'] = replay_result['Features']
+                            if 'OutputAttributesFound' in segment:
+                                segment.pop('OutputAttributesFound')
+                            replay_segments.append(segment)
                 else:
                     if replay_result['Start'] == segment['Start']:
                         segment['FeaturesFound'] = replay_result['Features']

@@ -122,3 +122,18 @@ def lambda_handler(event, context):
         # Re-raise the exception to MRE processing where it will be handled
         raise
 ```
+
+**How does the Segmenter plugin know what to look for in the current chunk?**
+```
+state, last_segment, labels = mre_dataplane.get_segment_state()
+
+if state is None or state == "End":
+	look for "Start"
+
+elif state == "Start":
+	look for "End"
+```
+get_segment_state() outputs a list with 3 items: 
+- The first item is one of: “Start” (if the last segment result is “Start”), “End” (if the last segment result is “End”), None (if there is no last segment result).
+- The second item is a dictionary containing the last segment (if the last segment result is either “Start“ or “End“) or {}.
+- Finally, the third item is a dictionary containing the dependent plugins of the Segmenter plugin as keys with values being the results outputted by those dependent plugins since the last segment start/end (spans across multiple chunks) or {} (if there are no results outputted by the dependent plugins of the Segmenter plugin since the last segment start/end).

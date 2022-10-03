@@ -91,7 +91,9 @@
         "TimecodeSource": "ZEROBASED",
         "FileInput": "TODO"
       }
-    ]
-  
+    ],
+  "TimecodeConfig": {
+    "Source": "ZEROBASED"
+  }
   
 }

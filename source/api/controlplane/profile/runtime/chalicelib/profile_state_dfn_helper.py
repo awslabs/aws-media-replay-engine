@@ -331,6 +331,14 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
         if "DependentPlugins" in labeler:
             is_labeler_dependent_present = True
 
+    featurers_for_replay = []
+    featurers_not_for_replay = []
+    
+    # Group the Featurer plugins based on whether or not they are needed for replay
+    if featurers:
+        for featurer in featurers:
+            featurers_for_replay.append(featurer) if featurer["IsPriorityForReplay"] else featurers_not_for_replay.append(featurer)
+
     # Classifier
     classifier_plugin_name = classifier["Name"]
     print(f"State machine generation for the Classifier plugin '{classifier_plugin_name}' in progress.")
@@ -403,18 +411,24 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
         "Next": "GenerateOriginalClips"
     }
 
-    # Classifier and/or Labeler DependentPlugins
-    if "DependentPlugins" in classifier or is_labeler_dependent_present:
-        d_plugins_branch_list = []
+    d_plugins_branch_list = []
 
-        if "DependentPlugins" in classifier:
-            print(f"DependentPlugins State machine generation for the Classifier plugin '{classifier_plugin_name}' in progress.")
-            d_plugins_branch_list.extend(get_multi_level_state_definition_branch_list(classifier["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile))
+    # Classifier DependentPlugins
+    if "DependentPlugins" in classifier:
+        print(f"DependentPlugins State machine generation for the Classifier plugin '{classifier_plugin_name}' in progress.")
+        d_plugins_branch_list.extend(get_multi_level_state_definition_branch_list(classifier["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile))
 
-        if is_labeler_dependent_present:
-            print(f"DependentPlugins State machine generation for the Labeler plugin '{labeler_plugin_name}' in progress.")
-            d_plugins_branch_list.extend(get_multi_level_state_definition_branch_list(labeler["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile))
+    # Labeler DependentPlugins
+    if is_labeler_dependent_present:
+        print(f"DependentPlugins State machine generation for the Labeler plugin '{labeler_plugin_name}' in progress.")
+        d_plugins_branch_list.extend(get_multi_level_state_definition_branch_list(labeler["DependentPlugins"], "Featurer", plugin_definitions, shortened_profile))
 
+    # Featurer plugins needed for replay
+    if featurers_for_replay:
+        print("State machine generation for Featurer plugins required for Replay is in progress.")
+        d_plugins_branch_list.extend(get_featurers_state_definition_branch_list(featurers_for_replay, "Featurer", plugin_definitions, shortened_profile))
+
+    if d_plugins_branch_list:
         classifier_labeler_branch = {
             "StartAt": "ClassifierLabelerDependentPluginsTask",
             "States": {
@@ -679,11 +693,11 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
 
     main_branch_list.append(classifier_labeler_optimizer_branch)
 
-    # Featurers
-    if featurers:
-        print("Featurers state machine generation in progress.")
+    # Featurer plugins not needed for Replay
+    if featurers_not_for_replay:
+        print("State machine generation for Featurer plugins not required for Replay is in progress.")
 
-        featurers_branch_list = get_featurers_state_definition_branch_list(featurers, "Featurer", plugin_definitions, shortened_profile)
+        featurers_branch_list = get_featurers_state_definition_branch_list(featurers_not_for_replay, "Featurer", plugin_definitions, shortened_profile)
 
         featurers_branch = {
             "StartAt": "FeaturersParallelTask",
@@ -699,7 +713,7 @@ def generate_profile_state_definition(profile_name, classifier, optimizer, label
         main_branch_list.append(featurers_branch)
 
     else:
-        print("Skipping state machine generation for Featurers as it is not included in the profile")
+        print("Skipping state machine generation for Featurer plugins not required for Replay as it is not included in the profile")
 
     main_state_definition = {
         "Comment": f"AWS MRE Processing Pipeline for profile {profile_name}",

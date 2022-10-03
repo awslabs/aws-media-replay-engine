@@ -19,6 +19,7 @@
     <script src="../_static/underscore.js"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
         function _scroll(subjectId) {
@@ -444,6 +445,14 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="update-segments-to-be-ignored">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/update/ignore/segment/cache</span><a class="headerlink" href="#update-segments-to-be-ignored" title="Permalink to this heading">¶</a></h2>
+<p>Updates name of segment cache files which do not have matching Features configured for a Replay</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+</section>
 </section>
 
 
@@ -486,6 +495,7 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 <li><a class="reference internal" href="#get-replay-hls-locations"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/gameid/{event}/hls/stream/locations</span></a></li>
 <li><a class="reference internal" href="#get-all-replay-requests-for-event-optosegment-end"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/track/{audioTrack}/program/{program}/event/{event}</span></a></li>
 <li><a class="reference internal" href="#update-hls-for-replay-request"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/update/hls/manifest</span></a></li>
+<li><a class="reference internal" href="#update-segments-to-be-ignored"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/update/ignore/segment/cache</span></a></li>
 </ul>
 </li>
 </ul>

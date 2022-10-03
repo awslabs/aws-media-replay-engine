@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2022-10-03
+
+- Feature: A new caching layer has been introduced. A Segment Caching Lambda Caches Segment and Feature data into S3. This Cache gets used when Creating Replays and there by decrease the overall latency in Replay creation.
+
+- Fixed:
+    - Removed dependency on AWS Cloud Map to reduce latency and avoid throttling issues when discovering Micro services.
+    - Pagination when viewing replay clips within Clip Preview
+    - Timeout errors occurring during Event Data export
+    - Several network calls to DDB, MediaConvert have been eliminated to improve end to end Latency
+    - Implemented exponential back-off retry mechanism to fix intermittent API Connection errors.
 
 ## [2.3.0] - 2022-08-23
 

@@ -476,6 +476,9 @@ def get_all_event_segments():
 
             segment_info['Start'] = res['Start']
             segment_info['End'] = res['End']
+            
+            if 'HourElapsed' in res:
+                segment_info['HourElapsed'] = res['HourElapsed']
 
             if 'OptoEnd' in res and 'OptoStart' in res:
                 segment_info['OptoStart'] = res['OptoStart']
@@ -493,10 +496,21 @@ def get_all_event_segments():
             if 'OptimizedThumbnailLocation' in res:
                 segment_info['OptimizedThumbnailLocation'] = res['OptimizedThumbnailLocation']
 
-            segment_output_attributes = isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], res['End'], output_attributes)
+            #segment_output_attributes = isOutputAttributeFoundInSegment(program, name, plugins_in_profile, res['Start'], res['End'], output_attributes)
 
-            if len(segment_output_attributes) > 0:
-                segment_info['FeaturesFound'] = segment_output_attributes
+            #if len(segment_output_attributes) > 0:
+            #    segment_info['FeaturesFound'] = segment_output_attributes
+
+            # Most cases this would just be One Segment matching the Start time
+            
+            for output_attribute in output_attributes:
+                if output_attribute in res:
+                    # If Attribute value is True, we have a Match
+                    if res[output_attribute]:
+                        if output_attribute not in segment_output_attributes:
+                            segment_output_attributes.append(output_attribute)
+            
+            segment_info['FeaturesFound'] = segment_output_attributes
 
             feedback_audio_track = {}
             response = clip_preview_table.query(
@@ -578,3 +592,136 @@ def isOutputAttributeFoundInSegment(program, event, plugins, segment_start, segm
 
     
     return attributes_in_segment
+
+
+@segment_api.route('/replay/feature/in/segment', cors=True, methods=['POST'], authorizer=authorizer)
+def get_replay_features_in_segment():
+    """
+    Retrieve the value of all the output attributes stored by a plugin between segment start and end.
+
+    Body:
+
+    .. code-block:: python
+
+        {
+            "Program": string,
+            "Event": string,
+            "PluginName": string,
+            "AudioTrack": integer,
+            "Start": number,
+            "End": number,
+            "OutputAttributes": list
+        }
+
+    Returns:
+
+        List of all the plugin result object with output attributes containing their corresponding values.
+
+    Raises:
+        500 - ChaliceViewError
+    """
+    try:
+        request = json.loads(segment_api.current_app.current_request.raw_body.decode(), parse_float=Decimal)
+
+        program = request["Program"]
+        event = request["Event"]
+        plugin_name = request["PluginName"]
+        audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
+        starttime = request["Start"]
+        endtime = request["End"]
+        output_attrs = request["OutputAttributes"]
+
+        print(f"Getting the value of all the {len(output_attrs)} output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}'")
+
+        plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+
+        expr_attr_names = {
+            "#Start": "Start",
+            "#End": "End"
+        }
+
+        if audio_track is not None:
+            pk = f"{program}#{event}#{plugin_name}#{audio_track}"
+        else:
+            pk = f"{program}#{event}#{plugin_name}"
+
+        # Convert OutputAttributes to expression attributes
+        for output_attr in output_attrs:
+            expr_attr_names[f"#{output_attr}"] = output_attr
+
+        response = plugin_result_table.query(
+            KeyConditionExpression=Key("PK").eq(pk) & Key("Start").between(starttime, endtime),
+            ProjectionExpression=",".join(expr_attr_names.keys()),
+            ExpressionAttributeNames=expr_attr_names
+        )
+
+        replay_features = response["Items"]
+
+        while "LastEvaluatedKey" in response:
+            response = plugin_result_table.query(
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+                KeyConditionExpression=Key("PK").eq(pk) & Key("Start").between(starttime, endtime),
+                ProjectionExpression=",".join(expr_attr_names.keys()),
+                ExpressionAttributeNames=expr_attr_names
+            )
+
+            replay_features.extend(response["Items"])
+
+    except Exception as e:
+        print(
+            f"Unable to get the value of all the output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get the value of all the output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}': {str(e)}")
+
+    else:
+        return replace_decimals(replay_features)
+
+
+@segment_api.route('/event/{name}/program/{program}/classifier/{classifier}/start/{start}/attrName/{attrName}/attrVal/{attrVal}', cors=True, methods=['PUT'], authorizer=authorizer)
+def add_attribute_to_existing_segment(name, program, classifier, start, attrName, attrVal):
+    """
+    Add a new attribute to an existing segment in the Plugin Result table.
+
+    Returns:
+
+        None
+
+    Raises:
+        500 - ChaliceViewError
+    """
+    try:
+        name = urllib.parse.unquote(name)
+        program = urllib.parse.unquote(program)
+        classifier = urllib.parse.unquote(classifier)
+        start = Decimal(urllib.parse.unquote(start))
+        attrName = urllib.parse.unquote(attrName)
+        attrVal = urllib.parse.unquote(attrVal)
+
+        # Convert float value to Decimal
+        if isinstance(attrVal, float):
+            attrVal = Decimal(attrVal)
+
+        plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+
+        plugin_result_table.update_item(
+            Key={
+                "PK": f"{program}#{name}#{classifier}",
+                "Start": start
+            },
+            UpdateExpression="SET #AttrName = :AttrVal",
+            ExpressionAttributeNames={
+                "#AttrName": attrName
+            },
+            ExpressionAttributeValues={
+                ":AttrVal": attrVal
+            }
+        )
+
+    except Exception as e:
+        print(
+            f"Unable to add a new attribute '{attrName}' with value '{attrVal}' to an existing segment with start '{start}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to add a new attribute '{attrName}' with value '{attrVal}' to an existing segment with start '{start}': {str(e)}")
+
+    else:
+        return {}

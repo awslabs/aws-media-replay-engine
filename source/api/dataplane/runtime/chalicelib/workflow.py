@@ -11,6 +11,7 @@ from boto3.dynamodb.conditions import Key, Attr
 from jsonschema import validate, ValidationError
 from chalice import Blueprint
 from chalicelib import load_api_schema, replace_decimals
+import urllib.parse
 
 CHUNK_TABLE_NAME = os.environ['CHUNK_TABLE_NAME']
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
@@ -256,6 +257,224 @@ def get_segment_state_for_labeling():
     else:
         return replace_decimals(output)
 
+@workflow_api.route('/workflow/optimization/segments/all', cors=True, methods=['POST'], authorizer=authorizer)
+def get_segments_for_optimization():
+    """
+    Retrieve one or more non-optimized segments identified in the current/prior chunks
+
+    Body:
+
+    .. code-block:: python
+
+        {
+            "Program": string,
+            "Event": string,
+            "ChunkNumber": integer,
+            "Classifier": string,
+            "AudioTrack": integer
+        }
+
+    Returns:
+
+        List containing one or more non-optimized segments identified in the current/prior chunks 
+    
+    Raises:
+        400 - BadRequestError
+        500 - ChaliceViewError
+    """
+    try:
+        request = json.loads(workflow_api.current_app.current_request.raw_body.decode())
+
+        program = request["Program"]
+        event = request["Event"]
+        chunk_number = request["ChunkNumber"]
+        classifier = request["Classifier"]
+        audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
+        opto_audio_track = audio_track if audio_track is not None else "1"
+
+        segments = []
+
+        plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+
+        print(
+            f"Getting all the non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+
+        response = plugin_result_table.query(
+            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
+            FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
+                    Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
+            ConsistentRead=True
+        )
+
+        if "Items" not in response or len(response["Items"]) < 1:
+            print(
+                f"No non-optimized segment was identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+
+        else:
+            print(
+                f"Got one or more non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+
+            segments = response["Items"]
+
+            while "LastEvaluatedKey" in response:
+                response = plugin_result_table.query(
+                    ExclusiveStartKey=response["LastEvaluatedKey"],
+                    KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
+                    FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
+                        Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
+                    ConsistentRead=True
+                )
+
+                segments.extend(response["Items"])
+
+
+    except BadRequestError as e:
+        print(f"Got chalice BadRequestError: {str(e)}")
+        raise
+
+    except ValidationError as e:
+        print(f"Got jsonschema ValidationError: {str(e)}")
+        raise BadRequestError(e.message)
+
+    except Exception as e:
+        print(
+            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
+
+    else:
+        return replace_decimals(segments)
+
+
+@workflow_api.route('/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}',cors=True, methods=['GET'], authorizer=authorizer)
+def get_dependent_detectors_results_for_optimization(event, program, plugin_name, audio_track=None):
+    """
+    Retrieves the dependent detector plugin's output 
+    
+    Returns:
+
+        Dependent detectors output captured thus far
+    
+    """
+    event = urllib.parse.unquote(event)
+    program = urllib.parse.unquote(program)
+    audio_track = urllib.parse.unquote(audio_track)
+    plugin_name = urllib.parse.unquote(plugin_name)
+
+    plugin_results = []
+
+    plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+    if audio_track:
+        pk = f"{program}#{event}#{plugin_name}#{audio_track}"
+    else:
+        pk = f"{program}#{event}#{plugin_name}"
+
+    response =  plugin_result_table.query(
+                    KeyConditionExpression=Key("PK").eq(pk) & Key("Start").gt(0),
+                    ConsistentRead=True)
+                
+    if response:
+        if 'Items' in response:
+            plugin_results = response['Items']
+
+    while "LastEvaluatedKey" in response:
+        response = plugin_result_table.query(
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+            KeyConditionExpression=Key("PK").eq(pk) & Key("Start").gt(0),
+            ConsistentRead=True
+        )
+
+        if response:
+            if 'Items' in response:
+                plugin_results.extend(response['Items'])
+
+
+    return replace_decimals(plugin_results)
+
+@workflow_api.route('/workflow/dependent/detectors/segment', cors=True, methods=['POST'], authorizer=authorizer)
+def get_dependent_detectors_for_optimization():
+    """
+    Retrieve one or more non-optimized segments identified in the current/prior chunks and all the dependent detectors output 
+    around the segments for optimization. Use "SearchWindowSeconds" to control the time window around the segments within which 
+    the dependent detectors output are queried for.
+
+    Body:
+
+    .. code-block:: python
+
+        {
+            "Program": string,
+            "Event": string,
+            "ChunkNumber": integer,
+            "Detectors": list,
+            "AudioTrack": integer,
+            "SearchWindowSeconds": integer,
+            "Segment": dict
+        }
+
+    Returns:
+
+        All the dependent detectors output for a segment
+        
+    
+    Raises:
+        400 - BadRequestError
+        500 - ChaliceViewError
+    """
+    try:
+        request = json.loads(workflow_api.current_app.current_request.raw_body.decode(), parse_float=Decimal)
+
+
+        program = request["Program"]
+        event = request["Event"]
+        chunk_number = request["ChunkNumber"]
+        detectors = request["Detectors"] if "Detectors" in request else []
+        audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
+        search_win_sec = request["SearchWindowSeconds"]
+        segment = request["Segment"]
+
+        segment_start = segment["Start"]
+        segment_end = segment["End"] if "End" in segment else None
+
+        print(
+            f"Getting all the dependent detectors output around segment Start '{segment_start}' within a search window of '{search_win_sec}' seconds")
+
+        # Get dependent detectors output for optimizing the segment Start
+        detectors_output = get_detectors_output_for_segment(program, event, detectors, search_win_sec,
+                                                            audio_track, start=segment_start)
+
+        # Get dependent detectors output for optimizing the segment End if segment End is present
+        if segment_end is not None and segment_start != segment_end:
+            print(
+                f"Getting all the dependent detectors output around segment End '{segment_end}' within a search window of '{search_win_sec}' seconds")
+
+            detectors_output.extend(
+                get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track,
+                                                    end=segment_end))
+
+        # output.append(
+        #     {
+        #         "Segment": segment,
+        #         "DependentDetectorsOutput": detectors_output
+        #     }
+        # )
+
+    except BadRequestError as e:
+        print(f"Got chalice BadRequestError: {str(e)}")
+        raise
+
+    except ValidationError as e:
+        print(f"Got jsonschema ValidationError: {str(e)}")
+        raise BadRequestError(e.message)
+
+    except Exception as e:
+        print(
+            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
+
+    else:
+        return replace_decimals(detectors_output)
 
 @workflow_api.route('/workflow/optimization/segment/state', cors=True, methods=['POST'], authorizer=authorizer)
 def get_segment_state_for_optimization():
@@ -313,8 +532,7 @@ def get_segment_state_for_optimization():
         response = plugin_result_table.query(
             KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
             FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
-                    Attr("OptoStart").not_exists() | Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(
-                "OptoEnd").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
+                    Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
             ConsistentRead=True
         )
 
@@ -332,14 +550,16 @@ def get_segment_state_for_optimization():
                 response = plugin_result_table.query(
                     ExclusiveStartKey=response["LastEvaluatedKey"],
                     KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-                    FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (Attr("OptoStart").not_exists() | Attr(
-                        f"OptoStart.{opto_audio_track}").not_exists() | Attr("OptoEnd").not_exists() | Attr(
-                        f"OptoEnd.{opto_audio_track}").not_exists()),
+                    FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
+                        Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
                     ConsistentRead=True
                 )
 
                 segments.extend(response["Items"])
 
+            print(f"AK Opto Segments Count = {len(segments)}")
+            
+            #cached_file_groups = [self.__segment_mapping_file_names[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.__segment_mapping_file_names), MAX_NUMBER_OF_THREADS)]
             for segment in segments:
                 segment_start = segment["Start"]
                 segment_end = segment["End"] if "End" in segment else None

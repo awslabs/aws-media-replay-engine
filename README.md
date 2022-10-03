@@ -35,8 +35,8 @@ To get a head start building automated video clipping pipelines using the MRE fr
 Run the following commands to build and deploy MRE from scratch. Be sure to define values for `REGION` and `VERSION` first.
 
 ```
-REGION=[specify a region in a format like us-east-1]
-VERSION=2.1.0
+REGION=[specify the region in a format like us-east-1]
+VERSION=2.4.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -60,7 +60,7 @@ If you choose to interact with the MRE framework using the REST APIs directly, y
 The control plane is an API Gateway endpoint that includes APIs to create and manage different components of the video clipping and highlights generation process. These include:
 
 * `Segmentation and Detection Pipeline` - An AWS Step Functions state machine generated dynamically with one or more user-defined Plugins (Lambda functions) to identify the mark-in (start) and mark-out (end) timestamp of the segments (clips) as well as detect interesting actions happening within those segments. To help decide the outcome of its analysis, a Plugin can optionally depend on a user-defined AI/ML model hosted either in AWS using services such as Rekognition, SageMaker, etc. or outside AWS. The pipeline is also configured to automatically publish different segmentation event notifications to an EventBridge event bus monitored by MRE for event-based downstream processing.
-* `Clip Generation` - A pre-defined AWS Step Functions state machine that is optionally invoked as a part of the Segmentation and Detection pipeline to generate MP4 preview clips (for the GUI) and HLS manifest using the mark-in and mark-out timestamps of the identified segments. Clip generation, like the Segmentation and Detection pipeline, sends clip related event notifications to the MRE EventBridge event bus. 
+* `Clip Generation` - A pre-defined AWS Step Functions state machine that is invoked as a part of the Segmentation and Detection pipeline to generate MP4 preview clips (for the GUI) and HLS manifest using the mark-in and mark-out timestamps of the identified segments. Clip generation, like the Segmentation and Detection pipeline, sends clip related event notifications to the MRE EventBridge event bus. 
 * `Replay Generation` - Another pre-defined AWS Step Functions state machine which automatically selects segments containing key events to create Replay (Highlight) in various resolutions in popular video formats such as HLS and MP4. Replays can be chosen to be created in Catchup mode or after an Event is fully streamed and is completely event driven via Amazon EventBridge rules.
 * `Data Export` - Exports Event and Replay data into popular formats such as EDL and JSON via clip generation events triggered through Amazon EventBridge. This data can be optionally enriched (via a custom process) and ingested into video editing systems to create engaging fan user experience by overlaying video and other key event data on a timeline.
 
@@ -90,8 +90,9 @@ The data plane is an API Gateway endpoint that includes APIs using which the Plu
 | source/lib/MediaReplayEngineWorkflowHelper/ | source code for the MediaReplayEngineWorkflowHelper library |
 | source/gateway/infrastructure/ | API Gateway CDK application|
 | source/gateway/runtime/ | API Gateway Chalice application|
-| source/service-discovery/infrastructure/ | Service Discovery CDK application|
 | source/shared/infrastructure/ | Shared resources CDK application|
+| source/backend/caching/infrastructure/ | Segment Caching CDK application|
+| source/backend/caching/runtime/ | Segment Caching related Lambda functions|
 | source/backend/clipgeneration/infrastructure/ | ClipGeneration CDK application|
 | source/backend/clipgeneration/runtime/ | ClipGeneration related Lambda functions|
 | source/backend/data_export/infrastructure/ | Data Export CDK application|
@@ -151,7 +152,7 @@ You are responsible for the cost of the AWS services used while running this sol
 
 These cost estimates are for a video clipping and replay (highlight) generation pipeline built using MRE to segment a Tennis game with a duration of 3 hours. This specific pipeline had a total of 4 plugins included in the profile (with 2 of those plugins using Machine Learning models hosted in Rekognition and SageMaker). At the end of the game, the pipeline outputted a total of 282 Tennis clips.
 
-> **NOTE:** For tips on how to reduce the processing cost of a pipeline built using MRE, please refer to the Developer Guide.
+> **NOTE:** For tips on how to reduce the processing cost of a pipeline built using MRE, please refer to the [Operations Developer Guide](docs/guides/MRE-Developer-Guide-Operations.md).
 
 
 # Limitations
@@ -169,10 +170,6 @@ cdk destroy [--profile <aws-profile>]
 
 # Delete the Gateway API stack
 cd aws-media-replay-engine/source/gateway/cdk
-cdk destroy [--profile <aws-profile>]
-
-# Delete the service-discovery stack
-cd aws-media-replay-engine/source/service-discovery/cdk
 cdk destroy [--profile <aws-profile>]
 
 # Delete the Dataplane stack
@@ -227,6 +224,9 @@ cdk destroy [--profile <aws-profile>]
 cd aws-media-replay-engine/source/backend/clipgeneration/infrastructure
 cdk destroy [--profile <aws-profile>]
 
+cd aws-media-replay-engine/source/backend/caching/infrastructure
+cdk destroy [--profile <aws-profile>]
+
 cd aws-media-replay-engine/source/shared/infrastructure
 cdk destroy [--profile <aws-profile>]
 ```
@@ -237,22 +237,19 @@ cdk destroy [--profile <aws-profile>]
 3. Choose Delete.
 4. Select the aws-mre-gateway stack.
 5. Choose Delete.
-6. Select the aws-mre-service-discovery stack.
+6. Select the MRE Dataplane stack (aws-mre-dataplane).
 7. Choose Delete.
-8. Select the MRE Dataplane stack (aws-mre-dataplane).
-9. Choose Delete.
-10. Select all Controlplane stacks with the prefix "aws-mre-controlplane-" and delete them in the the order 
-as outlined in the section **option 1 (Uninstall using AWS CDK)**.
-11. Select and delete the following stacks
+8. Select all Controlplane stacks with the prefix "aws-mre-controlplane-" and delete them in the the order 
+as outlined in the section **Option 1 (Uninstall using AWS CDK)**.
+9. Select and delete the following stacks
     1. aws-mre-workflow-trigger
     2. aws-mre-replay-handler
     3. aws-mre-event-scheduler
     4. aws-mre-event-completion-handler
     5. aws-mre-data-exporter
     6. aws-mre-clip-generation
-    7. aws-mre-shared-resources
-
-
+	7. aws-mre-segment-caching
+    8. aws-mre-shared-resources
 
 ## Option 3: Uninstall using AWS Command Line Interface
 ```
@@ -260,13 +257,10 @@ aws cloudformation delete-stack --stack-name <frontend-stack-name> --region <aws
 
 aws cloudformation delete-stack --stack-name <gateway-stack-name> --region <aws-region>
 
-aws cloudformation delete-stack --stack-name <service-discovery-stack-name> --region <aws-region>
-
 aws cloudformation delete-stack --stack-name <dataplane-stack-name> --region <aws-region>
-
 ```
 Repeat this command for all stacks with the prefix **aws-mre-controlplane-**
-Delete the controlplane stacks in the the order as outlined in the section **option 1 (Uninstall using AWS CDK)**.
+Delete the controlplane stacks in the the order as outlined in the section **Option 1 (Uninstall using AWS CDK)**.
 ```
 aws cloudformation delete-stack --stack-name <aws-mre-controlplane-*> --region <aws-region>
 ```
@@ -279,8 +273,8 @@ aws cloudformation delete-stack --stack-name aws-mre-event-scheduler --region <a
 aws cloudformation delete-stack --stack-name aws-mre-event-completion-handler --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-data-exporter --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-clip-generation --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-segment-caching --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-shared-resources --region <aws-region>
-
 ```
 
 ## Deleting S3 buckets created by MRE
@@ -296,12 +290,15 @@ MRE creates 5 S3 buckets that are not automatically deleted. To delete these buc
 8. Select the `MreMediaOutputBucket` bucket.
 9. Choose Empty.
 10. Choose Delete.
-11. Select the `MreDataExportBucket` bucket.
+11. Select the `MreSegmentCacheBucket` bucket.
 12. Choose Empty.
 13. Choose Delete.
-14. Select the `MreAccessLogsBucket` bucket.
+14. Select the `MreDataExportBucket` bucket.
 15. Choose Empty.
 16. Choose Delete.
+17. Select the `MreAccessLogsBucket` bucket.
+18. Choose Empty.
+19. Choose Delete.
 
 To delete the S3 bucket using AWS CLI, run the following command:
 ```

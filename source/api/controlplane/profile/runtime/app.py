@@ -148,6 +148,7 @@ def create_profile():
                         "configuration1": "value1",
                         ...
                     },
+                    "IsPriorityForReplay": boolean,
                     "DependentPlugins": [
                         {
                             "Name": string,
@@ -201,6 +202,11 @@ def create_profile():
         name = profile["Name"]
 
         print(f"Creating the processing profile '{name}'")
+
+        # Assume that a Featurer plugin is always needed for replay unless specified otherwise in the request
+        if "Featurers" in profile:
+            for index, featurer in enumerate(profile["Featurers"]):
+                profile["Featurers"][index]["IsPriorityForReplay"] = True if "IsPriorityForReplay" not in featurer else featurer["IsPriorityForReplay"]
 
         profile_copy = copy.deepcopy(profile)
         state_definition, plugin_definitions = state_definition_helper.profile_state_definition_helper(name, profile_copy)
@@ -403,6 +409,7 @@ def list_profiles():
                                 "configuration1": "value1",
                                 ...
                             },
+                            "IsPriorityForReplay": boolean,
                             "DependentPlugins": [
                                 {
                                     "Name": string,
@@ -586,6 +593,7 @@ def list_profiles_by_contentgroup(content_group):
                                 "configuration1": "value1",
                                 ...
                             },
+                            "IsPriorityForReplay": boolean,
                             "DependentPlugins": [
                                 {
                                     "Name": string,
@@ -768,6 +776,7 @@ def get_profile(name):
                             "configuration1": "value1",
                             ...
                         },
+                        "IsPriorityForReplay": boolean,
                         "DependentPlugins": [
                             {
                                 "Name": string,
@@ -931,6 +940,7 @@ def update_profile(name):
                         "configuration1": "value1",
                         ...
                     },
+                    "IsPriorityForReplay": boolean,
                     "DependentPlugins": [
                         {
                             "Name": string,
@@ -969,6 +979,11 @@ def update_profile(name):
         print("Got a valid profile schema")
 
         print(f"Updating the profile '{name}'")
+
+        # Assume that a Featurer plugin is always needed for replay unless specified otherwise in the request
+        if "Featurers" in profile:
+            for index, featurer in enumerate(profile["Featurers"]):
+                profile["Featurers"][index]["IsPriorityForReplay"] = True if "IsPriorityForReplay" not in featurer else featurer["IsPriorityForReplay"]
 
         profile_table = ddb_resource.Table(PROFILE_TABLE_NAME)
 

@@ -292,6 +292,4 @@ Here's an example of the JSON formatted export data.
     }
   ]
 }
-
-
 ```

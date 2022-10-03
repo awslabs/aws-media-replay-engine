@@ -12,41 +12,41 @@ import urllib3
 from decimal import Decimal
 from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
+from MediaReplayEngineWorkflowHelper import ControlPlane
+from MediaReplayEnginePluginHelper import DataPlane
+from shared.CacheSyncManager import CacheSyncManager
+from shared.ReplayFeatureProcessor import ReplayFeatureProcessor
 
 OUTPUT_BUCKET = os.environ['OutputBucket']
+CACHE_BUCKET = os.environ['CACHE_BUCKET_NAME']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 
-
 s3_client = boto3.client("s3")
-
-
 ssm = boto3.client('ssm')
 TIMEGROUP_MULTIPLIER = 2
+
 
 class ReplayEngine:
 
     def __init__(self, event):
 
-        from MediaReplayEngineWorkflowHelper import ControlPlane
         self._controlplane = ControlPlane()
-
-        from MediaReplayEnginePluginHelper import DataPlane
         self._dataplane = DataPlane({})
 
 
         self.__event = event
 
-        if event['detail']['State'] == 'SEGMENT_END' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_END':
+        if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
             self._event = event['detail']['Segment']['Event']
         elif event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
             self._event = event['detail']['Event']['Name']
 
-        if event['detail']['State'] == 'SEGMENT_END' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_END':
+        if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
             self._program = event['detail']['Segment']['Program']
         elif event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
             self._program = event['detail']['Event']['Program']
 
-        if event['detail']['State'] == 'SEGMENT_END' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_END':
+        if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
             self._profile = event['detail']['Segment']['ProfileName']
         else:
             self._profile = self._get_profile_from_event()
@@ -54,31 +54,360 @@ class ReplayEngine:
         # Get Classifier from Profile
         self._classifier = self._get_profile()['Classifier']['Name']
 
-        if event['detail']['State'] == 'OPTIMIZED_SEGMENT_END':
+        if event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
             self._audio_track = event['detail']['Segment']['AudioTrack']
-        elif event['detail']['State'] == 'SEGMENT_END':
-             self._audio_track = 1
+        elif event['detail']['State'] == 'SEGMENT_CACHED':
+            self._audio_track = 1
         else:
             self._audio_track = event['detail']['Event']['AudioTrack']
 
-        #Get Framerate from Event table
-        self._frame_rate = self._get_frame_rate()
-
         self._segment_feature_maping = []
+
+        # This is the current ReplayRequest details
+        self._replay_to_be_processed = self.__event['ReplayRequest'] if 'ReplayRequest' in self.__event else None
+
+        # CatchUp Replays will have Segment Dict coming in
+        self.current_segment = event['detail']['Segment'] if self._is_catch_up_enabled() else {}
+
+   
+
+    def __does_current_segment_have_any_replay_feature(self, current_segment_cache_file_name):
+        '''
+            Returns True If segment has at least one Feature configured in ReplayRequest including the Feature value (bool)
+            Returns False if this segment has no Features configured in ReplayRequest
+        '''
         
+        print(f"Finding if Current segment has any replay features. Cache file opened = /tmp/{self._replay_to_be_processed['ReplayId']}/{current_segment_cache_file_name}")
+        segment_feature_cache_file = open(f"/tmp/{self._replay_to_be_processed['ReplayId']}/{current_segment_cache_file_name}")
+        segment_mapping_as_json = json.load(segment_feature_cache_file)
+
+        '''
+            self._replay_to_be_processed['Priorities']['Clips'] structure
+
+            "Priorities": {
+                "Clips": [
+                    {
+                        "AttribName": "Attribute40",
+                        "AttribValue": true,
+                        "Name": "DetectPassThrough90 | Attribute40 | true",
+                        "PluginName": "DetectPassThrough90",
+                        "Weight": 1
+                    },
+                    {
+                        "AttribName": "Attribute41",
+                        "AttribValue": true,
+                        "Name": "DetectPassThrough100 | Attribute41 | true",
+                        "PluginName": "DetectPassThrough100",
+                        "Weight": 90
+                    }.
+                    {
+                        "AttribName": "Attribute16",
+                        "AttribValue": true,
+                        "Name": "DetectPassThrough77 | Attribute16 | true",
+                        "PluginName": "DetectPassThrough77",
+                        "Weight": 2
+                    }
+                ]
+        '''
+
+        # For every feature enabled in the Replay Request
+        for feature in self._replay_to_be_processed['Priorities']['Clips']:
+
+            # Ensure we check the Features in both Audio and Video Sections of the Cache
+            if 'FeaturesDataPoints' in segment_mapping_as_json:
+                        
+                # Check in Video based Features
+                if '0' in segment_mapping_as_json['FeaturesDataPoints']:
+                    # Check Video based Feature data 
+                    for feature_data_point in segment_mapping_as_json['FeaturesDataPoints']["0"]:
+
+                        # If any of the ReplayRequest Feature exists in the Segment
+                        if feature['AttribName'] in feature_data_point:
+                            # Ex. SegmentBySceneAndSR | score_change | true
+                            feature_condition = feature['Name'].split("|")[-1]
+                            if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                                return True
+
+                # Check Audio based Feature data based on the current Audio Track
+                if str(self._audio_track) in segment_mapping_as_json['FeaturesDataPoints']:
+                    for feature_data_point in segment_mapping_as_json['FeaturesDataPoints'][str(self._audio_track)]:
+                        # If any of the ReplayRequest Feature exists in the Segment
+                        if feature['AttribName'] in feature_data_point:
+                            # Ex. SegmentBySceneAndSR | score_change | true
+                            feature_condition = feature['Name'].split("|")[-1]
+                            if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                                return True
+
+        return False
+    
+    def get_unique_segment_features_for_catchup(self, segments_with_features_from_new_cache_files):
+        '''
+            Matches Segments from new Cache Files with the existing replay created SegmentFeatures cache file to determine a Intersection 
+            and remove all Duplicate Segments
+        '''
+        segments_with_features = []
+        # If no Replay Cache exists, 
+        #if self._replay_to_be_processed['SegmentsFeaturesCacheFileLocation'] != '':
+        try:
+            # Get the CacheFile from S3 - This will be specific to the AudioTrack in ReplayRequest
+            local_file = f"/tmp/{self._replay_to_be_processed['ReplayId']}/SegmentsFeaturesCache.json"
+            s3_client.download_file(CACHE_BUCKET, f"replay-result-seg-cache/{self._replay_to_be_processed['ReplayId']}/SegmentsFeaturesCache.json", local_file)
+
+            segment_feature_cache_file = open(local_file)
+            segments_with_features_from_replay_cache_file = json.load(segment_feature_cache_file)
+
+            # Make sure to start with all the Previous Replay Cached segments
+            segments_with_features.extend(segments_with_features_from_replay_cache_file)
+
+            for seg in segments_with_features_from_new_cache_files: # this should be the last 10 segments
+                segment_exists_in_cache = False
+                for segment in segments_with_features_from_replay_cache_file:   # This list will typically get bigger for bigger events
+                    if seg["Start"] == segment["Start"]:
+                        segment_exists_in_cache = True
+                        break
+                
+                # Looks like we have a segment in the new Cache but not in the Rep;lay Processed Cache
+                # Add it to the List
+                if not segment_exists_in_cache:
+                    segments_with_features.append(seg)
+        #else:
+        except Exception as e:
+            print('SEGMENT_FEATURE_MAPPING_CACHE_DOWNLOAD_ERROR - SegmentsFeaturesCache.json not downloaded , may not exist, which is ok if none of the previous segments having features.')
+            segments_with_features.extend(segments_with_features_from_new_cache_files)
+        
+        return segments_with_features
+
+    def initialize_segment_features(self):
+
+        # Step1 : Get all Segments created so far. Also get the Features included in ReplayRequest
+        self._get_segments_for_event()  # stored in self._segments_created_so_far
+
+        # Step2 : Build a unique list of S3 KeyPrefix Partitions - Sorted ASC by Segment Start time
+        s3_key_prefixes = self.__get_s3_key_prefixes()
+
+
+        # Step3 : Sync Cache from S3. How many S3 objects gets cached depends on CatchUp/NonCatchup
+        '''
+            This is the Cache file content structure - Segment to Feature Mapping
+            {
+                "OptoStart": 163.564,
+                "End": 172.371,
+                "OptoEnd": 172.371,
+                "Start": 163.564,
+                "FeaturesDataPoints": {
+                    "0": [{
+                            "FreeKick": false,
+                            "End": 163.764,
+                            "CornerKick": false,
+                            "Start": 163.764,
+                            "Label": "Near_View"
+                        },
+                        {
+                            "FreeKick": false,
+                            "End": 163.964,
+                            "CornerKick": false,
+                            "Start": 163.964,
+                            "Label": "Near_View"
+                        }
+                    ],
+                    "1": [{
+                            "End": 163.764,
+                            "Start": 163.764,
+                            "Label": "Speech Present"
+                        },
+                        {
+                            "End": 163.964,
+                            "Start": 163.964,
+                            "Label": "Speech Present"
+                        }
+                    ],
+                    "2": [..]
+                }
+            }
+        '''
+        cache_mgr = CacheSyncManager(self._is_catch_up_enabled(), s3_key_prefixes, self._event,
+            self._program, 
+            self._replay_to_be_processed['ReplayId'])
+
+        cache_mgr.sync_cache()
+
+        
+        if self._is_catch_up_enabled():
+            current_segment_cache_file_name = f"Seg_{self.current_segment['Start']}_{self.current_segment['End']}_{self._audio_track}.json"
+            # Step 4 - For a CatchUp replay, check if current Segment has any features configured in the Replay Request? If no, SKIP the rest of the steps. Record this segment in DDB.
+            if not self.__does_current_segment_have_any_replay_feature(current_segment_cache_file_name):
+
+                # Update this Segment in the ReplayRequest "SegmentsToBeIgnored" attrib so we dont process this Segment Cache file to find features in future cycles
+                #self._controlplane.update_segments_to_be_ignored(self._event,self._program, self._replay_to_be_processed['ReplayId'], current_segment_cache_file_name)
+
+                # Update the ReplayRequest with current Segment's CacheFile name in the ReplayRequest "SegmentsToBeIgnored" attrib
+                print(f"CURRENT Segment with Start {str(self.current_segment['Start'])} cache file name {current_segment_cache_file_name} has no ReplayRequest Feature's. IGNORING further processing for this Segment.")
+                return False
+            else:
+                print(f"CURRENT Segment with Start {str(self.current_segment['Start'])} cache file name {current_segment_cache_file_name} HAS ONE OR MORE FEATURES !!! ")
+
+        # Step 5 - Get all segments with Features mapped from Cache. This is a Multi-threaded process
+        
+        print('Starting the Multi threaded process to find ReplayRequest Features in Segments from Cache ...')
+        replay_feature_processor = ReplayFeatureProcessor(
+            self._replay_to_be_processed['Priorities']['Clips'], # Contains the Features that the ReplayRequest has been configured with
+            self._is_catch_up_enabled(),
+            self._replay_to_be_processed['SegmentsToBeIgnored'] if 'SegmentsToBeIgnored' in self._replay_to_be_processed else [], # list of Segment cache filenames,
+            self._audio_track,
+            self._event,
+            self._program, 
+            self._replay_to_be_processed['ReplayId']
+        )
+        '''
+        segments_with_features_from_new_cache_files structure
+
+        [
+            {
+                "AudioTrack": 1,
+                "End": 1701.697,
+                "Features": [
+                    {
+                    "AttribName": "FreeKick",
+                    "AttribValue": true,
+                    "MultiplierChosen": 8,
+                    "Name": "SegmentBySceneAndSR2 | FreeKick | true",
+                    "PluginName": "SegmentBySceneAndSR2",
+                    "Weight": 79
+                    },
+                    {
+                    "AttribName": "free_kick",
+                    "AttribValue": true,
+                    "MultiplierChosen": 4,
+                    "Name": "SegmentBySceneAndSR2 | free_kick | true",
+                    "PluginName": "SegmentBySceneAndSR2",
+                    "Weight": 39
+                    }
+                ],
+                "OptoEnd": 1701.697,
+                "OptoStart": 1688.422,
+                "Start": 1690.939
+            }
+        ]
+        '''
+
+        # For CatchUp, this will be a list of the last 5 segment with features mapped
+        # For NonCatchup, this will the full list of segment with features mapped
+        segments_with_features_from_new_cache_files = replay_feature_processor.find_features_in_cached_files()
+        print(f'segments_with_features_from_new_cache_files={segments_with_features_from_new_cache_files}')
+
+        # Step 6 - MAP Segments to Features - CatchUp Optimization - Get the existing Segments Features Cache File from S3. This is only for CatchUp replays as we dont want to re-process all Segments with Features. 
+        # We will re-use the Cache created after the previous Replay calculated and cached the results.
+        # The new cache file may have a few segments which overlaps with the Previous Replay Cache content. We need to ignore such Segments so the replay calc doesn't account for the same segment twice.
+        if self._is_catch_up_enabled():
+            self._all_segments_with_features = segments_with_features_from_new_cache_files  # This is a Mapping of ALL Segments with Features 
+            #print('Optimizing 2 SegmentFeature list by creating an Intersection.')
+            #self._all_segments_with_features = self.get_unique_segment_features_for_catchup(segments_with_features_from_new_cache_files) # This is a Mapping of Segments created so far with Features 
+
+            print(f"CATCH UP _all_segments_with_features = {self._all_segments_with_features}")
+        else:
+            self._all_segments_with_features = segments_with_features_from_new_cache_files  # This is a Mapping of ALL Segments with Features 
+            print(f"NOT CATCH UP _all_segments_with_features = {self._all_segments_with_features}")
+
+        # Sort Segments in Asc order based on Start time
+        self._all_segments_with_features.sort(key=lambda x: x['Start'])
+
+        print(f"SORTED _all_segments_with_features before re-calculating Scores = {self._all_segments_with_features}")
+        
+        return True
+        
+    def create_tmp_file(self, file_content, filename):
+        with open(f"/tmp/{filename}", "w") as output:
+            json.dump(file_content, output, ensure_ascii=False)
+
+
+    def cache_replay_calc_segment_feature_mapping_in_s3(self):
+
+        '''
+        Caches the Segment and Feature mapping into S3. This is a Global list before  which does not exclude any segments based on Scores etc.
+
+        new_replay_segment_feature_cache_location structure
+
+        [
+            {
+                "AudioTrack": 1,
+                "End": 1701.697,
+                "Features": [
+                    {
+                    "AttribName": "shot_saved",
+                    "AttribValue": true,
+                    "MultiplierChosen": 8,
+                    "Name": "SegmentBySceneAndSR2 | shot_saved | true",
+                    "PluginName": "SegmentBySceneAndSR2",
+                    "Weight": 79
+                    },
+                    {
+                    "AttribName": "free_kick",
+                    "AttribValue": true,
+                    "MultiplierChosen": 4,
+                    "Name": "SegmentBySceneAndSR2 | free_kick | true",
+                    "PluginName": "SegmentBySceneAndSR2",
+                    "Weight": 39
+                    }
+                ],
+                "OptoEnd": 1701.697,
+                "OptoStart": 1688.422,
+                'Score': 730,
+                "Start": 1690.939
+            }
+        ]
+        '''
+        new_replay_segment_feature_cache_location = f"replay-result-seg-cache/{self._replay_to_be_processed['ReplayId']}/SegmentsFeaturesCache.json"
+        # Save to S3
+        self.create_tmp_file(self._all_segments_with_features, f"{self._replay_to_be_processed['ReplayId']}-SegmentsFeaturesCache.json")
+        s3_client.upload_file(f"/tmp/{self._replay_to_be_processed['ReplayId']}-SegmentsFeaturesCache.json", CACHE_BUCKET, new_replay_segment_feature_cache_location)
+    
+    
+
+    def __get_s3_key_prefixes(self):
+        '''
+            Returns Unique cache S3 prefixes for the event based on which prefix a segment was found in
+        '''
+
+        # Each Segment has the HourElapsed attribute which will be used to construct 
+        # the S3 Key Prefix the Segment Cache is in.
+        s3_key_prefixes = []
+        for segment in self._segments_created_so_far:
+            if 'HourElapsed' in segment:
+                s3_key_prefix = f"{self._program}/{self._event}/{str(segment['HourElapsed'])}"
+                if s3_key_prefix not in s3_key_prefixes:
+                    s3_key_prefixes.append(s3_key_prefix)
+
+        print(f"S3 Key Prefixes created so far ... = {s3_key_prefixes}")
+
+        return s3_key_prefixes
 
     def _create_replay(self):
 
-        self.__mark_replay_in_progress()
+        # Only when a Replay is in Queued State, do we want to Update the Replay as In Progress
+        if 'Status' in self._replay_to_be_processed:
+            if self._replay_to_be_processed['Status'] == 'Queued':
+                self.__mark_replay_in_progress()
 
-        self._replay_to_be_processed = self.__event['ReplayRequest']
-
+        # The required segments with Features will get mapped out here
+        # If a segment has not features that the Replay is Configured for, we come out of
+        # the current processing cycle.
+        if not self.initialize_segment_features():
+            return False
+        
         # Get Segments with Features. OptoStart and OptoEndtime of Segments will be Maps by default.
-        self.get_all_segments_with_features()
+        #self.get_all_segments_with_features()
 
         # If We are dealing with Clip Based Features, we are done with Collecting the segments having Features, just push to DDB
         if not self._is_replay_duration_based():
-            self._persist_replay_metadata(self._segment_feature_maping)
+
+            print(f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
+            replay_res = self._persist_replay_metadata(self._all_segments_with_features)
+
+            # Looks like replay results were not persisted. Race condition perhaps
+            if not replay_res:
+                print(f"Clip based replay. Replay results have not been persisted. Check for Race condition!!")
+                return False
+            
         else:
             print('Duration based, calculating total duration of chosen Segments')
             debuginfo = []
@@ -90,29 +419,66 @@ class ReplayEngine:
             duration_result, duration = self._does_total_duration_of_all_segments_exceed_configured()
             if not duration_result:
                 print(f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
+                print(f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
+                replay_res = self._persist_replay_metadata(self._all_segments_with_features, debuginfo)
+                print(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
 
-                self._persist_replay_metadata(self._segment_feature_maping, debuginfo)
-                print(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
-                print(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
+                # Looks like replay results were not persisted. Race condition perhaps
+                if not replay_res:
+                    return False
+                
             else:
                 
                 # If no Equal Distribution is sought, pick segments based on High Scores, duration
                 if not self.__event['ReplayRequest']['DurationbasedSummarization']['EqualDistribution']:
 
                     print(f'Calculate Scores based on Weights .. total duration was {duration}')
-                    self._calculate_segment_scores_basedon_weights(self._segment_feature_maping)
+                    self._calculate_segment_scores_basedon_weights(self._all_segments_with_features)
 
-                    print("--------")
-                    print(self._segment_feature_maping)
+                    '''
+                    After Scoring, new structure includes "Score" attrib. For ex.
+
+                    [
+                        {
+                            "AudioTrack": 1,
+                            "End": 1701.697,
+                            "Features": [
+                                {
+                                "AttribName": "FreeKick",
+                                "AttribValue": true,
+                                "MultiplierChosen": 8,
+                                "Name": "SegmentBySceneAndSR2 | FreeKick | true",
+                                "PluginName": "SegmentBySceneAndSR2",
+                                "Weight": 79
+                                },
+                                {
+                                "AttribName": "free_kick",
+                                "AttribValue": true,
+                                "MultiplierChosen": 4,
+                                "Name": "SegmentBySceneAndSR2 | free_kick | true",
+                                "PluginName": "SegmentBySceneAndSR2",
+                                "Weight": 39
+                                }
+                            ],
+                            "OptoEnd": 1701.697,
+                            "OptoStart": 1688.422,
+                            "Start": 1690.939,
+                            "Score": 100
+                        }
+                    ]
+                    '''
+
+                    #print("---- AFTER SORT - AllSegmentsWithFeatures ----")
+                    #print(self._all_segments_with_features)
 
                     # After each Segment has been scored, sort them in Desc based on Score
-                    sorted_segments = sorted(self._segment_feature_maping, key=lambda x: x['Score'], reverse=True)
+                    sorted_segments = sorted(self._all_segments_with_features, key=lambda x: x['Score'], reverse=True)
 
-                    print("--------AFTER SORT----------")
+                    print("---- AFTER DESC SORT Before Filtering based on Duration and Score - AllSegmentsWithFeatures ----")
                     print(sorted_segments)
 
                     # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
-                    total_duration_all = 0
+                    #total_duration_all = 0
                     total_duration = 0
                     final_segments = []
                     
@@ -121,10 +487,15 @@ class ReplayEngine:
                     # will be crossed.
                     last_segment_crossed_duration_limit = False
                     for segment in sorted_segments:
-                        segment_duration = self._get_segment_duration_in_secs(segment)
-                        total_duration_all += segment_duration
 
-                        if total_duration + segment_duration <= replay_request_duration:
+                        # This conditions is met when the Replay Duration has been exceeded. So stop processing all segments
+                        if last_segment_crossed_duration_limit:
+                            break
+
+                        segment_duration = self._get_segment_duration_in_secs(segment)
+                        #total_duration_all += segment_duration
+
+                        if (total_duration + segment_duration) <= replay_request_duration:
                             final_segments.append(segment)
                             total_duration += segment_duration
                         else:
@@ -133,19 +504,24 @@ class ReplayEngine:
                                 final_segments.append(segment)
                                 total_duration += segment_duration
                             else:
-                                print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the replay request duration limit {replay_request_duration} secs")
                                 print(f"Ignoring segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {replay_request_duration} secs.")
 
 
-                    print(f"Duration if all segments considered would be {total_duration_all} secs")
+                    print(f"Duration if all segments considered would be {total_duration} secs")
 
                     # Finally Sort the Segments based on the Start time in Asc Order
                     sorted_final_segments = sorted(final_segments, key=lambda x: x['Start'], reverse=False)
-                    self._persist_replay_metadata(sorted_final_segments, debuginfo)
+                    print(f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(sorted_final_segments)}")
+                    replay_res = self._persist_replay_metadata(sorted_final_segments, debuginfo)
+
+                    # Looks like replay results were not persisted. Race condition perhaps
+                    if not replay_res:
+                        return False
+
 
                 else:
 
-                    # Because Equal Distrbution is being asked for, 
+                    # Because Equal Distribution is being asked for, 
                     # We will distribute the total segment duration into Multiple TimeGroups and Group segments within them based on Segment Start time.
                     # Within each TimeGroup, we will Score the Segments based on Weights and 
                     # pick the Highest Scoring Segment by adhering to the Duration which will be the TimeGroup Duration
@@ -155,11 +531,11 @@ class ReplayEngine:
 
                     
                     first_segment = self._all_segments_with_features[0]
-                    last_segment = self._all_segments_with_features[len(self._all_segments_with_features) - 1]
+                    last_segment = self._all_segments_with_features[-1]
 
 
-                    start_of_first_segment_secs = first_segment['OptoStart'][self._audio_track] if self._is_segment_optimized(first_segment) else first_segment['Start']
-                    end_of_last_segment_secs = last_segment['OptoEnd'][self._audio_track] if self._is_segment_optimized(last_segment) else last_segment['End']
+                    start_of_first_segment_secs = first_segment['OptoStart'] if self._is_segment_optimized(first_segment) else first_segment['Start']
+                    end_of_last_segment_secs = last_segment['OptoEnd'] if self._is_segment_optimized(last_segment) else last_segment['End']
 
                     print(f"First Seg starts at {start_of_first_segment_secs} secs")
                     print(f"Last Seg Ends at {end_of_last_segment_secs} secs")
@@ -217,7 +593,7 @@ class ReplayEngine:
                         sorted_segments = sorted(segments_within_timegroup, key=lambda x: x['Score'], reverse=True)
 
                         # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
-                        total_duration_all = 0
+                        #total_duration_all = 0
                         total_duration = 0
                         final_segments = []
                         
@@ -226,10 +602,14 @@ class ReplayEngine:
                         # will be crossed.
                         last_segment_crossed_duration_limit = False
                         for segment in sorted_segments:
-                            segment_duration = self._get_segment_duration_in_secs(segment)
-                            total_duration_all += segment_duration
+                            # This conditions is met when the Replay Duration has been exceeded. So stop processing all segments
+                            if last_segment_crossed_duration_limit:
+                                break
 
-                            if total_duration + segment_duration <= timegroup_time_in_secs:
+                            segment_duration = self._get_segment_duration_in_secs(segment)
+                            #total_duration_all += segment_duration
+
+                            if (total_duration + segment_duration) <= timegroup_time_in_secs:
                                 final_segments.append(segment)
                                 total_duration += segment_duration
                             else:
@@ -239,21 +619,25 @@ class ReplayEngine:
                                     total_duration += segment_duration
                                 else:
                                     print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the timegroup duration limit {timegroup_time_in_secs} secs")
-                                #print(f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {timegroup_time_in_secs} secs.")
-
-                        #print(f"Duration if all segments within this timegroup considered would be {total_duration_all} secs")
+                                
 
                         # Finally Sort the Segments based on the Start time in Asc Order
                         sorted_final_segments = sorted(final_segments, key=lambda x: x['Start'], reverse=False)
                         final_segments_across_timegroups.extend(sorted_final_segments)
                     
-                    # Persist all segment+features across all timegroups
-                    self._persist_replay_metadata(final_segments_across_timegroups, debuginfo)
+                    print(f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(final_segments_across_timegroups)}")
 
+                    # Persist all segment+features across all timegroups
+                    replay_res = self._persist_replay_metadata(final_segments_across_timegroups, debuginfo)
+                    # Looks like replay results were not persisted. Race condition perhaps
+                    if not replay_res:
+                        return False
+
+        return True
 
     def _get_segments_with_features_within_timegroup(self, timegroup):
         segments_within_timegroup = []
-        for segment in self._segment_feature_maping:
+        for segment in self._all_segments_with_features:
             segment_startTime, segment_endTime = self._get_segment_start_and_end_times(segment)
 
             # Check if a Segments Startstime falls within the Timegroup Start and Endtimes
@@ -296,21 +680,16 @@ class ReplayEngine:
     def _calculate_score(self, segment):
         total_score = 0
         for feature in segment['Features']:
-            #multiplier = self._get_multiplier(feature['Weight'])
-            #feature['MultiplierChosen'] = multiplier
-            feature['MultiplierChosen'] = feature['Weight']
-            total_score += feature['Weight'] #* multiplier
-
+            total_score += feature['Weight'] 
         return total_score
-        
     
     def _get_multiplier(self, weight):
         return math.ceil(weight / 10)
 
     def _get_segment_start_and_end_times(self, segment):
         if self._is_segment_optimized(segment):
-            startTime = Decimal(str(segment['OptoStart'][self._audio_track]))
-            endTime = Decimal(str(segment['OptoEnd'][self._audio_track]))
+            startTime = Decimal(str(segment['OptoStart']))
+            endTime = Decimal(str(segment['OptoEnd']))
         else:
             startTime = Decimal(str(segment['Start']))
             endTime = Decimal(str(segment['End']))
@@ -323,7 +702,7 @@ class ReplayEngine:
         
     def _does_total_duration_of_all_segments_exceed_configured(self):
         duration = 0
-        for segment_feature in self._segment_feature_maping:
+        for segment_feature in self._all_segments_with_features:
             # Total Duration of Segment in Secs
             duration += self._get_segment_duration_in_secs(segment_feature)
 
@@ -331,6 +710,12 @@ class ReplayEngine:
             
         
     def _persist_replay_metadata(self, segmentInfo, additionalInfo=None):
+        '''
+            Persists replay results. Handles Race conditions when a Old segments results tries to overwrite 
+            new segments results for CatchUp.
+
+            True if Persistance was a success. False if Race condition was found.
+        '''
         
         # Grab all the Replay Results
         replay_results = []
@@ -352,8 +737,8 @@ class ReplayEngine:
                 total_score_of_selected_segments += int(rep_res['Score'])
 
             if self._is_segment_optimized(segment_feature):             
-                rep_res['OptoStart'] = segment_feature['OptoStart'][self._audio_track]
-                rep_res['OptoEnd'] = segment_feature['OptoEnd'][self._audio_track]
+                rep_res['OptoStart'] = segment_feature['OptoStart']
+                rep_res['OptoEnd'] = segment_feature['OptoEnd']
 
             replay_results.append(rep_res)
 
@@ -366,22 +751,53 @@ class ReplayEngine:
         replay_result_payload['AdditionalInfo'] = additionalInfo if additionalInfo is not None else []
         replay_result_payload['ReplayResults'] = replay_results
         replay_result_payload['TotalScore'] = total_score_of_selected_segments
-
-        self._dataplane.update_replay_result(replay_result_payload)
+        replay_result_payload["LastSegmentStartTime"] = self.current_segment['Start'] if self._is_catch_up_enabled() else 0
 
         
+        update_result = self._dataplane.update_replay_result(replay_result_payload)
+        # if self._is_catch_up_enabled():
+        #     if update_result:
+        #         '''
+        #         This should be the structure of the SegmentsFeaturesCacheFileLocation file
+        #         [
+        #             {
+        #                 "AudioTrack": 1,
+        #                 "End": 1701.697,
+        #                 "Features": [
+        #                     {
+        #                     "AttribName": "FreeKick",
+        #                     "AttribValue": true,
+        #                     "MultiplierChosen": 8,
+        #                     "Name": "SegmentBySceneAndSR2 | FreeKick | true",
+        #                     "PluginName": "SegmentBySceneAndSR2",
+        #                     "Weight": 79
+        #                     },
+        #                     {
+        #                     "AttribName": "free_kick",
+        #                     "AttribValue": true,
+        #                     "MultiplierChosen": 4,
+        #                     "Name": "SegmentBySceneAndSR2 | free_kick | true",
+        #                     "PluginName": "SegmentBySceneAndSR2",
+        #                     "Weight": 39
+        #                     }
+        #                 ],
+        #                 "OptoEnd": 1701.697,
+        #                 "OptoStart": 1688.422,
+        #                 "Start": 1690.939
+        #             }
+        #         ]
+        #         '''
+        #         self.cache_replay_calc_segment_feature_mapping_in_s3()
+
+        return update_result
     
-    @staticmethod
+    """ @staticmethod
     def _mark_replay_complete(replayId, program, event):
-        from MediaReplayEngineWorkflowHelper import ControlPlane
-        controlplane = ControlPlane()
-        controlplane.update_replay_request_status(program, event, replayId, "Complete")
+        controlplane.update_replay_request_status(program, event, replayId, "Complete") """
         
-    @staticmethod
+    """  @staticmethod
     def _mark_replay_error(replayId, program, event):
-        from MediaReplayEngineWorkflowHelper import ControlPlane
-        controlplane = ControlPlane()
-        controlplane.update_replay_request_status(program, event, replayId, "Error")
+        controlplane.update_replay_request_status(program, event, replayId, "Error") """
 
     def __mark_replay_in_progress(self):
         self._controlplane.update_replay_request_status(self._program, self._event, self.__event['ReplayRequest']['ReplayId'], "In Progress")
@@ -389,20 +805,19 @@ class ReplayEngine:
     
     def _get_segments_for_event(self):
         self._segments_created_so_far = self._dataplane.get_all_segments_for_event(self._program, self._event, self._classifier)
+        print(f" List of Segments created so far ... = {self._segments_created_so_far}")
 
     def _get_event(self):
         return self._controlplane.get_event(self._event, self._program, )
 
-    @staticmethod
-    def get_replay(event, program, replay_request_id):
-        from MediaReplayEngineWorkflowHelper import ControlPlane
-        controlplane = ControlPlane()
-        return controlplane.get_replay_request(event, program, replay_request_id)
+    #@staticmethod
+    #def get_replay(event, program, replay_request_id):
+    #    return controlplane.get_replay_request(event, program, replay_request_id)
 
 
-    def _get_frame_rate(self):
-        event = self._get_event()
-        return event['FrameRate']
+    #def _get_frame_rate(self):
+    #    event = self._get_event()
+    #    return event['FrameRate']
         # Get Segments in Ascending order based on StartTime of each Segment
         #response = event_table.query(
         #    KeyConditionExpression=Key("Name").eq(f"{self._event}") & Key('Program').eq(f"{self._program}")
@@ -433,32 +848,26 @@ class ReplayEngine:
         self._featurers = [feature_dict["Name"] for feature_dict in self._profile['Featurers']] 
 
     
-    @staticmethod
-    def _get_all_replays_for_event_end(event, program, audioTrack):
-        '''
-            Returns all Queued Replay Requests for the Program/Event and Audio Track
-        '''
-        from MediaReplayEngineWorkflowHelper import ControlPlane
-        controlplane = ControlPlane()
-        return controlplane.get_all_replay_requests_for_event_opto_segment_end(program, event, int(audioTrack))
+    # @staticmethod
+    # def _get_all_replays_for_event_end(event, program, audioTrack):
+    #     '''
+    #         Returns all Queued Replay Requests for the Program/Event and Audio Track
+    #     '''
+    #     return controlplane.get_all_replay_requests_for_event_opto_segment_end(program, event, int(audioTrack))
 
-    @staticmethod
-    def get_all_replay_requests_for_completed_events(event, program, audioTrack):
-        '''
-            Returns all Queued Replay Requests for the Program/Event and Audio Track
-        '''
-        from MediaReplayEngineWorkflowHelper import ControlPlane
-        controlplane = ControlPlane()
-        return controlplane.get_all_replay_requests_for_completed_events(program, event, int(audioTrack))
+    # @staticmethod
+    # def get_all_replay_requests_for_completed_events(event, program, audioTrack):
+    #     '''
+    #         Returns all Queued Replay Requests for the Program/Event and Audio Track
+    #     '''
+    #     return controlplane.get_all_replay_requests_for_completed_events(program, event, int(audioTrack))
     
-    @staticmethod
-    def _get_all_replays_for_segment_end(event, program):
-        '''
-            Returns all Queued Replay Requests for the Program/Event
-        '''
-        from MediaReplayEngineWorkflowHelper import ControlPlane
-        controlplane = ControlPlane()
-        return controlplane.get_all_replays_for_segment_end(event, program)
+    # @staticmethod
+    # def _get_all_replays_for_segment_end(event, program):
+    #     '''
+    #         Returns all Queued Replay Requests for the Program/Event
+    #     '''
+    #     return controlplane.get_all_replays_for_segment_end(event, program)
 
         
     def _get_all_replays_for_opto_segment_end(self):
@@ -471,9 +880,10 @@ class ReplayEngine:
         '''
             Checks if a Replay Request is for Catch Up or not.
         '''
-        if 'Catchup' in self._replay_to_be_processed:
-            if replay['Catchup']:
-                return True
+        if self._replay_to_be_processed:
+            if 'Catchup' in self._replay_to_be_processed:
+                if self._replay_to_be_processed['Catchup']:
+                    return True
 
         return False
 
@@ -498,194 +908,104 @@ class ReplayEngine:
 
     def _is_segment_optimized(self, segment):
         if 'OptoStart' in segment and 'OptoEnd' in segment:
-            if len(segment['OptoStart']) > 0 and len(segment['OptoEnd']) > 0:
+            if segment['OptoStart'] > 0 and segment['OptoEnd'] > 0:
                 return True
 
         return False
         
-    def _is_features_found_in_segment(self,segment, feature):
+    # def _is_features_found_in_segment(self,segment, feature):
         
-        startTime = ''
-        endTime = ''
+    #     startTime = ''
+    #     endTime = ''
 
-        # Use the Segment Start time to find if a Feature exists in it or not. We dont care of the segment is optimized or not 
-        # as we care about a feature found in the segment
-        startTime = Decimal(str(segment['Start']))
-        endTime = Decimal(str(segment['End']))
+    #     # Use the Segment Start time to find if a Feature exists in it or not. We dont care of the segment is optimized or not 
+    #     # as we care about a feature found in the segment
+    #     startTime = Decimal(str(segment['Start']))
+    #     endTime = Decimal(str(segment['End']))
 
-        # If StartTime and EndTime of a Segment is the same, dont bother
-        if startTime == endTime:
-            return False
+    #     # If StartTime and EndTime of a Segment is the same, dont bother
+    #     if startTime == endTime:
+    #         return False
 
-        return self._dataplane._is_features_found_in_segment(self._program, self._event, startTime, feature['PluginName'], feature['AttribName'], feature['AttribValue'], endTime)
+    #     return self._dataplane._is_features_found_in_segment(self._program, self._event, startTime, feature['PluginName'], feature['AttribName'], feature['AttribValue'], endTime)
 
-    def _record_segment_and_feature(self, segment, features):
-        '''
-            Creates a Flattened Dict having Segment and the matching Features Info
-        '''
+    # def _record_segment_and_feature(self, segment, features):
+    #     '''
+    #         Creates a Flattened Dict having Segment and the matching Features Info
+    #     '''
         
-        feature = {
-                    "AudioTrack": int(self._audio_track),
-                    "Start": segment['Start'],
-                    "End": segment['End'],
-                    "Features": features
-                }
+    #     feature = {
+    #                 "AudioTrack": int(self._audio_track),
+    #                 "Start": segment['Start'],
+    #                 "End": segment['End'],
+    #                 "Features": features
+    #             }
 
-        # Assign the Map from the Original Segment
-        if self._is_segment_optimized(segment):
-            feature['OptoStart'] = segment['OptoStart']
-            feature['OptoEnd'] = segment['OptoEnd']
+    #     # Assign the Map from the Original Segment
+    #     if self._is_segment_optimized(segment):
+    #         feature['OptoStart'] = segment['OptoStart']
+    #         feature['OptoEnd'] = segment['OptoEnd']
 
-        self._segment_feature_maping.append(feature)
+    #     self._segment_feature_maping.append(feature)
 
-    def _get_segment_with_features(self, segment):
-        features_in_segment = []
+    # def _get_segment_with_features(self, segment):
+    #     features_in_segment = []
         
-        for feature in self._replay_to_be_processed['Priorities']['Clips']:
-            # If Clip based, select the segments which have at least one Feature selected in the Replay Request
-            if not self._is_replay_duration_based():
-                if feature['Include']:
-                    print('CLip feature based Included feature')
-                    print(segment)
-                    print(feature)
-                    res = self._is_features_found_in_segment(segment, feature)
-                    print('=================_is_features_found_in_segment')
-                    print(res)
-                    if res:
-                        features_in_segment.append(feature)
-            else:
-                if self._is_features_found_in_segment(segment, feature):
-                        print('=================_is_features_found_in_segment')
-                        print(feature)
-                        features_in_segment.append(feature)
+    #     for feature in self._replay_to_be_processed['Priorities']['Clips']:
+    #         # If Clip based, select the segments which have at least one Feature selected in the Replay Request
+    #         if not self._is_replay_duration_based():
+    #             if feature['Include']:
+    #                 print('CLip feature based Included feature')
+    #                 print(segment)
+    #                 print(feature)
+    #                 res = self._is_features_found_in_segment(segment, feature)
+    #                 print('=================_is_features_found_in_segment')
+    #                 print(res)
+    #                 if res:
+    #                     features_in_segment.append(feature)
+    #         else:
+    #             if self._is_features_found_in_segment(segment, feature):
+    #                     print('=================_is_features_found_in_segment')
+    #                     print(feature)
+    #                     features_in_segment.append(feature)
 
-        # Only if we have features, map the segment with the features found
-        if len(features_in_segment) > 0:
-            print('recording segment and feature')
-            self._record_segment_and_feature(segment, features_in_segment)
+    #     # Only if we have features, map the segment with the features found
+    #     if len(features_in_segment) > 0:
+    #         print('recording segment and feature')
+    #         self._record_segment_and_feature(segment, features_in_segment)
     
-        if len(features_in_segment) > 0:
-            return segment
-        else:
-            return None
+    #     if len(features_in_segment) > 0:
+    #         return segment
+    #     else:
+    #         return None
 
 
-    def get_all_segments_with_features(self):
+    # def get_all_segments_with_features(self):
 
-        '''
-            Builds a list of feature based time points for every segment within which they fall in
-        '''
+    #     '''
+    #         Builds a list of feature based time points for every segment within which they fall in
+    #     '''
 
-        # First get all segments created so far (Partial for CatchUp or All when event is complete)
-        self._get_segments_for_event()
-        print('segments for this event')
-        print(self._segments_created_so_far)
+    #     # First get all segments created so far (Partial for CatchUp or All when event is complete)
+    #     self._get_segments_for_event()
+    #     print('segments for this event')
+    #     print(self._segments_created_so_far)
 
-        all_segments_with_features = []
-        for segment in self._segments_created_so_far:
-            seg = self._get_segment_with_features(segment)
-            print('this segment has the feature')
-            print(seg)
+    #     all_segments_with_features = []
+    #     for segment in self._segments_created_so_far:
+    #         seg = self._get_segment_with_features(segment)
+    #         print('this segment has the feature')
+    #         print(seg)
 
-            if seg is not None:
-                all_segments_with_features.append(segment)
+    #         if seg is not None:
+    #             all_segments_with_features.append(segment)
 
-        print('Final list of Segment and Features that were present in them ...')
-        print(self._segment_feature_maping)
+    #     print('Final list of Segment and Features that were present in them ...')
+    #     print(self._segment_feature_maping)
 
-        self._all_segments_with_features = all_segments_with_features
-        return all_segments_with_features
-    
-    
+    #     self._all_segments_with_features = all_segments_with_features
+    #     return all_segments_with_features
     
     
-
-    # def _create_clip_feature_based_replay(self):
-
-    #     from MediaReplayEnginePluginHelper import DataPlane
-    #     mre_pluginhelper = DataPlane({})
-
-    #     try:
-        
-    #         job_settings_filename = os.path.join(os.path.dirname(__file__), 'job_settings_mp4.json')
-                    
-    #         with open(job_settings_filename) as json_data:
-    #             jobSettings = json.load(json_data)
-            
-    #         i = 0
-    #         for segment in self._all_segments_with_features:
-                
-    #             if i > 0:
-    #                 jobSettings['Inputs'].append(copy.deepcopy(jobSettings['Inputs'][0]))
-
-                
-
-    #             jobSettings['Inputs'][i]['FileInput'] = segment['OptimizedClipLocation'][self._audio_track] if 'OptimizedClipLocation' in segment else segment['OriginalClipLocation'][self._audio_track]
-    #             jobSettings['Inputs'][i]['InputClippings'][0]['StartTimecode'] = mre_pluginhelper.get_mediaconvert_clip_format(
-    #                                                                                     self._get_segment_start_time(segment),
-    #                                                                                     self._program,
-    #                                                                                     self._event,
-    #                                                                                     self._profile,
-    #                                                                                     self._frame_rate)
-    #             #If we have a single Chunk we don't need the Endtime Configured. Remove it.
-    #             jobSettings['Inputs'][0]['InputClippings'][0].pop('EndTimecode', None)
-                
-    #             #------------- Update MediaConvert AudioSelectors Input -------------
-
-    #             jobSettings['Inputs'][i]['AudioSelectors'] = {
-    #                                                             "Audio Selector 1": {
-    #                                                                 "Tracks": [
-    #                                                                     1   # Should be always one because the Opto Clip generated during seg would have a single AudioTrack?
-    #                                                                 ],
-    #                                                                 "DefaultSelection": "NOT_DEFAULT",
-    #                                                                 "SelectorType": "TRACK"
-    #                                                             }
-    #                                                         }
-
-    #             jobSettings['Inputs'][i]['AudioSelectorGroups'] =   {
-    #                                                                     "Audio Selector Group 1": {
-    #                                                                         "AudioSelectorNames": [
-    #                                                                         "Audio Selector 1"
-    #                                                                         ]
-    #                                                                     }
-    #                                                                 }
-    #             #------------- Update MediaConvert AudioSelectors Input Ends ------------- 
-    #             i += 1
-
-    #         # Overrides to Job settings
-    #         runid = str(uuid.uuid4())
-    #         keyprefix = f"replay_assets/{runid}/MP4/{str(self._audio_track)}/{str(runid)}"
-
-    #         job_output_destination = f"s3://{OUTPUT_BUCKET}/{keyprefix}"
-            
-    #         jobSettings["OutputGroups"][0]["OutputGroupSettings"]["FileGroupSettings"]["Destination"] = job_output_destination
-
-    #         thumbnail_keyprefix = f"thumbnail/{runid}/{str(runid)}"
-    #         thumbnail_job_output_destination = f"s3://{OUTPUT_BUCKET}/{thumbnail_keyprefix}"
-    #         jobSettings["OutputGroups"][1]["OutputGroupSettings"]["FileGroupSettings"]["Destination"] = thumbnail_job_output_destination
-
-
-    #         # get the account-specific mediaconvert endpoint for this region
-    #         endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
-
-    #         # add the account-specific endpoint to the client session 
-    #         client = boto3.client('mediaconvert', endpoint_url=endpoint, verify=False)
-
-    #         mediaConvertRole = os.environ['MediaConvertRole']
-
-    #         # Convert the video using AWS Elemental MediaConvert
-    #         jobid = str(uuid.uuid4())
-    #         jobMetadata = { 'JobId': jobid }
-
-    #         print('---------JOB SETTINGS -----------------------------')
-    #         print(jobSettings)
-
-    #         client.create_job(Role=mediaConvertRole, UserMetadata=jobMetadata, Settings=jobSettings)
-
-    #         return {
-    #             "ReplayClipLocation": f"{job_output_destination}.mp4",
-    #             "ReplayThumbnailLocation": f"{thumbnail_job_output_destination}.0000000.jpg"
-    #         }        
-    #     except Exception as e:
-    #         print(e)
-    #         raise e
+    
+    

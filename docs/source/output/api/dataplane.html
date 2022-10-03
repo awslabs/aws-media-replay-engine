@@ -19,6 +19,7 @@
     <script src="../_static/underscore.js"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
     <script type="text/javascript">
         function _scroll(subjectId) {
@@ -230,6 +231,18 @@
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="add-attribute-to-existing-segment">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/classifier/{classifier}/start/{start}/attrName/{attrName}/attrVal/{attrVal}</span><a class="headerlink" href="#add-attribute-to-existing-segment" title="Permalink to this heading">¶</a></h2>
+<p>Add a new attribute to an existing segment in the Plugin Result table.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="get-optimized-clip-preview-details">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/clipstart/{start}/clipduration/{duration}/track/{tracknumber}/classifier/{classifier}/opt/previewinfo</span><a class="headerlink" href="#get-optimized-clip-preview-details" title="Permalink to this heading">¶</a></h2>
 <p>Retrieve the pts timecode of the first frame of the first HLS video segment.</p>
@@ -368,6 +381,15 @@
 <blockquote>
 <div><p>Plugin result, if the feature (output attribute) exists in any segment</p>
 </div></blockquote>
+</section>
+<section class="chalice-route" id="create-job">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/job/create/{job_id}</span><a class="headerlink" href="#create-job" title="Permalink to this heading">¶</a></h2>
+</section>
+<section class="chalice-route" id="get-job-status">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/job/status/{job_id}</span><a class="headerlink" href="#get-job-status" title="Permalink to this heading">¶</a></h2>
+</section>
+<section class="chalice-route" id="update-job-status">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/job/update/{job_id}/{status}</span><a class="headerlink" href="#update-job-status" title="Permalink to this heading">¶</a></h2>
 </section>
 <section class="chalice-route" id="get-manifest-content">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/manifest/{bucket}/{key}/{version}</span><a class="headerlink" href="#get-manifest-content" title="Permalink to this heading">¶</a></h2>
@@ -515,7 +537,6 @@ PTS timecodes are ideal for accurately clipping a video given the start and end 
     <span class="s2">&quot;PluginName&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;PluginClass&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;ModelEndpoint&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
-    <span class="s2">&quot;Configuration&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
     <span class="s2">&quot;OutputAttributesNameList&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="s2">&quot;Location&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
     <span class="s2">&quot;Results&quot;</span><span class="p">:</span> <span class="nb">list</span>
@@ -529,6 +550,30 @@ PTS timecodes are ideal for accurately clipping a video given the start and end 
 <dl class="simple">
 <dt>Raises:</dt><dd><p>400 - BadRequestError
 500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-replay-features-in-segment">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/feature/in/segment</span><a class="headerlink" href="#get-replay-features-in-segment" title="Permalink to this heading">¶</a></h2>
+<p>Retrieve the value of all the output attributes stored by a plugin between segment start and end.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;PluginName&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;AudioTrack&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+    <span class="s2">&quot;End&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+    <span class="s2">&quot;OutputAttributes&quot;</span><span class="p">:</span> <span class="nb">list</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>List of all the plugin result object with output attributes containing their corresponding values.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
 </dd>
 </dl>
 </section>
@@ -579,6 +624,41 @@ PTS timecodes are ideal for accurately clipping a video given the start and end 
 <span class="p">}</span>
 </pre></div>
 </div>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="get-dependent-detectors-for-optimization">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/segment</span><a class="headerlink" href="#get-dependent-detectors-for-optimization" title="Permalink to this heading">¶</a></h2>
+<p>Retrieve one or more non-optimized segments identified in the current/prior chunks and all the dependent detectors output
+around the segments for optimization. Use “SearchWindowSeconds” to control the time window around the segments within which
+the dependent detectors output are queried for.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ChunkNumber&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Detectors&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="s2">&quot;AudioTrack&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;SearchWindowSeconds&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Segment&quot;</span><span class="p">:</span> <span class="nb">dict</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>All the dependent detectors output for a segment</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-dependent-detectors-results-for-optimization">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}</span><a class="headerlink" href="#get-dependent-detectors-results-for-optimization" title="Permalink to this heading">¶</a></h2>
+<p>Retrieves the dependent detector plugin’s output</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Dependent detectors output captured thus far</p>
 </div></blockquote>
 </section>
 <section class="chalice-route" id="get-chunks-for-segment">
@@ -680,6 +760,29 @@ detectors output around the segments</p>
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-segments-for-optimization">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/optimization/segments/all</span><a class="headerlink" href="#get-segments-for-optimization" title="Permalink to this heading">¶</a></h2>
+<p>Retrieve one or more non-optimized segments identified in the current/prior chunks</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ChunkNumber&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Classifier&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;AudioTrack&quot;</span><span class="p">:</span> <span class="n">integer</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>List containing one or more non-optimized segments identified in the current/prior chunks</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="get-segment-state">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/segment/state</span><a class="headerlink" href="#get-segment-state" title="Permalink to this heading">¶</a></h2>
 <p>Retrieve the state of the segment identified in chunks (HLS .ts files) prior to the given chunk number and all the
@@ -737,6 +840,7 @@ return None along with all the labels created by the dependent plugins before th
 <li><a class="reference internal" href="#get-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/reviewer/{reviewer}/feedback</span></a></li>
 <li><a class="reference internal" href="#store-clip-result"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/result</span></a></li>
 <li><a class="reference internal" href="#get-all-event-segments"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export/all/segments</span></a></li>
+<li><a class="reference internal" href="#add-attribute-to-existing-segment"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/classifier/{classifier}/start/{start}/attrName/{attrName}/attrVal/{attrVal}</span></a></li>
 <li><a class="reference internal" href="#get-optimized-clip-preview-details"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/clipstart/{start}/clipduration/{duration}/track/{tracknumber}/classifier/{classifier}/opt/previewinfo</span></a></li>
 <li><a class="reference internal" href="#get-original-clip-preview-details"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/clipstart/{start}/clipduration/{duration}/track/{tracknumber}/classifier/{classifier}/org/previewinfo</span></a></li>
 <li><a class="reference internal" href="#get-matching-replay-segments"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/profileClassifier/{classifier}/track/{tracknumber}/replay/{replayId}/segments</span></a></li>
@@ -746,6 +850,9 @@ return None along with all the labels created by the dependent plugins before th
 <li><a class="reference internal" href="#get-event-segments-v2"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/profileClassifier/{classifier}/track/{tracknumber}/segments/v2</span></a></li>
 <li><a class="reference internal" href="#get-replay-segments"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/replay/{replayId}/segments</span></a></li>
 <li><a class="reference internal" href="#get-feature-in-segment"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/feature/in/segment/program/{program}/event/{event}/plugin/{pluginname}/attrn/{attrname}/attrv/{attrvalue}/start/{starttime}/end/{endtime}</span></a></li>
+<li><a class="reference internal" href="#create-job"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/job/create/{job_id}</span></a></li>
+<li><a class="reference internal" href="#get-job-status"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/job/status/{job_id}</span></a></li>
+<li><a class="reference internal" href="#update-job-status"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/job/update/{job_id}/{status}</span></a></li>
 <li><a class="reference internal" href="#get-manifest-content"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/manifest/{bucket}/{key}/{version}</span></a></li>
 <li><a class="reference internal" href="#get-media-presigned-url"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/media/{bucket}/{key}</span></a></li>
 <li><a class="reference internal" href="#store-chunk-metadata"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/metadata/chunk</span></a></li>
@@ -754,14 +861,18 @@ return None along with all the labels created by the dependent plugins before th
 <li><a class="reference internal" href="#get-timecode-of-frame"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/metadata/timecode/{program}/{event}/{filename}/{frame_number}</span></a></li>
 <li><a class="reference internal" href="#get-dependent-plugins-output"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/plugin/dependentplugins/output</span></a></li>
 <li><a class="reference internal" href="#store-plugin-result"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/plugin/result</span></a></li>
+<li><a class="reference internal" href="#get-replay-features-in-segment"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/feature/in/segment</span></a></li>
 <li><a class="reference internal" href="#get-plugin-output-attributes-values"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/feature/program/{program}/event/{event}/outputattribute/{pluginattribute}/plugin/{pluginname}</span></a></li>
 <li><a class="reference internal" href="#update-replay-results"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/result</span></a></li>
 <li><a class="reference internal" href="#get-segments-for-event"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/segments/all/program/{program}/event/{event}/classifier/{classifier}/replay</span></a></li>
 <li><a class="reference internal" href="#version"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/version</span></a></li>
+<li><a class="reference internal" href="#get-dependent-detectors-for-optimization"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/segment</span></a></li>
+<li><a class="reference internal" href="#get-dependent-detectors-results-for-optimization"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}</span></a></li>
 <li><a class="reference internal" href="#get-chunks-for-segment"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/engine/clipgen/chunks</span></a></li>
 <li><a class="reference internal" href="#get-segments-for-clip-generation"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/engine/clipgen/segments</span></a></li>
 <li><a class="reference internal" href="#get-segment-state-for-labeling"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/labeling/segment/state</span></a></li>
 <li><a class="reference internal" href="#get-segment-state-for-optimization"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/optimization/segment/state</span></a></li>
+<li><a class="reference internal" href="#get-segments-for-optimization"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/optimization/segments/all</span></a></li>
 <li><a class="reference internal" href="#get-segment-state"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/segment/state</span></a></li>
 </ul>
 </li>

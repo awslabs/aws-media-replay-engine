@@ -1,15 +1,18 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
+from logging import exception
 import boto3
 import urllib3
 from boto3 import client
 from botocore.config import Config
+import os
 
 urllib3.disable_warnings()
 s3 = boto3.resource('s3')
 s3_client = boto3.client('s3')
 ssm = boto3.client('ssm')
+MEDIA_CONVERT_ENDPOINT = os.environ['MEDIA_CONVERT_ENDPOINT']
 
 '''
 Event Payload Structure expected from 
@@ -170,32 +173,32 @@ def create_hls_manifest(event, context):
     
 #@app.lambda_function()
 def media_convert_job_status(event, context):
-    
-    if are_all_jobs_complete(event['ClipGen']['Payload']['MediaConvertJobs']):
-        return {
-            "Status": "Complete"
-        }
-    else:
-        return {
-            "Status": "InComplete"
-        }
+     return {
+             "Status": "Complete"
+         }
+    # if are_all_jobs_complete(event['ClipGen']['Payload']['MediaConvertJobs']):
+    #     return {
+    #         "Status": "Complete"
+    #     }
+    # else:
+    #     return {
+    #         "Status": "InComplete"
+    #     }
     
     
 def are_all_jobs_complete(jobs):
-
-    endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
 
     # Customizing Exponential backoff
     # Retries with additional client side throttling.
     boto_config = Config(
         retries = {
-            'max_attempts': 10,
+            'max_attempts': 3,
             'mode': 'adaptive'
         }
     )
 
     # add the account-specific endpoint to the client session x
-    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
+    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=MEDIA_CONVERT_ENDPOINT, verify=False)
 
     
     for jobId in jobs:
@@ -210,18 +213,21 @@ def are_all_jobs_complete(jobs):
 
 def create_final_manifest(bucket, keyPrefix):
     final_manifest_content = []
-    all_manifests = get_all_manifests(bucket, keyPrefix)
+    try:
+        all_manifests = get_all_manifests(bucket, keyPrefix)
 
-    # The above Manifests would be in Ascending order by default (via s3)
-    # Add #EXT-X-DISCONTINUITY for every new manifest 
-    #For subsequent Manifests
-    # Skip the top 5 Lines
-    # Read the rest ignoring the last line - #EXT-X-ENDLIST
-    if len(all_manifests) > 0:
-        final_manifest_content = read_first_manifest(all_manifests[0], bucket)
-        final_manifest_content.extend(process_other_manifests(all_manifests, bucket))
-        final_manifest_content.append("#EXT-X-ENDLIST")
-
+        # The above Manifests would be in Ascending order by default (via s3)
+        # Add #EXT-X-DISCONTINUITY for every new manifest 
+        #For subsequent Manifests
+        # Skip the top 5 Lines
+        # Read the rest ignoring the last line - #EXT-X-ENDLIST
+        if len(all_manifests) > 0:
+            final_manifest_content = read_first_manifest(all_manifests[0], bucket)
+            final_manifest_content.extend(process_other_manifests(all_manifests, bucket))
+            final_manifest_content.append("#EXT-X-ENDLIST")
+    except exception as e:
+        pass
+    
     return final_manifest_content
 
 def create_manifest_file(final_manifest_content):

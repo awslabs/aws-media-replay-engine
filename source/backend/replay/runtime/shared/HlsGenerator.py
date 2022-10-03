@@ -13,17 +13,20 @@ from decimal import Decimal
 from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.config import Config
+from MediaReplayEngineWorkflowHelper import ControlPlane
+from MediaReplayEnginePluginHelper import DataPlane
 
 MAX_INPUTS_PER_JOB = int(os.environ['MediaConvertMaxInputJobs']) 
 ACCELERATION_MEDIA_CONVERT_QUEUE = os.environ['MediaConvertAcceleratorQueueArn']
 OUTPUT_BUCKET = os.environ['OutputBucket'] 
 ssm = boto3.client('ssm')
+MEDIA_CONVERT_ENDPOINT = os.environ['MEDIA_CONVERT_ENDPOINT']
 
 class HlsGenerator:
 
     def __init__(self, event):
 
-        from MediaReplayEngineWorkflowHelper import ControlPlane
+        
         self._controlPlane = ControlPlane()
 
         tmpEvent = self.__get_dataplane_payload(event)
@@ -33,7 +36,7 @@ class HlsGenerator:
         self.__profile = tmpEvent['Profile']['Name']
         self.__framerate = tmpEvent['Profile']['ProcessingFrameRate']
 
-        from MediaReplayEnginePluginHelper import DataPlane
+        
         self._dataplane = DataPlane(tmpEvent)
 
         
@@ -85,7 +88,19 @@ class HlsGenerator:
         #batch_id = f"{str(self.__eventName).lower()}-{str(self.__program).lower()}-{replay_id}"
         batch_id = f"{str(uuid.uuid4())}"
 
+        # Create Input settings per segment
+        input_job_settings = []
+        for segment in replay_segments:
 
+            startTime = segment['OptoStart'] if 'OptoStart' in segment else segment['Start']
+            endTime = segment['OptoEnd'] if 'OptoEnd' in segment else segment['End']
+            chunks = self._dataplane.get_chunks_for_segment(startTime, endTime, self.__program, self.__eventName, profile_name )
+            
+
+            input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
+            print('---------------- __build_hls_input -----------------------')
+            print(input_settings)
+            input_job_settings.extend(input_settings)
         
         job_metadata = []
         resolution_thumbnail_mapping = []
@@ -99,22 +114,6 @@ class HlsGenerator:
             # m3u8 file
             all_hls_clip_job_metadata = []
 
-
-            # Create Input settings per segment
-            input_job_settings = []
-            for segment in replay_segments:
-
-                startTime = segment['OptoStart'] if 'OptoStart' in segment else segment['Start']
-                endTime = segment['OptoEnd'] if 'OptoEnd' in segment else segment['End']
-                chunks = self._dataplane.get_chunks_for_segment(startTime, endTime, self.__program, self.__eventName, profile_name )
-                
-
-                input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
-                print('---------------- __build_hls_input -----------------------')
-                print(input_settings)
-                input_job_settings.extend(input_settings)
-
-            
             groups_of_input_settings = [input_job_settings[x:x+MAX_INPUTS_PER_JOB] for x in range(0, len(input_job_settings), MAX_INPUTS_PER_JOB)]
             index = 1
             res = resolution.split(' ')[0]
@@ -147,6 +146,18 @@ class HlsGenerator:
                 "ThumbnailLocations": resolution_thumbnail_mapping
                 
             })
+        
+
+        # Record the JobIds in DDB. We do this to avoid hitting MediaConvert APIs
+        # and mitigate throttling. Jobs are recorded with a status of CREATED.
+        # When MediaConvert emits a change in Status to Event Bridge, we update the Status 
+        # of the Job in DDB
+        print(f'JobMetadata = {job_metadata}')
+        for jdata in job_metadata:
+            if 'JobMetadata' in jdata:
+                for job_meta in jdata['JobMetadata']:
+                    jobid = job_meta['JobsId']
+                    self._dataplane.save_media_convert_job_details(jobid)
 
         return job_metadata
 
@@ -296,7 +307,7 @@ class HlsGenerator:
             jobSettings['Inputs'] = inputSettings
 
             # Convert the video using AWS Elemental MediaConvert
-            jobMetadata = { 'BatchId': batch_id }
+            jobMetadata = { 'BatchId': batch_id , "Source": "Replay"}
 
             return self.__create_job(jobMetadata, jobSettings), job_output_destination
 
@@ -306,20 +317,18 @@ class HlsGenerator:
 
     def __create_job(self, jobMetadata, jobSettings):
 
-        # get the account-specific mediaconvert endpoint for this region
-        endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
-
+        
         # Customizing Exponential backoff
         # Retries with additional client side throttling.
         boto_config = Config(
             retries = {
-                'max_attempts': 10,
+                'max_attempts': 3,
                 'mode': 'adaptive'
             }
         )
         
         # add the account-specific endpoint to the client session 
-        client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
+        client = boto3.client('mediaconvert', config=boto_config, endpoint_url=MEDIA_CONVERT_ENDPOINT, verify=False)
 
         mediaConvertRole = os.environ['MediaConvertRole']
         return client.create_job(Role=mediaConvertRole, UserMetadata=jobMetadata, Settings=jobSettings, AccelerationSettings={

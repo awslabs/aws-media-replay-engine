@@ -380,6 +380,16 @@
                         "type": "object",
                         "title": "The Configuration Schema"
                     },
+                    "IsPriorityForReplay": {
+                        "$id": "#/properties/Featurers/properties/IsPriorityForReplay",
+                        "type": "boolean",
+                        "title": "The IsPriorityForReplay Schema",
+                        "default": true,
+                        "examples": [
+                            true,
+                            false
+                        ]
+                    },
                     "DependentPlugins": {
                         "$id": "#/properties/Featurers/properties/DependentPlugins",
                         "type": "array",

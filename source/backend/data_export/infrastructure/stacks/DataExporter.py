@@ -6,7 +6,8 @@ from aws_cdk import (
     aws_iam as iam,
     aws_lambda as _lambda,
     aws_events as events,
-    aws_events_targets as events_targets
+    aws_events_targets as events_targets,
+    lambda_layer_awscli as awscli
 )
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
@@ -29,6 +30,7 @@ class MreDataExporter(Stack):
 
         # Get MediaConvert Bucket Name from SSM
         self.data_export_bucket_name = common.MreCdkCommon.get_data_export_bucket_name()
+        self.segment_cache_bucket_name = common.MreCdkCommon.get_segment_cache_bucket_name(self)
 
         # Get Layers
         self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
@@ -101,14 +103,17 @@ class MreDataExporter(Stack):
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda"),
             handler="mre_data_exporter.GenerateDataExport",
             role=self.event_data_export_lambda_role,
-            memory_size=256,
+            memory_size=2096,
             timeout=Duration.minutes(15),
             environment={
                 "ExportOutputBucket": self.data_export_bucket_name,
-                "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name
+                "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
+                "CACHE_BUCKET_NAME": self.segment_cache_bucket_name,
             },
             layers=[self.mre_workflow_helper_layer, self.mre_plugin_helper_layer]
         )
+        self.event_data_export_lambda.add_layers(awscli.AwsCliLayer(self, "AwsCliLayer"))
+
 
         
         ### END: event-data_export-generator LAMBDA ###
@@ -122,7 +127,7 @@ class MreDataExporter(Stack):
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["CLIP_GEN_DONE", "CLIP_GEN_DONE_WITH_CLIPS", "REPLAY_PROCESSED", "REPLAY_PROCESSED_WITH_CLIP"]
+                    "State":  ["CLIP_GEN_DONE", "REPLAY_PROCESSED", "REPLAY_PROCESSED_WITH_CLIP"]
                 }
             ),
             targets=[

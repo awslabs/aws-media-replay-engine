@@ -12,6 +12,7 @@ from botocore.config import Config
 from MediaReplayEnginePluginHelper import DataPlane
 from MediaReplayEngineWorkflowHelper import ControlPlane
 
+
 class EventDataExporter:
 
     def __init__(self, event):
@@ -19,6 +20,8 @@ class EventDataExporter:
         
         self._dataplane = DataPlane(event)
         self._controlplane = ControlPlane()
+
+    
 
     def _get_profile(self):
         return self._event['detail']['Event']['EventInfo']['Profile']
@@ -207,6 +210,7 @@ class EventDataExporter:
         # Get all segments which have Output Attributes based on the Plugin Config for the Event profile
         segment_payload = self._get_all_segments_for_event()
 
+       
         event_data_export["Event"] = event_payload
         event_data_export["Segments"] = segment_payload
 

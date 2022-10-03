@@ -121,6 +121,11 @@
       "type": "boolean",
       "title": "The ClipfeaturebasedSummarization Schema"
     },
+    "IgnoredSegments":{
+      "$id": "#/properties/IgnoredSegments",
+      "type": "array",
+      "title": "The IgnoredSegments Schema"
+    },
     "Resolutions": {
       "$id": "#/properties/Resolutions",
       "type": "array",

@@ -22,7 +22,7 @@ echo "--------------------------------------------------------------------------
 
 
 
-python -c "import os; print (os.getenv('VIRTUAL_ENV'))" | grep -q None
+python3 -c "import os; print (os.getenv('VIRTUAL_ENV'))" | grep -q None
 if [ $? -ne 0 ]; then
     echo "ERROR: Do not run this script inside Virtualenv. Type \`deactivate\` and run again.";
     exit 1;
@@ -35,7 +35,7 @@ fi
 VENV=$(mktemp -d)
 python3 -m venv $VENV
 source $VENV/bin/activate
-pip3 install sphinx boto3 chalice chalicedoc autodoc jsonschema PyJWT==2.1.0 rsa==4.7.2
+pip3 install sphinx boto3 chalice chalicedoc autodoc jsonschema PyJWT==2.1.0 rsa==4.7.2 requests-aws4auth==1.1.1
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to install required Python libraries."

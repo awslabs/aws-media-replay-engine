@@ -8,6 +8,7 @@ import os
 import boto3
 import time
 
+MEDIA_CONVERT_ENDPOINT = os.environ['MEDIA_CONVERT_ENDPOINT']
 
 OUTPUT_BUCKET = os.environ['OutputBucket'] 
 s3_client = boto3.client('s3')
@@ -117,58 +118,60 @@ def generate_edl(event, context):
       all_segments = dataPlaneHelper.get_all_segments_for_event_edl(program_name, event_name, profile['Classifier']['Name'], track)
   
       for segment in all_segments:
-          
-          if "OptoEnd" in segment and "OptoStart" in segment:
+          try:
+            if "OptoEnd" in segment and "OptoStart" in segment:
+
+                # Ask helper to convert numbers into Clip Timings in the format "HH:mm:ss:SS"
+                play_source_in_time_str  = time.strftime('%H:%M:%S:%s', time.gmtime(get_OptoStart(segment, track))) #dataPlaneHelper.get_mediaconvert_clip_format(get_OptoStart(segment, track), program_name, event_name, profile_name, frame_rate)
+                play_source_in_time = Timecode(frame_rate, play_source_in_time_str)
+                print(f"play_source_in_time = {play_source_in_time}")
+                
+                # Ask helper to convert numbers into Clip Timings
+                play_source_out_time_str = time.strftime('%H:%M:%S:%s', time.gmtime(get_OptoEnd(segment, track))) #dataPlaneHelper.get_mediaconvert_clip_format(get_OptoEnd(segment, track), program_name, event_name, profile_name, frame_rate)
+                play_source_out_time = Timecode(frame_rate, play_source_out_time_str)
+                print(f"play_source_out_time = {play_source_out_time}")  
+
+            else:# Consider the Non Opto timings
 
               # Ask helper to convert numbers into Clip Timings in the format "HH:mm:ss:SS"
-              play_source_in_time_str  = time.strftime('%H:%M:%S:%s', time.gmtime(get_OptoStart(segment, track))) #dataPlaneHelper.get_mediaconvert_clip_format(get_OptoStart(segment, track), program_name, event_name, profile_name, frame_rate)
+              play_source_in_time_str  = time.strftime('%H:%M:%S:%s', time.gmtime(segment['Start'])) #dataPlaneHelper.get_mediaconvert_clip_format(segment['Start'], program_name, event_name, profile_name, frame_rate)
               play_source_in_time = Timecode(frame_rate, play_source_in_time_str)
               print(f"play_source_in_time = {play_source_in_time}")
               
               # Ask helper to convert numbers into Clip Timings
-              play_source_out_time_str = time.strftime('%H:%M:%S:%s', time.gmtime(get_OptoEnd(segment, track))) #dataPlaneHelper.get_mediaconvert_clip_format(get_OptoEnd(segment, track), program_name, event_name, profile_name, frame_rate)
+              play_source_out_time_str = time.strftime('%H:%M:%S:%s', time.gmtime(segment['End'])) #dataPlaneHelper.get_mediaconvert_clip_format(segment['End'], program_name, event_name, profile_name, frame_rate)
               play_source_out_time = Timecode(frame_rate, play_source_out_time_str)
-              print(f"play_source_out_time = {play_source_out_time}")  
+              print(f"play_source_out_time = {play_source_out_time}")
 
-          else:# Consider the Non Opto timings
+            # If Start and End Times are the same, Skip as we get this error
+            #ValueError: Timecode.frames should be a positive integer bigger than zero, not 0
+            #if play_source_out_time_str == play_source_in_time_str:
+            #  continue
 
-            # Ask helper to convert numbers into Clip Timings in the format "HH:mm:ss:SS"
-            play_source_in_time_str  = time.strftime('%H:%M:%S:%s', time.gmtime(segment['Start'])) #dataPlaneHelper.get_mediaconvert_clip_format(segment['Start'], program_name, event_name, profile_name, frame_rate)
-            play_source_in_time = Timecode(frame_rate, play_source_in_time_str)
-            print(f"play_source_in_time = {play_source_in_time}")
+            # Record in time always starts with all Zero's for the segment's first clip
+            # For Subsequent Clips, the Record In Time would be the previous Clip's Record Out time.
+            record_in_time = Timecode(frame_rate, "00:00:00:00") if index == 1 else prev_record_out_time
+
+            # Add the Segment Clip duration to the start time. This becomes the Record Out time
+            inctime = play_source_out_time - play_source_in_time
+            record_out_time = record_in_time + inctime
             
-            # Ask helper to convert numbers into Clip Timings
-            play_source_out_time_str = time.strftime('%H:%M:%S:%s', time.gmtime(segment['End'])) #dataPlaneHelper.get_mediaconvert_clip_format(segment['End'], program_name, event_name, profile_name, frame_rate)
-            play_source_out_time = Timecode(frame_rate, play_source_out_time_str)
-            print(f"play_source_out_time = {play_source_out_time}")
+            prev_record_out_time = record_out_time
 
-          # If Start and End Times are the same, Skip as we get this error
-          #ValueError: Timecode.frames should be a positive integer bigger than zero, not 0
-          #if play_source_out_time_str == play_source_in_time_str:
-          #  continue
+            # Format as per the following
+            # AX means source is AUX. We use this instead of reel numbers as we don't have the Reel Numbers in Input.
+            # B - Channels involved in Edit - Audio 1 and Video
+            # C -  Cut Information
+            # 001  AX      B     C        00:00:00:00 00:00:04:00 00:00:00:00 00:00:04:00
+            edl_line = f"{str(index).zfill(3)}  AX      B     C        {play_source_in_time_str} {play_source_out_time_str} {record_in_time} {record_out_time}"
+            
+            edl_content.append(edl_line)
+            edl_content.append(f"* FROM CLIP NAME: {input_media_name}")
+            edl_content.append("")
 
-          # Record in time always starts with all Zero's for the segment's first clip
-          # For Subsequent Clips, the Record In Time would be the previous Clip's Record Out time.
-          record_in_time = Timecode(frame_rate, "00:00:00:00") if index == 1 else prev_record_out_time
-
-          # Add the Segment Clip duration to the start time. This becomes the Record Out time
-          inctime = play_source_out_time - play_source_in_time
-          record_out_time = record_in_time + inctime
-          
-          prev_record_out_time = record_out_time
-
-          # Format as per the following
-          # AX means source is AUX. We use this instead of reel numbers as we don't have the Reel Numbers in Input.
-          # B - Channels involved in Edit - Audio 1 and Video
-          # C -  Cut Information
-          # 001  AX      B     C        00:00:00:00 00:00:04:00 00:00:00:00 00:00:04:00
-          edl_line = f"{str(index).zfill(3)}  AX      B     C        {play_source_in_time_str} {play_source_out_time_str} {record_in_time} {record_out_time}"
-          
-          edl_content.append(edl_line)
-          edl_content.append(f"* FROM CLIP NAME: {input_media_name}")
-          edl_content.append("")
-
-          index += 1
+            index += 1
+          except ValueError as e:
+            print(e)
 
       if len(all_segments) > 0:
         create_edl_file(edl_content, input_media_name_without_extn)

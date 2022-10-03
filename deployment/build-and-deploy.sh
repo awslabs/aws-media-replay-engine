@@ -250,7 +250,6 @@ gateway_dir="$source_dir/gateway"
 backend_dir="$source_dir/backend"
 frontend_dir="$source_dir/frontend"
 lambda_layers_dir="$source_dir/layers"
-service_disc_dir="$source_dir/service-discovery"
 shared_dir="$source_dir/shared"
 
 # Create and activate a temporary Python environment for this script
@@ -413,6 +412,9 @@ deploy_cdk_app "Shared Resources" "$shared_dir" false
 echo "------------------------------------------------------------------------------"
 echo "Backend stacks"
 echo "------------------------------------------------------------------------------"
+# Segment Caching stack
+deploy_cdk_app "Segment Caching" "$backend_dir/caching"
+
 # Clip Generation stack
 deploy_cdk_app "Clip Generation" "$backend_dir/clipgeneration"
 
@@ -465,11 +467,6 @@ echo "--------------------------------------------------------------------------
 echo "Dataplane API stack"
 echo "------------------------------------------------------------------------------"
 deploy_cdk_app "Dataplane API" "$api_dir/dataplane" false
-
-echo "------------------------------------------------------------------------------"
-echo "Service Discovery stack"
-echo "------------------------------------------------------------------------------"
-deploy_cdk_app "Service Discovery" "$service_disc_dir" false
 
 echo "------------------------------------------------------------------------------"
 echo "Gateway API stack"

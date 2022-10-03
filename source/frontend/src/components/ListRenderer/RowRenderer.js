@@ -173,7 +173,8 @@ export const RowRenderer = (props) => {
                 setShouldDisableEdlAction(true);
             }
             else {
-                setShouldDisableEdlAction(props.rowData.Status === 'Complete' ? false : true);
+                //setShouldDisableEdlAction(props.rowData.Status === 'Complete' ? false : true);
+                setShouldDisableEdlAction(false);
             }
         }
         else {

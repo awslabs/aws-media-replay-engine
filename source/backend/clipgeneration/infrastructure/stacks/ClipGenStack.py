@@ -29,8 +29,8 @@ class ClipGenStack(Stack):
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
 
-        # Store the MediaConvert Regional endpoint in SSM Parameter Store
-        common.MreCdkCommon.store_media_convert_endpoint(self)
+        # Get the MediaConvert Regional endpoint
+        self.media_convert_endpoint = common.MreCdkCommon.get_media_convert_endpoint(self)
 
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
@@ -139,7 +139,8 @@ class ClipGenStack(Stack):
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
                 "OutputBucket": self.media_convert_output_bucket_name,
                 "MediaConvertMaxInputJobs": "150",
-                "EB_EVENT_BUS_NAME": MRE_EVENT_BUS
+                "EB_EVENT_BUS_NAME": MRE_EVENT_BUS,
+                "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
             },
             layers=[self.mre_workflow_helper_layer,
                      self.mre_plugin_helper_layer
@@ -210,7 +211,8 @@ class ClipGenStack(Stack):
                 "MediaConvertRole": self.event_media_convert_role_arn,
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
                 "OutputBucket": self.media_convert_output_bucket_name,
-                "MediaConvertMaxInputJobs": "150"
+                "MediaConvertMaxInputJobs": "150",
+                "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
             },
             layers=[self.mre_workflow_helper_layer]
         )
@@ -229,7 +231,8 @@ class ClipGenStack(Stack):
                 "MediaConvertRole": self.event_media_convert_role_arn,
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
                 "OutputBucket": self.media_convert_output_bucket_name,
-                "MediaConvertMaxInputJobs": "150"
+                "MediaConvertMaxInputJobs": "150",
+                "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
             },
             layers=[self.mre_workflow_helper_layer]
         )
@@ -294,6 +297,7 @@ class ClipGenStack(Stack):
             environment={
                 #"OutputBucket": "" if not isinstance(self.media_convert_output_bucket_name, str) else self.media_convert_output_bucket_name,
                 "OutputBucket": self.media_convert_output_bucket_name,
+                "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
             },
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer,
@@ -303,6 +307,31 @@ class ClipGenStack(Stack):
         )
 
         ### END: EventEdlGenerator LAMBDA ###
+
+
+
+        # Function: UodateMediaConvertJobStatusInDDB
+        self.update_media_convert_job_in_ddb = _lambda.Function(
+            self,
+            "MRE-ClipGen-UpdateMediaConvertJobStatusInDDB",
+            description="MRE - ClipGen - Updates Status of Media Convert Jobs in DDB based on event received from EventBridge",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/EventClipGenerator"),
+            handler="mre-event-clip-generator.update_job_status",
+            role=self.event_clip_gen_lambda_role,
+            memory_size=256,
+            timeout=Duration.minutes(1),
+            environment={
+                "MediaConvertRole": self.event_media_convert_role_arn,
+                "OutputBucket": self.media_convert_output_bucket_name,
+                "MediaConvertMaxInputJobs": "150",
+                "EB_EVENT_BUS_NAME": MRE_EVENT_BUS,
+                "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
+            },
+            layers=[self.mre_workflow_helper_layer,
+                    self.mre_plugin_helper_layer
+                    ]
+        )
 
         
         # START: Step function definition for ClipGeneration
@@ -433,6 +462,29 @@ class ClipGenStack(Stack):
         self.mre_edlgen_events_rule.node.add_dependency(self.event_bus)
         self.mre_edlgen_events_rule.node.add_dependency(self.event_edl_gen_lambda)
 
+        
+        self.mre_clipgen_media_convert_job_update_rule = events.Rule(
+            self,
+            "MREClipGenMediaConvertJobRule",
+            description="MRE ClipGen - Rule that captures Event sent from MediaConvert for ClipGen Video Jobs and updates DDB with Job status.",
+            enabled=True,
+            event_pattern=events.EventPattern(
+                source=["aws.mediaconvert"],
+                detail={
+                    "status": [
+                        "COMPLETE","ERROR"
+                    ],
+                    "userMetadata": {"Source":["ClipGen"]}
+                }
+            ),
+            targets=[
+                events_targets.LambdaFunction(
+                    handler=self.update_media_convert_job_in_ddb
+                )
+            ]
+        )
+
+        self.mre_clipgen_media_convert_job_update_rule.node.add_dependency(self.update_media_convert_job_in_ddb)
 
         
         # Store the Clip Gen State Machine ARN

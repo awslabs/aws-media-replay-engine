@@ -16,19 +16,30 @@ import urllib.parse
 import urllib3
 import shutil
 import math
+from time import sleep
 from functools import wraps
 from datetime import date, datetime, time, timedelta
-
+import botocore
 import boto3
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from requests_aws4auth import AWS4Auth
+import threading
+from queue import Queue
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+MAX_NUMBER_OF_THREADS = 50
 
-def get_endpoint_url_from_ssm():
+
+ ## Init dict for caching params
+_PARAM_CACHE = {}
+
+def get_dataplane_url():
+     return _PARAM_CACHE.get("DATAPLANE_URL")
+
+def get_dataplane_endpoint_url_from_ssm():
     ssm_client = boto3.client(
         'ssm',
         region_name=os.environ['AWS_REGION']
@@ -45,9 +56,11 @@ def get_endpoint_url_from_ssm():
     endpoint_url_regex = ".*.execute-api."+os.environ['AWS_REGION']+".amazonaws.com/api/.*"
 
     assert re.match(endpoint_url_regex, endpoint_url)
+    
+    _PARAM_CACHE["DATAPLANE_URL"] = endpoint_url
 
-    return endpoint_url
-
+# Single call per Execution Env of a Lambda
+get_dataplane_endpoint_url_from_ssm()
 
 class Status:
     # Status messages for the workflow
@@ -365,7 +378,7 @@ class DataPlane:
             return inner
 
     def __init__(self, event):
-        self.endpoint_url = get_endpoint_url_from_ssm()
+        self.endpoint_url = get_dataplane_url()
         self.auth = AWS4Auth(
             os.environ['AWS_ACCESS_KEY_ID'],
             os.environ['AWS_SECRET_ACCESS_KEY'],
@@ -431,25 +444,41 @@ class DataPlane:
 
         print(f"{method} {path}")
 
-        try:
-            response = requests.request(
-                method=method,
-                url=self.endpoint_url + path,
-                params=params,
-                headers=headers,
-                data=body,
-                verify=False,
-                auth=self.auth
-            )
+        max_retries = 3
+        backoff_secs = 0.1
 
-            response.raise_for_status()
-        
-        except requests.exceptions.RequestException as e:
-            print(f"Encountered an error while invoking the data plane api: {str(e)}")
-            raise Exception(e)
-        
-        else:
-            return response
+        while True:
+            try:
+                response = requests.request(
+                    method=method,
+                    url=self.endpoint_url + path,
+                    params=params,
+                    headers=headers,
+                    data=body,
+                    verify=False,
+                    auth=self.auth
+                )
+
+                response.raise_for_status()
+
+            except requests.exceptions.ConnectionError as e:
+                print(f"Encountered a connection error while invoking the data plane api: {str(e)}")
+
+                if max_retries == 0:
+                    raise Exception(e)
+
+                backoff = (3 / max_retries) * backoff_secs
+                print(f"Retrying after {backoff} seconds")
+                sleep(backoff)
+                max_retries -= 1
+                continue
+
+            except requests.exceptions.RequestException as e:
+                print(f"Encountered an unknown error while invoking the data plane api: {str(e)}")
+                raise Exception(e)
+
+            else:
+                return response
     
     def get_media_presigned_url(self):
         """
@@ -720,7 +749,6 @@ class DataPlane:
             "PluginName": self.plugin_name,
             "PluginClass": self.plugin_class,
             "ModelEndpoint": self.model_endpoint,
-            "Configuration": self.configuration,
             "OutputAttributesNameList": [*self.output_attributes],
             "Location": self.media,
             "Results": results
@@ -787,7 +815,103 @@ class DataPlane:
         
         return api_response.json()
 
+    def get_segments_for_optimization(self, queue):
+        """
+        Retrieve one or more non-optimized segments identified in the current/prior chunks
+
+        :return: Non-optimized segments identified in the current/prior chunks
+        """
+        path = "/workflow/optimization/segments/all"
+        method = "POST"
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        
+        body = {
+            "Program": self.program,
+            "Event": self.event,
+            "ChunkNumber": self.get_chunk_number(self.filename),
+            "Classifier": self.classifier["Name"]
+        }
+
+        
+        if self.audio_track:
+            body["AudioTrack"] = self.audio_track
+
+        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
+        queue.put(api_response.json())
+        return api_response.json()
+    
+    
+
+
     def get_segment_state_for_optimization(self, search_window_sec=0):
+        seg_queue = Queue()
+        detector_queue = Queue()
+        threads = []
+        segments = []
+
+        threads.append(threading.Thread(target=self.get_segments_for_optimization, args=(seg_queue,)))
+
+        print(f"get_segments_for_optimization={segments}")
+        print(f"length of get_segments_for_optimization={len(segments)}")
+        
+        detectors = []
+        if "DependentPlugins" in self.optimizer:
+            for d_plugin in self.optimizer["DependentPlugins"]:
+                if d_plugin["Name"] in self.dependent_plugins:
+                    detectors.append(
+                        {
+                            "Name": d_plugin["Name"],
+                            "SupportedMediaType": d_plugin["SupportedMediaType"]
+                        }
+                    )
+
+        detectors_content_from_plugin_results = []
+        for detector in detectors:
+            if detector['SupportedMediaType'] == 'Audio':
+                threads.append(threading.Thread(target=self.get_dependent_detectors_results_for_optimization, args=(detector_queue, self.event, self.program, detector['Name'], self.audio_track,)))
+            else:
+                threads.append(threading.Thread(target=self.get_dependent_detectors_results_for_optimization, args=(detector_queue, self.event, self.program, detector['Name'], None,)))
+
+        for thread in threads:
+            thread.start()
+        
+        for thread in threads:
+            thread.join()
+
+        while not seg_queue.empty():
+            segments = seg_queue.get()
+        
+        while not detector_queue.empty():
+            detectors_content_from_plugin_results.append(detector_queue.get())
+
+        # Lets use multiple threads and map out the Segment with their relevant detector Output
+        # Final structure looks like
+        """
+            {
+                "Segment": segment,
+                "DependentDetectorsOutput": detectors_output
+            }
+        """
+        detectors_output_processor = DetectorsProcessor(segments, search_window_sec, detectors_content_from_plugin_results)
+        return detectors_output_processor.get_detector_output()
+
+    def get_dependent_detectors_results_for_optimization(self, queue, event, program, plugin_name, audio_track):
+        path = f"/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}"
+        method = "GET"
+        api_response = self.invoke_dataplane_api(path, method)
+
+        queue.put(
+        {
+            "Name": plugin_name,
+            "DetectorOutput": api_response.json() # this is a list of output for the Audio based Detector Plugin
+        })
+
+        return api_response.json()
+
+    def get_segment_state_for_optimization_old(self, search_window_sec=0):
         """
         Method to retrieve one or more non-optimized segments identified in the current/prior chunks and all the 
         dependent detectors output around the segments for optimization from the Data plane.
@@ -1038,7 +1162,7 @@ class DataPlane:
             "Content-Type": "application/json"
         }
        
-        self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(result_payload))
+        return self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(result_payload))
         
     
     def get_all_segments_for_event_edl(self, program, event, classifier, tracknumber):
@@ -1099,3 +1223,190 @@ class DataPlane:
         api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
         
         return api_response.json()
+
+
+    def save_media_convert_job_details(self, job_id) -> None:
+        
+        path = f"/job/create/{job_id}"
+        method = "POST"
+        headers = {
+            "Content-Type": "application/json"
+        }
+        self.invoke_dataplane_api(path, method, headers=headers)
+
+    def update_media_convert_job_status(self, job_id, status) -> None:
+        
+        path = f"/job/update/{job_id}/{status}"
+        method = "POST"
+        headers = {
+            "Content-Type": "application/json"
+        }
+        self.invoke_dataplane_api(path, method, headers=headers)
+
+
+    def get_media_convert_job_detail(self, job_id):
+        
+        path = f"/job/status/{job_id}"
+        method = "GET"
+        api_response = self.invoke_dataplane_api(path, method)
+        return api_response.json()
+
+
+    def get_replay_features_in_segment(self, program, event, plugin_name, output_attrs, starttime, endtime, audio_track=None):
+        """
+        Method to retrieve the value of all the output attributes stored by a plugin between segment start and end.
+
+        :return: Data plane response
+        """
+
+        path = "/replay/feature/in/segment"
+        method = "POST"
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "Program": program,
+            "Event": event,
+            "PluginName": plugin_name,
+            "Start": starttime,
+            "End": endtime,
+            "OutputAttributes": output_attrs
+        }
+
+        if audio_track is not None:
+            body["AudioTrack"] = int(audio_track)
+
+        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
+
+        return api_response.json()
+
+
+    def add_attribute_to_existing_segment(self, program, event, classifier, start, attrName, attrVal):
+        """
+        Method to add a new attribute to an existing segment.
+
+        :return: Data plane response
+        """
+        path = f"/event/{event}/program/{program}/classifier/{classifier}/start/{start}/attrName/{attrName}/attrVal/{attrVal}"
+        method = "PUT"
+
+        api_response = self.invoke_dataplane_api(path, method)
+
+        return api_response.json()
+
+class DetectorsProcessor:
+    def __init__(self, segments, search_window_sec, detectors_content_from_plugin_results):
+        self.__queue = Queue()
+        self.threads = []
+        self.__segments = segments
+        self.__search_window_sec = search_window_sec
+        self.__detectors_content_from_plugin_results = detectors_content_from_plugin_results
+
+        
+    def __configure_threads(self, segments):
+        for segment in segments:
+            self.threads.append(threading.Thread(target=self.__get_detector_output_in_segment, args=(segment,)))
+
+    def __start_threads(self):
+        for thread in self.threads:
+            thread.start()
+
+    def __join_threads(self):
+        for thread in self.threads:
+            thread.join()
+
+    def get_detector_output(self):
+        detectors_output = []
+
+        segments_to_be_processed = [self.__segments[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.__segments), MAX_NUMBER_OF_THREADS)]
+        print(f"segments_to_be_processed={segments_to_be_processed}")
+        print(f"length of segments_to_be_processed={len(segments_to_be_processed)}")
+
+        for segments in segments_to_be_processed:
+            self.__configure_threads(segments)
+            self.__start_threads()
+            self.__join_threads()
+
+            while not self.__queue.empty():
+                detectors_output.append(self.__queue.get())
+
+            self.threads = []
+
+        print(f'output from get_detector_output = {json.dumps(detectors_output)}')
+        return detectors_output
+
+    def __get_detector_output_in_segment(self, segment):
+        detectors_output = []
+
+        segment_start = segment["Start"]
+        segment_end = segment["End"] if "End" in segment else None
+
+        detectors_output = self.__get_detectors_output_for_segment(start=segment_start)
+
+        # Get dependent detectors output for optimizing the segment End if segment End is present
+        if segment_end is not None and segment_start != segment_end:
+            print(
+                f"Getting all the dependent detectors output around segment End '{segment_end}'")
+
+            detectors_output.extend(
+                self.__get_detectors_output_for_segment(end=segment_end))
+                                                    
+        # This is the Threads output. Dump it into the Queue
+        if detectors_output:
+            self.__queue.put(
+                    {
+                        "Segment": segment,
+                        "DependentDetectorsOutput": detectors_output
+                    })
+        
+
+    def __get_detectors_output_for_segment(self, start=None, end=None) -> list:
+        
+        detectors_output = []
+
+        """
+            Detector here has the following structure
+            [
+                "Name": detector["Name"],
+                "DetectorOutput": list of dependent_detectors_result
+            ]
+        """
+        for detector in self.__detectors_content_from_plugin_results:
+            mapping_detectors_data_points = []
+
+            detector_name = detector["Name"]
+
+            detector_obj = {
+                "DependentDetector": detector_name
+            }
+
+            if start:
+                if 'DetectorOutput' in detector:
+                    for detector_output in detector['DetectorOutput']:
+                        if detector_output['Start'] <= start and detector_output['End'] >= start:
+                            mapping_detectors_data_points.append(detector_output)
+
+                    if not mapping_detectors_data_points:
+                        for detector_output in detector['DetectorOutput']:
+                            if detector_output['End'] >= (start - self.__search_window_sec) and detector_output['End'] <= start:
+                                mapping_detectors_data_points.append(detector_output)
+                        
+                    detector_obj["Start"] = mapping_detectors_data_points
+
+            if end:
+                if 'DetectorOutput' in detector:
+                    for detector_output in detector['DetectorOutput']:
+                        if detector_output['Start'] <= end and detector_output['End'] >= end:
+                            mapping_detectors_data_points.append(detector_output)
+
+                    if not mapping_detectors_data_points:
+                        for detector_output in detector['DetectorOutput']:
+                            if detector_output['Start'] >= end and detector_output['Start'] <= (end + self.__search_window_sec) :
+                                mapping_detectors_data_points.append(detector_output)
+
+                    detector_obj["End"] = mapping_detectors_data_points
+
+
+            detectors_output.append(detector_obj)
+        return detectors_output

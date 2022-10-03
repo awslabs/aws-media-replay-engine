@@ -13,6 +13,7 @@ import os
 import re
 import json
 import urllib3
+from time import sleep
 
 import boto3
 import requests
@@ -20,8 +21,13 @@ from requests_aws4auth import AWS4Auth
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+## Init dict for caching params
+CP_PARAM_CACHE = {}
 
-def get_endpoint_url_from_ssm():
+def get_controlplane_url():
+     return CP_PARAM_CACHE.get("CONTROLPLANE_URL")
+
+def get_controlplane_endpoint_url_from_ssm():
     ssm_client = boto3.client(
         'ssm',
         region_name=os.environ['AWS_REGION']
@@ -39,15 +45,16 @@ def get_endpoint_url_from_ssm():
 
     assert re.match(endpoint_url_regex, endpoint_url)
 
-    return endpoint_url
+    CP_PARAM_CACHE["CONTROLPLANE_URL"] = endpoint_url
 
+get_controlplane_endpoint_url_from_ssm()
 
 class ControlPlane:
     """
     Helper Class for interacting with the Control plane
     """
     def __init__(self):
-        self.endpoint_url = get_endpoint_url_from_ssm()
+        self.endpoint_url = get_controlplane_url()
         self.auth = AWS4Auth(
             os.environ['AWS_ACCESS_KEY_ID'],
             os.environ['AWS_SECRET_ACCESS_KEY'],
@@ -71,25 +78,41 @@ class ControlPlane:
 
         print(f"{method} {path}")
 
-        try:
-            response = requests.request(
-                method=method,
-                url=self.endpoint_url + path,
-                params=params,
-                headers=headers,
-                data=body,
-                verify=False,
-                auth=self.auth
-            )
+        max_retries = 3
+        backoff_secs = 0.1
 
-            response.raise_for_status()
-        
-        except requests.exceptions.RequestException as e:
-            print(f"Encountered an error while invoking the control plane api: {str(e)}")
-            raise Exception(e)
-        
-        else:
-            return response
+        while True:
+            try:
+                response = requests.request(
+                    method=method,
+                    url=self.endpoint_url + path,
+                    params=params,
+                    headers=headers,
+                    data=body,
+                    verify=False,
+                    auth=self.auth
+                )
+
+                response.raise_for_status()
+
+            except requests.exceptions.ConnectionError as e:
+                print(f"Encountered a connection error while invoking the control plane api: {str(e)}")
+
+                if max_retries == 0:
+                    raise Exception(e)
+
+                backoff = (3 / max_retries) * backoff_secs
+                print(f"Retrying after {backoff} seconds")
+                sleep(backoff)
+                max_retries -= 1
+                continue
+
+            except requests.exceptions.RequestException as e:
+                print(f"Encountered an unknown error while invoking the control plane api: {str(e)}")
+                raise Exception(e)
+
+            else:
+                return response
 
     def store_first_pts(self, event, program, first_pts):
         """
@@ -640,6 +663,33 @@ class ControlPlane:
             "ExportDataLocation": location,
             "ReplayId": replay_id,
             "IsBaseEvent": isBaseEvent
+        }
+
+        self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))
+
+
+    def update_segments_to_be_ignored(self, event, program, replay_id, segment_cache_file_name):
+        """
+        Updates the Replay Request with SegmentCache file names that need to be ignored
+
+        :param event: Event present in the input payload passed to Lambda
+        :param program: Program present in the input payload passed to Lambda
+        :param replay_id: ID of the Replay request
+        :param segment_cache_file_name: Name of the Segment to be Ignored Cache file name
+        
+        """
+        path = f"/replay/update/ignore/segment/cache"
+        method = "PUT"
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "Name": event,
+            "Program": program,
+            "SegmentCacheName": segment_cache_file_name,
+            "ReplayId": replay_id
         }
 
         self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))

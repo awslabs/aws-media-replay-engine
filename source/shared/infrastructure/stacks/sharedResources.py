@@ -16,8 +16,7 @@ from aws_cdk import (
     aws_sqs as sqs,
     aws_ssm as ssm,
     aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins,
-
+    aws_cloudfront_origins as origins
 )
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
@@ -309,6 +308,16 @@ class MreSharedResources(Stack):
             encryption=s3.BucketEncryption.S3_MANAGED
         )
 
+        # Bucket for caching segments and related features from MRE workflows
+        self.mre_segment_cache_bucket = s3.Bucket(
+            self,
+            "MreSegmentCacheBucket",
+            enforce_ssl=True,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix='mre-segmentcache-logs',
+            encryption=s3.BucketEncryption.S3_MANAGED
+        )
+
         # Bucket for housing output artifacts such as HLS manifests, MP4, HLS clips etc.
         self.mre_media_output_bucket = s3.Bucket(
             self,
@@ -337,6 +346,9 @@ class MreSharedResources(Stack):
         CfnOutput(self, "mre-media-source-bucket", value=self.mre_media_source_bucket.bucket_name,
                       description="Name of the S3 bucket used to store HLS chunks to trigger MRE workflows",
                       export_name="mre-media-source-bucket-name")
+        CfnOutput(self, "mre-segment-cache-bucket", value=self.mre_segment_cache_bucket.bucket_name,
+                      description="Name of the S3 bucket used to cache segments and related features from MRE workflows",
+                      export_name="mre-segment-cache-bucket-name")
 
     def create_lambda_layers(self):
         ##### START: LAMBDA LAYERS #####
@@ -703,3 +715,6 @@ class MreSharedResources(Stack):
                 )
             ]
         )
+
+
+        

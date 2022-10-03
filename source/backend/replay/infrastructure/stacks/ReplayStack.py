@@ -9,7 +9,8 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
-    aws_mediaconvert as media_convert
+    aws_mediaconvert as media_convert,
+    lambda_layer_awscli as awscli
 )
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
@@ -31,9 +32,14 @@ class ReplayStack(Stack):
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
 
+        # Get the MediaConvert Regional endpoint
+        self.media_convert_endpoint = common.MreCdkCommon.get_media_convert_endpoint(self)
+
         self.event_media_convert_role_arn = common.MreCdkCommon.get_media_convert_role_arn()
 
         self.media_convert_output_bucket_name = common.MreCdkCommon.get_media_convert_output_bucket_name(self)
+        self.data_export_bucket_name = common.MreCdkCommon.get_data_export_bucket_name()
+        self.segment_cache_bucket_name = common.MreCdkCommon.get_segment_cache_bucket_name(self)
 
         # Get Layers
         self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
@@ -72,7 +78,8 @@ class ReplayStack(Stack):
                     "mediaconvert:Create*",
                     "s3:Get*",
                     "s3:Put*",
-                    "s3:List*"
+                    "s3:List*",
+                    "cloudwatch:PutMetricData"
                 ],
                 resources=["*"]
             )
@@ -123,7 +130,12 @@ class ReplayStack(Stack):
             "OutputBucket": self.media_convert_output_bucket_name,
             "MediaConvertMaxInputJobs": "150",
             "MediaConvertAcceleratorQueueArn": self.replay_media_convert_accelerated_queue.attr_arn,
-            "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name
+            "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
+            "CACHE_BUCKET_NAME": self.segment_cache_bucket_name,
+            "ENABLE_CUSTOM_METRICS": "Y",
+            "CATCHUP_NUMBER_OF_LATEST_SEGMENTS_TO_FIND_FEATURES_IN": "20",
+            "MAX_NUMBER_OF_THREADS": "50",
+            "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
         }
 
         # Function: CreateReplay
@@ -135,30 +147,16 @@ class ReplayStack(Stack):
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.CreateReplay",
             role=self.replay_lambda_role,
-            memory_size=256,
+            memory_size=10240,
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
                     ]
         )
+        self.create_replay_lambda.add_layers(awscli.AwsCliLayer(self, "AwsCliLayer"))
 
-        # Function: FindFeatureInSegment
-        self.get_features_in_segment_lambda = _lambda.Function(
-            self,
-            "MRE-replayFindFeatureInSegment",
-            description="MRE - Finds features in event segments - From Cache / DDB",
-            runtime=_lambda.Runtime.PYTHON_3_8,
-            code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
-            handler="replay_lambda.FindFeaturesInSegment",
-            role=self.replay_lambda_role,
-            memory_size=512,
-            timeout=Duration.minutes(15),
-            environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
-                    ]
-        )
+
 
         # Function: GetEligibleReplays
         self.get_eligible_replays_lambda = _lambda.Function(
@@ -272,8 +270,25 @@ class ReplayStack(Stack):
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.generate_mp4_clips",
             role=self.replay_lambda_role,
-            memory_size=256,
+            memory_size=4096,
             timeout=Duration.minutes(15),
+            environment=self.replay_environment_config,
+            layers=[self.mre_workflow_helper_layer,
+                    self.mre_plugin_helper_layer
+                    ]
+        )
+
+        # Function: UodateMediaConvertJobStatusInDDB
+        self.update_media_convert_job_in_ddb = _lambda.Function(
+            self,
+            "MRE-replay-UpdateMediaConvertJobStatusInDDB",
+            description="MRE - Replay - Updates Status of Media Convert Jobs in DDB based on event received from EventBridge",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
+            handler="replay_lambda.update_job_status",
+            role=self.replay_lambda_role,
+            memory_size=256,
+            timeout=Duration.minutes(1),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
                     self.mre_plugin_helper_layer
@@ -363,15 +378,7 @@ class ReplayStack(Stack):
         )
         
 
-        findFeaturesInSegmentTask = tasks.LambdaInvoke(
-            self,
-            "FindFeaturesInSegment",
-            lambda_function=_lambda.Function.from_function_arn(self, 'FindFeaturesInSegmentLambda',
-                                                               self.get_features_in_segment_lambda.function_arn),
-            retry_on_service_exceptions=True,
-            result_path="$.FeaturesInSegments"
-        )
-
+        
         createReplayTask = tasks.LambdaInvoke(
             self,
             "CreateReplay",
@@ -436,7 +443,22 @@ class ReplayStack(Stack):
 
         allOkTask = sfn.Pass(
             self,
-            "AllOk",
+            "NoVideoToBeGenerated",
+        )
+
+        doneTask = sfn.Pass(
+            self,
+            "Done",
+        )
+
+        noSupportedTask = sfn.Pass(
+            self,
+            "OutputTypeNotSupported",
+        )
+
+        ignoreTask = sfn.Pass(
+            self,
+            "ReplayProcessingIgnored",
         )
 
         generateMp4ClipsTask = tasks.LambdaInvoke(
@@ -468,48 +490,44 @@ class ReplayStack(Stack):
             result_path="$.MapResult"
         )
 
-        # mapTask.add_catch(
-        #     tasks.LambdaInvoke(
-        #     self,
-        #     "MarkReplayAsError",
-        #     lambda_function=_lambda.Function.from_function_arn(self, 'MRE-replay-MarkReplayError1',
-        #                                                        self.mark_replay_error_lambda.function_arn),
-        #     payload=sfn.TaskInput.from_json_path_at("$")
-        # ))
-
-        
+    
         replay_definition = getEligibleReplaysTask.next(
             mapTask.iterator(
-                findFeaturesInSegmentTask.next(
                 createReplayTask.next(sfn.Choice(
-                    self,
-                    "GenerateReplayVideoOutput?"
-                ).when(
-                    sfn.Condition.and_(sfn.Condition.boolean_equals("$.ReplayRequest.CreateHls", True),
-                                       sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
-                                                                   "Replay Processed")),
-                    generateHlsClipsTask.next(
-                        checkHlsJobStatusTask.next(
-                            sfn.Choice(self, "AreAllHlsJobsComplete?")
-                                .when(
-                                sfn.Condition.string_equals("$.CheckHlsJobStatusResult.Payload.Status", "Complete"),
-                                generateMasterPlaylistTask.next(allOkTask))
-                                .otherwise(waitFiveSecondsTask.next(checkHlsJobStatusTask)))))
-                                      .when(
-                    sfn.Condition.and_(sfn.Condition.boolean_equals("$.ReplayRequest.CreateMp4", True),
-                                       sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
-                                                                   "Replay Processed")),
-                    generateMp4ClipsTask.next(
-                        checkMp4JobStatusTask.next(
-                            sfn.Choice(self, "AreAllMp4JobsComplete?")
-                                .when(
-                                sfn.Condition.string_equals("$.CheckMp4JobStatusResult.Payload.Status", "Complete"),
-                                updateReplayWithMp4Task.next(allOkTask))
-                                .otherwise(waitFiveSecondsTaskMp4.next(checkMp4JobStatusTask)))))
-                                      .otherwise(allOkTask)
-                                      ))
-            ).next(completeReplayTask)
-        )
+                    self, "ShouldCatchupReplayBeSkipped?")
+                .when(
+                    sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
+                                                                "Replay Not Processed"),ignoreTask)
+                    .otherwise(
+                        sfn.Choice(self,"GenerateReplayVideoOutput?")
+                        .when(
+                            sfn.Condition.and_(sfn.Condition.boolean_equals("$.ReplayRequest.CreateHls", True),
+                                            sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
+                                                                        "Replay Processed")),
+                            generateHlsClipsTask.next(
+                                checkHlsJobStatusTask.next(
+                                    sfn.Choice(self, "AreAllHlsJobsComplete?")
+                                        .when(
+                                        sfn.Condition.string_equals("$.CheckHlsJobStatusResult.Payload.Status", "Complete"),
+                                        generateMasterPlaylistTask)
+                                        .otherwise(waitFiveSecondsTask.next(checkHlsJobStatusTask)))))
+                        .when(
+                            sfn.Condition.and_(sfn.Condition.boolean_equals("$.ReplayRequest.CreateMp4", True),
+                                            sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
+                                                                        "Replay Processed")),
+                            generateMp4ClipsTask.next(
+                                checkMp4JobStatusTask.next(
+                                    sfn.Choice(self, "AreAllMp4JobsComplete?")
+                                        .when(
+                                        sfn.Condition.string_equals("$.CheckMp4JobStatusResult.Payload.Status", "Complete"),
+                                        updateReplayWithMp4Task)
+                                        .otherwise(waitFiveSecondsTaskMp4.next(checkMp4JobStatusTask)))))
+                        .otherwise(allOkTask)
+                    )
+            )
+        ).next(completeReplayTask))
+
+
 
         self.replay_state_machine = sfn.StateMachine(
             self,
@@ -528,7 +546,7 @@ class ReplayStack(Stack):
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["OPTIMIZED_SEGMENT_END", "SEGMENT_END", "EVENT_END", "REPLAY_CREATED"]
+                    "State":  ["OPTIMIZED_SEGMENT_CACHED", "SEGMENT_CACHED", "EVENT_END", "REPLAY_CREATED"]
                 }
             ),
             targets=[
@@ -540,3 +558,29 @@ class ReplayStack(Stack):
 
         self.mre_replay_events_rule.node.add_dependency(self.event_bus)
         self.mre_replay_events_rule.node.add_dependency(self.replay_state_machine)
+
+
+        self.mre_replay_media_convert_job_update_rule = events.Rule(
+            self,
+            "MREReplayMediaConvertJobRule",
+            description="MRE Replay - Rule that captures Event sent from MediaConvert for Replay Video Jobs and updates DDB with Job status.",
+            enabled=True,
+            event_pattern=events.EventPattern(
+                source=["aws.mediaconvert"],
+                detail={
+                    "status": [
+                        "COMPLETE","ERROR"
+                    ],
+                    "userMetadata": {"Source":["Replay"]}
+                }
+            ),
+            targets=[
+                events_targets.LambdaFunction(
+                    handler=self.update_media_convert_job_in_ddb
+                )
+            ]
+        )
+
+        self.mre_replay_media_convert_job_update_rule.node.add_dependency(self.update_media_convert_job_in_ddb)
+
+        

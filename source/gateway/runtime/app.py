@@ -7,20 +7,28 @@ import boto3
 from chalice import Response
 import json
 import jwt
+from requests_aws4auth import AWS4Auth
 
-app = Chalice(app_name='aws-mre-gateway-api')
+app = Chalice(app_name="aws-mre-gateway-api")
 authorizer = IAMAuthorizer()
-sd_client = boto3.client('servicediscovery')
 session = boto3.session.Session()
-sec_client = session.client(
-        service_name='secretsmanager'
-    )
+sec_client = session.client(service_name="secretsmanager")
+API_AUTH_SECRET_KEY_NAME = os.environ["API_AUTH_SECRET_KEY_NAME"]
 
-SERVICE_DISCOVERY_SERVICE_ID = os.environ['SERVICE_DISC_SERVICE_ID']
-API_AUTH_SECRET_KEY_NAME = os.environ['API_AUTH_SECRET_KEY_NAME']
+
+SERVICE_ROUTER = {
+     "PluginUrl": os.environ["PLUGIN_URL"],
+     "SystemUrl": os.environ["SYSTEM_URL"],
+     "ProfileUrl": os.environ["PROFILE_URL"],
+     "ModelUrl": os.environ["MODEL_URL"],
+     "EventUrl": os.environ["EVENT_URL"],
+     "ContentGroupUrl": os.environ["CONTENT_GROUP_URL"],
+     "ProgramUrl": os.environ["PROGRAM_URL"],
+     "WorkflowUrl": os.environ["WORKFLOW_URL"],
+     "ReplayUrl": os.environ["REPLAY_URL"],
+ }
 
 def get_iam_auth():
-    from requests_aws4auth import AWS4Auth
     return AWS4Auth(
         os.environ['AWS_ACCESS_KEY_ID'],
         os.environ['AWS_SECRET_ACCESS_KEY'],
@@ -31,28 +39,26 @@ def get_iam_auth():
 
 @app.authorizer()
 def token_auth(auth_request):
-    '''
+    """
         Custom Authorizer: Provides API Auth using HS512 (HMAC) based Authentication using a Shared Secret Key and an expiring JWT Token
         Clients invoke the API by sending a Bearer Token.
-    '''
-
-    
+    """
     get_secret_value_response = sec_client.get_secret_value(
         SecretId=API_AUTH_SECRET_KEY_NAME
     )
-    
 
     try:
         jwt.decode(auth_request.token.replace("Bearer", '').strip(),
-                                     get_secret_value_response['SecretString'], algorithms=["HS512"])
+                    get_secret_value_response['SecretString'], 
+                    algorithms=["HS512"])
         
     except Exception as e:
-        return AuthResponse(routes=[''], principal_id='user')
+        return AuthResponse(routes=[""], principal_id='user')
 
     
     return AuthResponse(routes=[
-        f'/external/*'
-    ], principal_id='user')
+        f"/external/*"
+    ], principal_id="user")
 
 @app.route('/external/{proxy+}', cors=True, methods=['GET'], authorizer=token_auth)
 def get_payload():
@@ -162,37 +168,30 @@ def post_payload():
     """
     return invoke_destination_api("POST", app.current_request.uri_params['proxy'], api_body=app.current_request.raw_body)
 
-def get_url_from_cloudmap(entity):
-    service_instances = sd_client.list_instances(ServiceId=SERVICE_DISCOVERY_SERVICE_ID)
-    for instance in service_instances['Instances']:
-        if entity in instance['Attributes']:
-            return instance['Attributes'][entity]
-
-    raise Exception("Service not found")
 
 def get_api_url_by_route(uri_params):
-    '''
+    """
         Gets API Endpoint Url based on the Uri Params
-    '''
-    params = uri_params['proxy'].lower()
-    if params.startswith('/plugin') or params.startswith('plugin'):
-        return get_url_from_cloudmap("PluginUrl")
-    elif params.startswith('/system') or params.startswith('system'):
-        return get_url_from_cloudmap("SystemUrl")
-    elif params.startswith('/profile') or params.startswith('profile'):
-        return get_url_from_cloudmap("ProfileUrl")
-    elif params.startswith('/model')  or params.startswith('model'):
-        return get_url_from_cloudmap("ModelUrl")
-    elif params.startswith('/event')  or params.startswith('event'):
-        return get_url_from_cloudmap("EventUrl")
-    elif params.startswith('/contentgroup') or params.startswith('contentgroup'):
-        return get_url_from_cloudmap("ContentGroupUrl")
-    elif params.startswith('/program') or params.startswith('program'):
-        return get_url_from_cloudmap("ProgramUrl")
-    elif params.startswith('/workflow') or params.startswith('workflow'):
-        return get_url_from_cloudmap("WorkflowUrl")
-    elif params.startswith('/replay') or params.startswith('replay'):
-        return get_url_from_cloudmap("ReplayUrl")
+    """
+    params = uri_params["proxy"].lower()
+    if params.startswith("/plugin") or params.startswith("plugin"):
+        return SERVICE_ROUTER["PluginUrl"]
+    elif params.startswith("/system") or params.startswith("system"):
+        return SERVICE_ROUTER["SystemUrl"]
+    elif params.startswith("/profile") or params.startswith("profile"):
+        return SERVICE_ROUTER["ProfileUrl"]
+    elif params.startswith("/model") or params.startswith("model"):
+        return SERVICE_ROUTER["ModelUrl"]
+    elif params.startswith("/event") or params.startswith("event"):
+        return SERVICE_ROUTER["EventUrl"]
+    elif params.startswith("/contentgroup") or params.startswith("contentgroup"):
+        return SERVICE_ROUTER["ContentGroupUrl"]
+    elif params.startswith("/program") or params.startswith("program"):
+        return SERVICE_ROUTER["ProgramUrl"]
+    elif params.startswith("/workflow") or params.startswith("workflow"):
+        return SERVICE_ROUTER["WorkflowUrl"]
+    elif params.startswith("/replay") or params.startswith("replay"):
+        return SERVICE_ROUTER["ReplayUrl"]
     else:
         return ""
 

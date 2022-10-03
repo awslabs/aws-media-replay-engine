@@ -265,8 +265,9 @@ export const ClipPreview = () => {
                         disableLoader: true
                     }
                 );
-
+                
                 setNextReplaysToken(_.get(response, 'LastEvaluatedKey'));
+
                 const segments = _.get(response, 'data');
                 
                 if (segments !== undefined) {
@@ -293,6 +294,9 @@ export const ClipPreview = () => {
                     console.log([segments]);
                     setCurrentClipPage(0);
                     setTotalClipPages(0);
+                    
+                    //setTotalClipPages(nextReplaysToken !== "" || nextReplaysToken !== undefined ? 1 : 0);
+                    //setTotalClipPages(nextReplaysToken !== "" || nextReplaysToken !== undefined ? 1 : 0);
                     setDisplayedClipList(segments);
                 }
             }
@@ -300,7 +304,8 @@ export const ClipPreview = () => {
         }
 
         const fetchMoreClips = async () => {
-            if (currentClipPage + 1 === totalClipPages && stateParams.mode !== "EventClips") {
+
+            if (currentClipPage === totalClipPages && stateParams.mode !== "EventClips") {
                 setIsClipsLoading(true);
                 // Load the Event info from API
                 const replayRequestId = stateParams.data.ReplayId;
@@ -317,9 +322,10 @@ export const ClipPreview = () => {
                 );
 
                 const segments = _.get(response, 'data');
-
-                if (segments != null) {
+                
+                if (segments.length > 0) {
                     setNextReplaysToken(_.get(response, 'LastEvaluatedKey'));
+
                     if (_.size(segments) > 0) {
                         setSelectedCard(segments[0]);
                     }
@@ -337,6 +343,7 @@ export const ClipPreview = () => {
                     setDisplayedClipList(clipsUpdated[currentClipPage + 1]);
                     setCurrentClipPage(currentClipPage + 1);
                     setTotalClipPages(currentClipPage + 1);
+
 
                     if (_.size(segments) > 0) {
                         await Promise.all([
@@ -1042,7 +1049,7 @@ export const ClipPreview = () => {
                                                     :
                                                     <IconButton
                                                         disabled={
-                                                            (!nextReplaysToken && currentClipPage === totalClipPages && stateParams.mode !== "EventClips") ||
+                                                            ((nextReplaysToken === "" || nextReplaysToken === undefined) && currentClipPage === totalClipPages && stateParams.mode !== "EventClips") ||
                                                             (stateParams.mode === "EventClips" && currentClipPage === totalClipPages - 1)
                                                         }
                                                         onClick={fetchMoreClips}

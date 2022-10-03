@@ -10,16 +10,19 @@ import urllib3
 from datetime import datetime
 from botocore.config import Config
 import time
+from MediaReplayEnginePluginHelper import DataPlane
 
 MAX_INPUTS_PER_JOB = int(os.environ['MediaConvertMaxInputJobs']) # This can be 150 as per the MediaConvert Quota
 OUTPUT_BUCKET = os.environ['OutputBucket'] 
 MEDIA_CONVERT_ROLE = os.environ['MediaConvertRole']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
+MEDIA_CONVERT_ENDPOINT = os.environ['MEDIA_CONVERT_ENDPOINT']
 
 urllib3.disable_warnings()
 
 ssm = boto3.client('ssm')
 eb_client = boto3.client("events")
+
 
 def should_generate_original_clips(event) -> bool:
     return event['Event']['GenerateOrigClips']
@@ -63,7 +66,7 @@ def build_opto_hls_settings(optimized_segments, dataplane, event):
         opto_start, opto_end = get_OptoStart(optsegment, event), get_OptoEnd(optsegment, event)
         chunks = dataplane.get_chunks_for_segment(opto_start, opto_end)
         audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
-        hls_input_setting = build_hls_input(optsegment, event, chunks ,audioTrack)
+        hls_input_setting = build_hls_input(dataplane, optsegment, event, chunks ,audioTrack)
         hls_input_settings_for_segments.extend(hls_input_setting)
     return hls_input_settings_for_segments
 
@@ -75,7 +78,7 @@ def build_orig_hls_settings(original_segments, dataplane, event):
         chunks = dataplane.get_chunks_for_segment(segment['Start'], segment['End'])
         audiotracks = event['Event']['AudioTracks']
         for track in audiotracks:
-            hls_input = build_hls_input(segment, event, chunks, track)
+            hls_input = build_hls_input(dataplane, segment, event, chunks, track)
             hls_inputs.extend(hls_input)
 
     return hls_inputs
@@ -97,7 +100,7 @@ def process_optimized_segments(optimized_segments, dataplane, event):
         print(f"opto_start={opto_start}")
         print(f"opto_end={opto_end}")
 
-        keyprefix, job_ids  = create_optimized_MP4_clips(optsegment, event, chunks)
+        keyprefix, job_ids  = create_optimized_MP4_clips(dataplane, optsegment, event, chunks)
         media_convert_job_ids.extend(job_ids)
 
         # Only if we are dealing with Optimization, we will consider HLS Inputs for Opto Segments.
@@ -106,33 +109,70 @@ def process_optimized_segments(optimized_segments, dataplane, event):
 
     return media_convert_job_ids
 
-def get_media_convert_job_status(jobId):
-    # get the account-specific mediaconvert endpoint for this region
-    endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
 
-    # Customizing Exponential backoff
-    # Retries with additional client side throttling.
-    boto_config = Config(
-        retries = {
-            'max_attempts': 10,
-            'mode': 'adaptive'
+def update_job_status(event, context):
+    '''
+        This Handler is Invoked by EventBridge when MediaConvert Job Status changes to either 'COMPLETE' or 'ERROR'
+        A EventBridge rule configures this Lambda Handler as a Trigger. This Handler will update the Status of the 
+        Job in the DDB Table JobTracker
+
+        A Sample Payload passed to this handler is shown below
+
+        {
+            "version": "0",
+            "id": "",
+            "detail-type": "MediaConvert Job State Change",
+            "source": "aws.mediaconvert",
+            "account": "",
+            "time": "",
+            "region": "us-east-2",
+            "resources": [
+                "arn:aws:mediaconvert"
+            ],
+            "detail": {
+                "timestamp": ,
+                "accountId": "",
+                "queue": "queue",
+                "jobId": "1662660985490-XXXXXXXXXXXXXXX",
+                "status": "COMPLETE",
+                "userMetadata": {
+                    "BatchId": "62119357-db53-4464-8e1d-0ad66370fbb5"
+                },
+                "outputGroupDetails": [
+                    {
+                        
+                    },
+                    {
+                        
+                    }
+                ]
+            }
         }
-    )
-    # add the account-specific endpoint to the client session 
-    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
-    job_response = client.get_job(Id=jobId)
-    return job_response['Job']['Status']
 
-def are_jobs_complete(jobIds) -> bool:
-    for job in jobIds:
-        job_status = get_media_convert_job_status(job)
+    '''
+    dataplane = DataPlane({})
+    job_id = event['detail']['jobId']
 
-        if job_status == "COMPLETE":
-            return True
-        elif job_status == "ERROR":
-            raise ValueError('One of the Media Convert Jobs has failed')
+    print(json.dumps(event))
 
-    return False
+    # Updates Job Status to either 'COMPLETE' or 'ERROR'
+    dataplane.update_media_convert_job_status(job_id, event['detail']['status'])
+
+    publish_to_MRE_bus_after_clip_job_complete(event['detail']['userMetadata'])
+
+def are_jobs_complete(jobIds, dataplane) -> bool:
+    all_jobs_complete = True
+    for job_id in jobIds:
+        job_detail = dataplane.get_media_convert_job_detail(job_id)
+        if job_detail:
+            job_status = job_detail[0]["Status"]
+            if job_status == 'CREATED':
+                all_jobs_complete = False
+                break
+        else:
+            all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
+            break
+    return all_jobs_complete
 
 def process_original_segments(nonoptimized_segments, dataplane, event, genClips):
 
@@ -149,7 +189,7 @@ def process_original_segments(nonoptimized_segments, dataplane, event, genClips)
         print(f" Original_segments chunks: {chunks}")
 
         if genClips:
-            segs, job_ids = create_non_optimized_MP4_clip_per_audio_track(segment, event, chunks)
+            segs, job_ids = create_non_optimized_MP4_clip_per_audio_track(dataplane, segment, event, chunks)
             nonoptimized_segments_with_tracks.extend(segs)
             media_convert_job_ids.extend(job_ids)
         else:
@@ -163,10 +203,40 @@ def process_original_segments(nonoptimized_segments, dataplane, event, genClips)
        
     return nonoptimized_segments_with_tracks, media_convert_job_ids
 
+
+def publish_to_MRE_bus_after_clip_job_complete(payload) -> None:
+
+    detail = {
+            "State": "CLIP_GEN_DONE_WITH_CLIPS",
+            "Event": {
+                "EventInfo": {
+                    "EventName": payload['EventName'],
+                    "ProgramName": payload['ProgramName']
+                },
+                "EventType": "EVENT_CLIP_GEN_WITH_CLIPS"
+            }
+        }
+    detail['SegmentClipDetail'] = payload
+    try:
+        eb_client.put_events(
+            Entries=[
+                {
+                    "Source": "awsmre",
+                    "DetailType": "Clip Gen Clip Gen Done Status",
+                    "Detail": json.dumps(detail),
+                    "EventBusName": EB_EVENT_BUS_NAME
+                }
+            ]
+        )
+        print(f"Published {detail['State']}")
+    except Exception as e:
+        print(e)
+        print('Error while publishing CLIP_GEN_DONE_WITH_CLIPS event to EB')
+
 def publish_to_MRE_bus(event, clipsGenerated=False, segments=None) -> None:
 
     detail = {
-            "State": "CLIP_GEN_DONE" if not clipsGenerated else "CLIP_GEN_DONE_WITH_CLIPS",
+            "State": "CLIP_GEN_DONE",
             "Event": {
                 "EventInfo": event,
                 "EventType": "EVENT_CLIP_GEN"
@@ -193,7 +263,7 @@ def publish_to_MRE_bus(event, clipsGenerated=False, segments=None) -> None:
         print(f"Published {detail['State']}")
     except Exception as e:
         print(e)
-        print('Error while publishing CLIP_GEN_DONE or CLIP_GEN_DONE_WITH_CLIPS event to EB')
+        print('Error while publishing CLIP_GEN_DONE event to EB')
 
 # Save Segment info whether Clips are generated or not
 def save_original_segment_info(dataplane, event, nonoptimized_segments_with_tracks):
@@ -252,7 +322,7 @@ def save_optimized_segment_info(event, audioTrack, dataplane):
 
     return results
 
-def create_HLS_clips(inputSettings, index, batch_id, audioTrack):
+def create_HLS_clips(event, inputSettings, index, batch_id, audioTrack):
 
     if len(inputSettings) == 0:
         return None
@@ -279,8 +349,12 @@ def create_HLS_clips(inputSettings, index, batch_id, audioTrack):
         
         jobSettings['Inputs'] = inputSettings
 
-        # Convert the video using AWS Elemental MediaConvert
-        jobMetadata = { 'BatchId': batch_id }
+        jobMetadata = {
+                "EventName": event['Event']['Name'],
+                "ProgramName": event['Event']['Program'],
+                'BatchId': batch_id,
+                "Source": "ClipGen"
+        }
 
         return create_job(jobMetadata, jobSettings)
 
@@ -294,7 +368,7 @@ def create_hls_output(hls_input_settings_for_segments, event, audioTrack, batch_
     all_hls_clip_job_ids = []
 
     # For HLS Clips, divide the Entire Segment List to Smaller Chunks to meet the MediaConvert Quota Limits of 150 Inputs per Job
-    # We create a MediaConvert Job per segment group (which can have a Max of 150 Inputs configured - build_input_settings)
+    # We create a MediaConvert Job per segment group (which can have a Max of 150 Inputs configured
     
     groups_of_input_settings = [hls_input_settings_for_segments[x:x+MAX_INPUTS_PER_JOB] for x in range(0, len(hls_input_settings_for_segments), MAX_INPUTS_PER_JOB)]
     index = 1
@@ -311,7 +385,7 @@ def create_hls_output(hls_input_settings_for_segments, event, audioTrack, batch_
         # Launch a Media Convert Job with a Max of 150 Inputs
         for inputsettings in groups_of_input_settings:
             # Each Input setting will have the relevant AudioTrack embedded.
-            job = create_HLS_clips(inputsettings, index, batch_id, audioTrack)
+            job = create_HLS_clips(event, inputsettings, index, batch_id, audioTrack)
 
             if job != None:
                 all_hls_clip_job_ids.append(job['Job']['Id'])
@@ -334,7 +408,7 @@ def create_hls_output(hls_input_settings_for_segments, event, audioTrack, batch_
                 # We have Track specific Input Setting, create the Job
                 if len(final_input_settings) > 0:
                     # Each Input setting will have the relevant AudioTrack embedded.
-                    job = create_HLS_clips(final_input_settings, index, batch_id, track)
+                    job = create_HLS_clips(event, final_input_settings, index, batch_id, track)
 
                     if job != None:
                         all_hls_clip_job_ids.append(job['Job']['Id'])
@@ -343,8 +417,6 @@ def create_hls_output(hls_input_settings_for_segments, event, audioTrack, batch_
     return all_hls_clip_job_ids, batch_id
 
 def GenerateClips(event, context):
-
-    from MediaReplayEnginePluginHelper import DataPlane
     dataplane = DataPlane(event)
 
     # Contains Job IDs for all the HLS Jobs. We will need to 
@@ -376,11 +448,22 @@ def GenerateClips(event, context):
         if should_generate_optimized_clips(event):
             print('Processing Optimized segments ...')
             job_ids = process_optimized_segments(optimized_segments, dataplane, event)
+            
+            print(f'OPTO MEDIA CONVERT JOBS COUNT = {len(job_ids)}, segs = {len(optimized_segments)}')
+            print(f'OPTO MEDIA CONVERT JOBS  = {job_ids}')
+
+            for job_id in job_ids:
+                dataplane.save_media_convert_job_details(job_id)
 
             # Lets Wait for the Clips generation jobs to complete
-            while not are_jobs_complete(job_ids):
-                time.sleep(5)
-                print('Waiting for Opto Clip Gen jobs to complete ...')
+            # Lets Wait for the Clips generation jobs to complete
+            # total_wait_time = 0 #Secs
+            # while not are_jobs_complete(job_ids, dataplane):
+            #     if total_wait_time >= 180: # More than 3 Mins for Jobs to complete? Bail out
+            #         break
+            #     print('Waiting for Orig Clip Gen jobs to complete ...')
+            #     time.sleep(10)
+            #     total_wait_time = total_wait_time  + 10
         else:
             print('Not Processing Optimized segments since Clip gen was set to False.. Proceeding to Save segments')
 
@@ -401,10 +484,20 @@ def GenerateClips(event, context):
             print('Processing Original segments ...')
             nonoptimized_segments_with_tracks, job_ids =  process_original_segments(nonoptimized_segments, dataplane, event, should_generate_original_clips(event))
 
+            print(f'NON_OPTO MEDIA CONVERT JOBS COUNT = {len(job_ids)}, segs = {len(nonoptimized_segments)}')
+            print(f'NON_OPTO MEDIA CONVERT JOBS  = {job_ids}')
+
+            for job_id in job_ids:
+                dataplane.save_media_convert_job_details(job_id)
+
             # Lets Wait for the Clips generation jobs to complete
-            while not are_jobs_complete(job_ids):
-                time.sleep(5)
-                print('Waiting for Orig Clip Gen jobs to complete ...')
+            # total_wait_time = 0 #Secs
+            # while not are_jobs_complete(job_ids, dataplane):
+            #     if total_wait_time >= 180: # More than 3 Mins for Jobs to complete? Bail out
+            #         break
+            #     print('Waiting for Orig Clip Gen jobs to complete ...')
+            #     time.sleep(10)
+            #     total_wait_time = total_wait_time  + 10
         else:
             print('Not Processing Original segments since Clip gen was set to False. Proceeding to Save segments')
 
@@ -457,110 +550,33 @@ def get_OptoEnd(segment, event):
 '''
     Returns the Clip Timings in HH:MM:SS:FF format required for MediaConvert
 '''
-def get_clip_timings(segment, event, fallbackToDefault=False):
+def get_clip_timings(dataplane, segment, event, fallbackToDefault=False):
 
-    from MediaReplayEnginePluginHelper import DataPlane
-    mre_pluginhelper = DataPlane(event)
-    
-    
     if not fallbackToDefault:
         if "OptoEnd" in segment and "OptoStart" in segment:
-        #if len(segment['OptoEnd']) > 0 and len(segment['OptoStart']) > 0 :
-        #if does_segment_have_optimized_times(segment):
-            return mre_pluginhelper.get_mediaconvert_clip_format(get_OptoEnd(segment, event)), mre_pluginhelper.get_mediaconvert_clip_format(get_OptoStart(segment, event))
+            return dataplane.get_mediaconvert_clip_format(get_OptoEnd(segment, event)), dataplane.get_mediaconvert_clip_format(get_OptoStart(segment, event))
             
         elif "End" in segment and "Start" in segment:
-            return mre_pluginhelper.get_mediaconvert_clip_format(segment['End']), mre_pluginhelper.get_mediaconvert_clip_format(segment['Start'])
+            return dataplane.get_mediaconvert_clip_format(segment['End']), dataplane.get_mediaconvert_clip_format(segment['Start'])
     else:
             return "00:00:20:00", "00:00:00:00"
 
-def get_start_clip_timings(segment, event):
-
-    from MediaReplayEnginePluginHelper import DataPlane
-    mre_pluginhelper = DataPlane(event)
+def get_start_clip_timings(dataplane, segment, event):
 
     if "OptoEnd" in segment and "OptoStart" in segment:
-    #if len(segment['OptoEnd']) > 0 and len(segment['OptoStart']) > 0 :
-    #if does_segment_have_optimized_times(segment):
-        return mre_pluginhelper.get_mediaconvert_clip_format(get_OptoStart(segment, event))
-        
+        return dataplane.get_mediaconvert_clip_format(get_OptoStart(segment, event))
     elif "End" in segment and "Start" in segment:
-        return mre_pluginhelper.get_mediaconvert_clip_format(segment['Start'])
+        return dataplane.get_mediaconvert_clip_format(segment['Start'])
 
             
-def get_end_clip_timings(segment, event):
-
-    from MediaReplayEnginePluginHelper import DataPlane
-    mre_pluginhelper = DataPlane(event)
+def get_end_clip_timings(dataplane,segment, event):
 
     if "OptoEnd" in segment and "OptoStart" in segment:
-    #if len(segment['OptoEnd']) > 0 and len(segment['OptoStart']) > 0 :
-    #if does_segment_have_optimized_times(segment):
-        return mre_pluginhelper.get_mediaconvert_clip_format(get_OptoEnd(segment, event))
-        
+        return dataplane.get_mediaconvert_clip_format(get_OptoEnd(segment, event))
     elif "End" in segment and "Start" in segment:
-        return mre_pluginhelper.get_mediaconvert_clip_format(segment['End'])
+        return dataplane.get_mediaconvert_clip_format(segment['End'])
 
 
-
-def build_input_settings_for_orig_segment(dataplane, inputs, segment, event):
-    
-    
-    chunks = dataplane.get_chunks_for_segment(segment['Start'], segment['End'])
-
-    # Only chunk , so will have Start and End Clipping time
-    if len(chunks) == 1:
-        inputClippings = []
-        inputClip = {}
-        ic = {}
-
-        endtime, starttime = get_clip_timings(segment, event)
-        ic['EndTimecode'] = str(endtime)
-        ic['StartTimecode'] = str(starttime)
-
-        #If we have a single Chunk we don't need the Endtime Configured if it is less than Start time. Remove it.
-        if datetime.strptime(endtime, "%H:%M:%S:%f") < datetime.strptime(starttime, "%H:%M:%S:%f"):
-            ic.pop('EndTimecode', None)    
-
-        #ic['EndTimecode'], ic['StartTimecode'] = get_clip_timings(segment, event)
-        inputClippings.append(ic)
-
-        inputClip['InputClippings'] = inputClippings
-        inputClip['AudioSelectors'] = {
-                "Audio Selector 1": {
-                    "DefaultSelection": "DEFAULT"
-                } 
-            }
-        inputClip['VideoSelector'] = {}
-        inputClip['TimecodeSource'] = "ZEROBASED"
-        inputClip['FileInput'] = f"s3://{chunks[0]['S3Bucket']}/{chunks[0]['S3Key']}"
-        inputs.append(inputClip)
-    elif len(chunks) > 1:
-        for chunk_index in range(len(chunks)):
-            inputClippings = []
-            inputClip = {}
-            ic = {}
-            if chunk_index == 0:    # First Chunk
-                ic['StartTimecode'] = get_start_clip_timings(segment, event)
-                inputClippings.append(ic)
-                inputClip['InputClippings'] = inputClippings
-            elif chunk_index == len(chunks)-1:  # Last Chunk
-                ic['EndTimecode'] = get_end_clip_timings(segment, event)
-                inputClippings.append(ic)
-                inputClip['InputClippings'] = inputClippings
-            else:   # Sandwitch Chunks have no clippings
-                inputClip['InputClippings'] = []
-
-            
-            inputClip['AudioSelectors'] = {
-                "Audio Selector 1": {
-                    "DefaultSelection": "DEFAULT"
-                } 
-            }
-            inputClip['VideoSelector'] = {}
-            inputClip['TimecodeSource'] = "ZEROBASED"
-            inputClip['FileInput'] = f"s3://{chunks[chunk_index]['S3Bucket']}/{chunks[chunk_index]['S3Key']}"
-            inputs.append(inputClip)
 
 
 '''
@@ -583,7 +599,7 @@ def build_input_settings_for_orig_segment(dataplane, inputs, segment, event):
 #   }]
 '''
 
-def build_hls_input(segment, event, chunks ,audioTrack):
+def build_hls_input(dataplane, segment, event, chunks ,audioTrack):
     
     inputs = []
 
@@ -593,7 +609,7 @@ def build_hls_input(segment, event, chunks ,audioTrack):
         inputClip = {}
         ic = {}
 
-        endtime, starttime = get_clip_timings(segment, event)
+        endtime, starttime = get_clip_timings(dataplane,segment, event)
         ic['EndTimecode'] = str(endtime)
         ic['StartTimecode'] = str(starttime)
 
@@ -601,7 +617,6 @@ def build_hls_input(segment, event, chunks ,audioTrack):
         if datetime.strptime(endtime, "%H:%M:%S:%f") < datetime.strptime(starttime, "%H:%M:%S:%f"):
             ic.pop('EndTimecode', None)
 
-        #ic['EndTimecode'], ic['StartTimecode'] = get_clip_timings(segment, event)
         inputClippings.append(ic)
         inputClip['InputClippings'] = inputClippings
        
@@ -646,11 +661,11 @@ def build_hls_input(segment, event, chunks ,audioTrack):
             inputClippings = []
             inputClip = {}
             if chunk_index == 0:    # First Chunk
-                ic['StartTimecode'] = get_start_clip_timings(segment, event)
+                ic['StartTimecode'] = get_start_clip_timings(dataplane, segment, event)
                 inputClippings.append(ic)
                 inputClip['InputClippings'] = inputClippings
             elif chunk_index == len(chunks)-1:  # Last Chunk
-                ic['EndTimecode'] = get_end_clip_timings(segment, event)
+                ic['EndTimecode'] = get_end_clip_timings(dataplane, segment, event)
                 inputClippings.append(ic)
                 inputClip['InputClippings'] = inputClippings
             else:   # Sandwitch Chunks have no clippings
@@ -693,154 +708,7 @@ def build_hls_input(segment, event, chunks ,audioTrack):
 
     return inputs
 
-def build_input_settings(dataplane, segment_group, event):
-
-    # Check if an AudioTrack has been sent in the event.
-    # If yes, set the AudioTrack for extraction in MediaConvert
-    # Also use the AudioTrack in the Output video key prefix
-    audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
-
-    
-
-    inputs = []
-    for segment in segment_group:
-
-        # If a Segment has been Optimized, use the Opt clip timings. If not, fall on back on the Original Clip timings
-        # Commenting these Temporarily until the usecase if finalized.
-
-        if "OptoEnd" in segment and "OptoStart" in segment:
-            # Check if the Maps have content, if not fall back on Original Segment
-            #if len(segment['OptoEnd']) > 0 and len(segment['OptoStart']) > 0 :
-        
-            #Ignore Starts that have -1 in it
-            if get_OptoStart(segment, event) == -1:
-                continue
-
-            chunks = dataplane.get_chunks_for_segment(get_OptoStart(segment, event), get_OptoEnd(segment, event))
-
-            # Only chunk, so will have Start and End Clipping time
-            if len(chunks) == 1:
-                inputClippings = []
-                inputClip = {}
-                ic = {}
-
-                endtime, starttime = get_clip_timings(segment, event)
-                ic['EndTimecode'] = str(endtime)
-                ic['StartTimecode'] = str(starttime)
-
-                #If we have a single Chunk we don't need the Endtime Configured if it is less than Start time. Remove it.
-                if datetime.strptime(endtime, "%H:%M:%S:%f") < datetime.strptime(starttime, "%H:%M:%S:%f"):
-                    ic.pop('EndTimecode', None)
-
-                #ic['EndTimecode'], ic['StartTimecode'] = get_clip_timings(segment, event)
-                inputClippings.append(ic)
-                inputClip['InputClippings'] = inputClippings
-                # inputClip['AudioSelectors'] = {
-                #         "Audio Selector 1": {
-                #             "DefaultSelection": "DEFAULT"
-                #         } 
-                #     }
-
-                #------------- Update MediaConvert AudioSelectors Input -------------
-
-                # Leave the default Input AudioSelectors as is if we are dealing with default Track or only one.
-                # If we have multiple AudioTracks, this lambda will be provided with one.
-                if int(audioTrack) > 0:
-                    inputClip['AudioSelectors'] =   {
-                                                    "Audio Selector 1": {
-                                                        "Tracks": [
-                                                            int(audioTrack)
-                                                        ],
-                                                        "DefaultSelection": "NOT_DEFAULT",
-                                                        "SelectorType": "TRACK"
-                                                    }
-                                                }
-                else:
-                    inputClip['AudioSelectors'] =   {
-                                            "Audio Selector 1": {
-                                                "DefaultSelection": "DEFAULT"
-                                            }
-                                        }
-                inputClip['AudioSelectorGroups'] =  {
-                                                        "Audio Selector Group 1": {
-                                                            "AudioSelectorNames": [
-                                                            "Audio Selector 1"
-                                                            ]
-                                                        }
-                                                    }
-                                                    
-                #------------- Update MediaConvert AudioSelectors Input Ends -------------
-                
-                inputClip['VideoSelector'] = {}
-                inputClip['TimecodeSource'] = "ZEROBASED"
-                inputClip['FileInput'] = f"s3://{chunks[0]['S3Bucket']}/{chunks[0]['S3Key']}"
-                inputs.append(inputClip)
-            elif len(chunks) > 1:
-                for chunk_index in range(len(chunks)):
-                    ic = {}
-                    inputClippings = []
-                    inputClip = {}
-                    if chunk_index == 0:    # First Chunk
-                        ic['StartTimecode'] = get_start_clip_timings(segment, event)
-                        inputClippings.append(ic)
-                        inputClip['InputClippings'] = inputClippings
-                    elif chunk_index == len(chunks)-1:  # Last Chunk
-                        ic['EndTimecode'] = get_end_clip_timings(segment, event)
-                        inputClippings.append(ic)
-                        inputClip['InputClippings'] = inputClippings
-                    else:   # Sandwitch Chunks have no clippings
-                        inputClip['InputClippings'] = []
-
-                    
-                    #------------- Update MediaConvert AudioSelectors Input -------------
-
-                    # Leave the default Input AudioSelectors as is if we are dealing with default Track or only one.
-                    # If we have multiple AudioTracks, this lambda will be provided with one.
-                    if int(audioTrack) > 0:
-                        inputClip['AudioSelectors'] =   {
-                                                        "Audio Selector 1": {
-                                                            "Tracks": [
-                                                                int(audioTrack)
-                                                            ],
-                                                            "DefaultSelection": "NOT_DEFAULT",
-                                                            "SelectorType": "TRACK"
-                                                        }
-                                                    }
-                    else:
-                        inputClip['AudioSelectors'] =   {
-                                            "Audio Selector 1": {
-                                                "DefaultSelection": "DEFAULT"
-                                            }
-                                        }
-                    inputClip['AudioSelectorGroups'] =  {
-                                                            "Audio Selector Group 1": {
-                                                                "AudioSelectorNames": [
-                                                                "Audio Selector 1"
-                                                                ]
-                                                            }
-                                                        }
-                                                        
-                #------------- Update MediaConvert AudioSelectors Input Ends -------------
-                    inputClip['VideoSelector'] = {}
-                    inputClip['TimecodeSource'] = "ZEROBASED"
-                    inputClip['FileInput'] = f"s3://{chunks[chunk_index]['S3Bucket']}/{chunks[chunk_index]['S3Key']}"
-                    inputs.append(inputClip)
-    
-
-        
-        # elif "End" in segment and "Start" in segment and event['GenerateOriginal']:
-        
-        #         #Ignore Starts that have -1 in it
-        #         if segment['Start'] == -1:
-        #             continue
-                
-        #         build_input_settings_for_orig_segment(dataplane, inputs, segment, event)
-                
-
-            
-    return inputs
-
-def create_optimized_MP4_clips(segment, event, chunks):
+def create_optimized_MP4_clips(dataplane, segment, event, chunks):
 
     #hls_input_setting = []
     media_convert_job_ids = []
@@ -856,8 +724,6 @@ def create_optimized_MP4_clips(segment, event, chunks):
         # If yes, set the AudioTrack for extraction in MediaConvert
         # Also use the AudioTrack in the Output video key prefix
         audioTrack = 1 if 'TrackNumber' not in event else event['TrackNumber']
-
-        #hls_input_setting = build_hls_input(segment, event, chunks ,audioTrack)
 
         #------------- Update MediaConvert AudioSelectors Input -------------
 
@@ -902,6 +768,18 @@ def create_optimized_MP4_clips(segment, event, chunks):
         thumbnail_job_output_destination = f"s3://{OUTPUT_BUCKET}/{thumbnail_keyprefix}"
         jobSettings["OutputGroups"][1]["OutputGroupSettings"]["FileGroupSettings"]["Destination"] = thumbnail_job_output_destination
 
+        jobMetadata = {
+                "Start": str(segment.get['OptoStart'][audioTrack]) if type(segment['OptoStart']) is dict else str(segment['OptoStart']),
+                "End": str(segment.get['OptoEnd'][audioTrack]) if type(segment['OptoEnd']) is dict else str(segment['OptoEnd']),
+                "OptimizedClipStatus": "Success",
+                "AudioTrack": str(audioTrack),
+                'OptimizedClipLocation': f"{job_output_destination}.mp4",
+                'OptimizedThumbnailLocation': f"{thumbnail_job_output_destination}.0000000.jpg",
+                "EventName": event['Event']['Name'],
+                "ProgramName": event['Event']['Program'],
+                "Source": "ClipGen"
+        }
+
         # Input should be based on the Number of chunks. A Segment timing can constitute multiple chunks
         # If only one Chunk found, then we create one Input for the MediaConvert Job 
         # If more than on Chunk, create as many Inputs and set the InputClippings Accordingly.
@@ -917,8 +795,7 @@ def create_optimized_MP4_clips(segment, event, chunks):
 
             print("Only one Chunk found .. Clip Timings is")
             if "OptoEnd" in segment and "OptoStart" in segment:
-            #if len(segment['OptoEnd']) > 0 and len(segment['OptoStart']) > 0 :
-            #if does_segment_have_optimized_times(segment):
+            
                 if type(segment['OptoEnd']) is dict:
                     print(f"Segment OptoEnd is {segment['OptoEnd'][audioTrack]}")
                 else:
@@ -930,9 +807,9 @@ def create_optimized_MP4_clips(segment, event, chunks):
                     print(f"Segment OptoStart is {segment['OptoStart']}")
 
             print(f"Here are the modified Clip Timings when Total chunks = 1")
-            print(get_clip_timings(segment, event))
+            print(get_clip_timings(dataplane, segment, event))
 
-            endtime, starttime = get_clip_timings(segment, event)
+            endtime, starttime = get_clip_timings(dataplane, segment, event)
             jobSettings['Inputs'][0]['InputClippings'][0]['EndTimecode'] = str(endtime)
             jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = str(starttime)
 
@@ -940,17 +817,14 @@ def create_optimized_MP4_clips(segment, event, chunks):
             if datetime.strptime(endtime, "%H:%M:%S:%f") < datetime.strptime(starttime, "%H:%M:%S:%f"):
                 jobSettings['Inputs'][0]['InputClippings'][0].pop('EndTimecode', None)    
 
-            #jobSettings['Inputs'][0]['InputClippings'][0]['EndTimecode'], jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = get_clip_timings(segment, event)
-
-            #If we have a single Chunk we don't need the Endtime Configured. Remove it.
-            #jobSettings['Inputs'][0]['InputClippings'][0].pop('EndTimecode', None)
 
             print("Single Chunk processed .. JobSettings is ...")
             print(json.dumps(jobSettings))
 
-            # Convert the video using AWS Elemental MediaConvert
+            # We pass Metadata so subscribers to the Event Bridge event which is Triggered when 
+            # the Job finishes, can do something useful 
             jobid = str(uuid.uuid4())
-            jobMetadata = {'JobId': jobid}
+            jobMetadata['JobId'] = jobid
             job_response = create_job(jobMetadata, jobSettings)
             media_convert_job_ids.append(job_response['Job']['Id'])
             
@@ -962,7 +836,7 @@ def create_optimized_MP4_clips(segment, event, chunks):
                 if chunk_index == 0:    # First Chunk
                     print(f"Chunk index is {chunk_index}")
                     jobSettings['Inputs'][0]['FileInput'] = input_segment_location
-                    jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = get_start_clip_timings(segment, event)
+                    jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = get_start_clip_timings(dataplane, segment, event)
                     jobSettings['Inputs'][0]['InputClippings'][0].pop('EndTimecode', None)
 
                     print(f"First chunk processing ... Job Setting is")
@@ -973,7 +847,7 @@ def create_optimized_MP4_clips(segment, event, chunks):
                     jobSettings['Inputs'].append(copy.deepcopy(jobSettings['Inputs'][0]))   #Clone the existing InputSettings and add it to the Inputs Key
                     jobSettings['Inputs'][chunk_index]['FileInput'] = input_segment_location
                     jobSettings['Inputs'][chunk_index]['InputClippings'][0].pop('StartTimecode', None)
-                    jobSettings['Inputs'][chunk_index]['InputClippings'][0]['EndTimecode'] = get_end_clip_timings(segment, event)
+                    jobSettings['Inputs'][chunk_index]['InputClippings'][0]['EndTimecode'] = get_end_clip_timings(dataplane, segment, event)
 
                     print(f"Last chunk processing ... Job Setting is")
                     print(json.dumps(jobSettings))
@@ -985,9 +859,10 @@ def create_optimized_MP4_clips(segment, event, chunks):
                     print(f"Sandwitch chunk processing ... Job Setting is")
                     print(json.dumps(jobSettings))
 
-            # Convert the video using AWS Elemental MediaConvert
+            # We pass Metadata so subscribers to the Event Bridge event which is Triggered when 
+            # the Job finishes, can do something useful 
             jobid = str(uuid.uuid4())
-            jobMetadata = { 'JobId': jobid }
+            jobMetadata['JobId'] = jobid
             job_response = create_job(jobMetadata, jobSettings)
             media_convert_job_ids.append(job_response['Job']['Id'])
 
@@ -1005,29 +880,25 @@ def create_optimized_MP4_clips(segment, event, chunks):
 
 def create_job(jobMetadata, jobSettings):
 
-    # get the account-specific mediaconvert endpoint for this region
-    endpoint = ssm.get_parameter(Name='/MRE/ClipGen/MediaConvertEndpoint', WithDecryption=False)['Parameter']['Value'] 
-
-    # Customizing Exponential backoff
+    # Customizing Exponential back-off
     # Retries with additional client side throttling.
     boto_config = Config(
         retries = {
-            'max_attempts': 10,
+            'max_attempts': 3,
             'mode': 'adaptive'
         }
     )
     # add the account-specific endpoint to the client session 
-    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=endpoint, verify=False)
-    
+    client = boto3.client('mediaconvert', config=boto_config, endpoint_url=MEDIA_CONVERT_ENDPOINT, verify=False)
     return client.create_job(Role=MEDIA_CONVERT_ROLE, UserMetadata=jobMetadata, Settings=jobSettings)
 
 
-def create_non_optimized_MP4_clip_per_audio_track(segment, event, chunks):
+def create_non_optimized_MP4_clip_per_audio_track(dataplane, segment, event, chunks):
     audiotracks = event['Event']['AudioTracks']
     segments = []
     media_convert_job_ids = []
     for track in audiotracks:
-        seg, job_ids = create_non_optimized_MP4_clips(segment, event, chunks, int(track))
+        seg, job_ids = create_non_optimized_MP4_clips(dataplane, segment, event, chunks, int(track))
         segments.append(seg)
         media_convert_job_ids.extend(job_ids)
     
@@ -1042,7 +913,7 @@ def is_end_time_less_than_start_time(endtime, starttime):
     
     return True
 
-def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
+def create_non_optimized_MP4_clips(dataplane, segment, event, chunks, audioTrack):
     #hls_input = []
     media_convert_job_ids = []
 
@@ -1053,7 +924,6 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
         with open(job_settings_filename) as json_data:
             jobSettings = json.load(json_data)
 
-        #hls_input = build_hls_input(segment, event, chunks ,audioTrack)
         
         #------------- Update MediaConvert AudioSelectors Input -------------
 
@@ -1091,6 +961,19 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
         thumbnail_job_output_destination = f"s3://{OUTPUT_BUCKET}/{thumbnail_keyprefix}"
         jobSettings["OutputGroups"][1]["OutputGroupSettings"]["FileGroupSettings"]["Destination"] = thumbnail_job_output_destination
 
+
+        jobMetadata = {
+                "Start": str(segment['Start']),
+                "End": str(segment['End']),
+                "OriginalClipStatus": "Success",
+                "AudioTrack": str(audioTrack),
+                "OriginalClipLocation": f"{job_output_destination}.mp4",
+                "OriginalThumbnailLocation": f"{thumbnail_job_output_destination}.0000000.jpg",
+                "EventName": event['Event']['Name'],
+                "ProgramName": event['Event']['Program'],
+                "Source": "ClipGen"
+        }
+
         # Input should be based on the Number of chunks. A Segment timming can constitute multiple chunks
         # If only one Chunk found, then we create one Input for the MediaConvert Job 
         # If more than on Chunk, create as many Inputs and set the InputClippings Accordingly.
@@ -1104,7 +987,7 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
             input_segment_location = f"s3://{chunks[0]['S3Bucket']}/{chunks[0]['S3Key']}"
             jobSettings['Inputs'][0]['FileInput'] = input_segment_location
 
-            endtime, starttime = get_clip_timings(segment, event)
+            endtime, starttime = get_clip_timings(dataplane, segment, event)
             jobSettings['Inputs'][0]['InputClippings'][0]['EndTimecode'] = str(endtime)
             jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = str(starttime)
 
@@ -1112,16 +995,11 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
             if datetime.strptime(endtime, "%H:%M:%S:%f") < datetime.strptime(starttime, "%H:%M:%S:%f"):
                 jobSettings['Inputs'][0]['InputClippings'][0].pop('EndTimecode', None)
             
-            #jobSettings['Inputs'][0]['InputClippings'][0]['EndTimecode'], jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = get_clip_timings(segment, event)
-
-            #print(f"IGNORED EndTime from helper function = {jobSettings['Inputs'][0]['InputClippings'][0]['EndTimecode']}")
-            #print(f"StartTime from helper function = {jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode']}")
-
-            
-
             # Convert the video using AWS Elemental MediaConvert
+            # We pass Metadata so subscribers to the Event Bridge event which is Triggered when 
+            # the Job finishes, can do something useful 
             jobid = str(uuid.uuid4())
-            jobMetadata = {'JobId': jobid}
+            jobMetadata['JobId'] = jobid
             job_response = create_job(jobMetadata, jobSettings)
             media_convert_job_ids.append(job_response['Job']['Id'])
 
@@ -1132,13 +1010,13 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
                     
                 if chunk_index == 0:    # First Chunk
                     jobSettings['Inputs'][0]['FileInput'] = input_segment_location
-                    jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = get_start_clip_timings(segment, event)
+                    jobSettings['Inputs'][0]['InputClippings'][0]['StartTimecode'] = get_start_clip_timings(dataplane, segment, event)
                     jobSettings['Inputs'][0]['InputClippings'][0].pop('EndTimecode', None)
                 elif chunk_index == len(chunks)-1:  # Last Chunk
                     jobSettings['Inputs'].append(copy.deepcopy(jobSettings['Inputs'][0]))   #Clone the existing InputSettings and add it to the Inputs Key
                     jobSettings['Inputs'][chunk_index]['FileInput'] = input_segment_location
                     jobSettings['Inputs'][chunk_index]['InputClippings'][0].pop('StartTimecode', None)
-                    jobSettings['Inputs'][chunk_index]['InputClippings'][0]['EndTimecode'] = get_end_clip_timings(segment, event)
+                    jobSettings['Inputs'][chunk_index]['InputClippings'][0]['EndTimecode'] = get_end_clip_timings(dataplane,segment, event)
                 else:   #in between chunks
                     jobSettings['Inputs'].append(copy.deepcopy(jobSettings['Inputs'][0]))
                     jobSettings['Inputs'][chunk_index]['FileInput'] = input_segment_location
@@ -1146,8 +1024,10 @@ def create_non_optimized_MP4_clips(segment, event, chunks, audioTrack):
                     
 
             # Convert the video using AWS Elemental MediaConvert
+            # We pass Metadata so subscribers to the Event Bridge event which is Triggered when 
+            # the Job finishes, can do something useful 
             jobid = str(uuid.uuid4())
-            jobMetadata = { 'JobId': jobid }
+            jobMetadata['JobId'] = jobid
             job_response = create_job(jobMetadata, jobSettings)
             media_convert_job_ids.append(job_response['Job']['Id'])
         

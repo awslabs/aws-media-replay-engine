@@ -8,6 +8,10 @@ The following Event Bridge message topics are currently supported:
 - Event start
 - Segment start detected
 - Segment end detected
+- Optimized Segment start detected
+- Optimized Segment end detected
+- Segment cached
+- Optimized Segment cached
 - Replay calculated
 - Segment preview - thumbs up
 - Segment preview - thumbs down

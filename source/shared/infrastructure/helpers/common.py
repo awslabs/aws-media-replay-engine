@@ -21,7 +21,7 @@ MRE_EVENT_BUS = "aws-mre-event-bus"
 class MreCdkCommon():
     
     @staticmethod
-    def store_media_convert_endpoint(this):
+    def get_media_convert_endpoint(this):
         # Get MediaConvert Regional Endpoint via an AWS SDK call
         mediaconvert_endpoints = cr.AwsCustomResource(
             this,
@@ -46,16 +46,18 @@ class MreCdkCommon():
                 physical_resource_id=cr.PhysicalResourceId.of(id="MediaConvertCustomResourceAwsSdkCall")
             )
         )
+        return mediaconvert_endpoints.get_response_field(data_path="Endpoints.0.Url")
 
-        # Store the MediaConvert Regional endpoint in SSM Parameter Store
-        ssm.StringParameter(
-            this,
-            "MediaConvertRegionalEndpoint",
-            string_value=mediaconvert_endpoints.get_response_field(data_path="Endpoints.0.Url"),
-            parameter_name="/MRE/ClipGen/MediaConvertEndpoint",
-            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
-            description="[DO NOT DELETE] Contains Media Convert Endpoint required for MRE Clip Generation"
-        )
+        # # Store the MediaConvert Regional endpoint in SSM Parameter Store
+        # ssm.StringParameter(
+        #     this,
+        #     "MediaConvertRegionalEndpoint",
+        #     string_value=mediaconvert_endpoints.get_response_field(data_path="Endpoints.0.Url"),
+        #     parameter_name="/MRE/ClipGen/MediaConvertEndpoint",
+        #     tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+        #     description="[DO NOT DELETE] Contains Media Convert Endpoint required for MRE Clip Generation"
+        # )
+
 
     @staticmethod
     def get_event_bus(this) -> events.IEventBus:
@@ -75,6 +77,14 @@ class MreCdkCommon():
     @staticmethod
     def get_media_source_bucket(this):
         return s3.Bucket.from_bucket_name(this, "MreMediaSourceBucketName",Fn.import_value("mre-media-source-bucket-name"))
+
+    @staticmethod
+    def get_segment_cache_bucket_name(this):
+        return Fn.import_value("mre-segment-cache-bucket-name")
+
+    @staticmethod
+    def get_segment_cache_bucket(this):
+        return s3.Bucket.from_bucket_name(this, "MreSegmentCacheBucketName",Fn.import_value("mre-segment-cache-bucket-name"))
 
     @staticmethod
     def get_data_export_bucket_name():

@@ -63,7 +63,84 @@ Currently, MRE supports multiple level of dependencies (i.e., DependentPlugins) 
 }
 ```
 
-Profiles should be created to support different types of content (sports, news or other types of material). Experimentation is made easier with profiles where you different versions can be created and results compared to determine more optimal settings to improve accuracy or latency for example.
+Profiles should be created to support different types of content (sports, news or other types of material). Experimentation is made easier with profiles where different versions can be created and results compared to determine more optimal settings to improve accuracy or latency for example.
+
+By default, all the independent Featurer plugins included in the profile are executed before the Segmenter plugin to ensure accurate catchup highlights generation. In scenarios where this is not necessary, an independent Featurer plugin can be configured to be executed in parallel with the Segmenter plugin (for low latency) by including the "IsPriorityForReplay" attribute with a value of false while adding the independent Featurer plugin to a profile.
+
+```
+{
+    "Name": "TennisProfile",
+    "ContentGroups": ["Tennis"],
+	"ProcessingFrameRate": 5,
+	"ChunkSize": 10,
+	"MaxSegmentLengthSeconds": 120,
+	"Classifier": {
+		"Configuration": {
+			"start_seq": "[['near','far'],['topview','far']]",
+			"padding_seconds": "1",
+			"end_seq": "[['far','near'],['far','topview']]"
+		},
+		"DependentPlugins": [
+			{
+				"Configuration": {
+					"Minimum-Confidence": "0.6"
+				},
+				"DependentFor": ["TennisSegmentation"],
+				"Name": "DependentPlugin1"
+			},
+			{
+				"DependentFor": ["DependentPlugin1"],
+				"Name": "DependentPlugin2"
+			},
+			{
+				"DependentFor": ["DependentPlugin2"],
+				"Name": "DependentPlugin3"
+			},
+			{
+				"DependentFor": ["DependentPlugin2"],
+				"Name": "DependentPlugin4"
+			},
+			{
+				"DependentFor": ["DependentPlugin3", "DependentPlugin4"],
+				"Name": "DependentPlugin5"
+			},
+			{
+				"DependentFor": ["DependentPlugin5"],
+				"Name": "DependentPlugin6"
+			},
+			{
+				"DependentFor": ["DependentPlugin5"],
+				"Name": "DependentPlugin7"
+			}
+		],
+		"Name": "TennisSegmentation"
+	},
+	"Featurers": [
+		{
+			"Name": "IndependentFeaturer1",
+			"DependentPlugins": [
+				{
+					"Name": "DependentPlugin8",
+					"Configuration": {
+						"minimum_confidence": "0.9"
+					},
+					"DependentFor": [
+						"IndependentFeaturer1"
+					]
+				}
+			]
+		},
+		{
+			"Name": "IndependentFeaturer2",
+			"IsPriorityForReplay": false
+		},
+		{
+			"Name": "IndependentFeaturer3",
+			"IsPriorityForReplay": false
+		}
+	]
+}
+```
 
 The payload to the **profile** API takes a payload that is described here:
 

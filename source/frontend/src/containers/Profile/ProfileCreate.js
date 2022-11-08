@@ -195,6 +195,7 @@ export const ProfileCreate = () => {
                 label: "Feature Detectors (optional)",
                 plugins: pluginOptions,
                 isMultiple: true,
+                IsPriorityForReplay: true
             },
         }
     }

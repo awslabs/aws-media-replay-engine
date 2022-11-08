@@ -1,6 +1,7 @@
 import os
 from aws_cdk import (
     Fn,
+    Aws,
     custom_resources as cr,
     aws_events as events,
     aws_iam as iam,
@@ -69,6 +70,9 @@ class MreCdkCommon():
     def get_media_convert_output_bucket_name(this):
         return Fn.import_value("mre-media-output-bucket-name")
     
+    @staticmethod
+    def get_transitions_clips_bucket(this):
+        return s3.Bucket.from_bucket_name(this, "MreTransitionsClipsBucketName",Fn.import_value("mre-transition-clips-bucket-name"))
 
     @staticmethod
     def get_media_convert_output_bucket(this):
@@ -89,6 +93,11 @@ class MreCdkCommon():
     @staticmethod
     def get_data_export_bucket_name():
         return Fn.import_value("mre-data-export-bucket-name")
+
+
+    @staticmethod    
+    def get_powertools_layer_from_arn(this) -> ILayerVersion:
+        return _lambda.LayerVersion.from_layer_version_arn(this, "PowerToolsLayerFromArn", f"arn:aws:lambda:{Aws.REGION}:017000801446:layer:AWSLambdaPowertoolsPythonV2:12")
 
     @staticmethod    
     def get_timecode_layer_from_arn(this) -> ILayerVersion:

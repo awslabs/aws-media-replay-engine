@@ -181,7 +181,7 @@ export const REPLAY_SUMMARY_FORM = {
     },
     Duration: {
         name: "Duration",
-        label: "Request Duration (Minutes)",
+        label: "Request Duration (Secs)",
         type: "textField",
     },
     Description: {
@@ -213,6 +213,16 @@ export const REPLAY_SUMMARY_FORM = {
         name: "OutputResolutions",
         label: "Output Resolutions",
         type: "selectWithChips",
+    },
+    TransitionName: {
+        name: "TransitionName",
+        label: "Transition",
+        type: "textField",
+    },
+    IgnoreDislikedSegments: {
+        name: "IgnoreDislikedSegments",
+        label: "Ignore low quality segments",
+        type: "textField",
     },
     PriorityList: {
         name: "PriorityList",

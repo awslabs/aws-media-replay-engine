@@ -440,7 +440,7 @@ class ClipGenStack(Stack):
         )
 
 
-        #self.event_edl_gen_lambda
+        self.event_edl_gen_lambda
         self.mre_edlgen_events_rule = events.Rule(
             self,
             "MREEventEndRule",

@@ -693,3 +693,18 @@ class ControlPlane:
         }
 
         self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))
+
+
+    
+    def get_transitions_config(self, transition_name):
+        """
+        Gets Replay Transitions configuration
+
+        :param transition_name: Name of the Transition
+        
+        :return: Transition configuration
+        """
+        path = f"/replay/transition/{transition_name}"
+        method = "GET"
+        api_response = self.invoke_controlplane_api(path, method)
+        return api_response.json()

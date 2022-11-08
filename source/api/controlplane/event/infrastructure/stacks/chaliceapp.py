@@ -25,6 +25,8 @@ class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
+        self.program_table_arn = Fn.import_value("mre-program-table-arn")
+        self.program_table_name = Fn.import_value("mre-program-table-name")
         self.event_table_arn = Fn.import_value("mre-event-table-arn")
         self.event_table_name = Fn.import_value("mre-event-table-name")
         self.profile_table_arn = Fn.import_value("mre-profile-table-arn")
@@ -79,6 +81,7 @@ class ChaliceApp(Stack):
                     "dynamodb:DeleteItem"
                 ],
                 resources=[
+                    self.program_table_arn,
                     self.event_table_arn,
                     f"{self.event_table_arn}/index/*",
                     self.profile_table_arn,
@@ -191,9 +194,11 @@ class ChaliceApp(Stack):
             source_dir=RUNTIME_SOURCE_DIR,
             stage_config={
                 "environment_variables": {
+                    "PROGRAM_TABLE_NAME": self.program_table_name,
                     "EVENT_TABLE_NAME": self.event_table_name,
                     "EVENT_PAGINATION_INDEX": constants.EVENT_PAGINATION_INDEX,
                     "EVENT_PROGRAMID_INDEX": constants.EVENT_PROGRAMID_INDEX,
+                    "EVENT_PROGRAM_INDEX": constants.EVENT_PROGRAM_INDEX,
                     "EVENT_CHANNEL_INDEX": constants.EVENT_CHANNEL_INDEX,
                     "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
                     "CURRENT_EVENTS_TABLE_NAME": Fn.import_value("mre-current-event-table-name"),

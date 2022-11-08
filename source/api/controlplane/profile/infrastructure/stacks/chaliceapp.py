@@ -30,6 +30,8 @@ class ChaliceApp(Stack):
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
 
+        self.content_group_table_arn = Fn.import_value("mre-content-group-table-arn")
+        self.content_group_table_name = Fn.import_value("mre-content-group-table-name")
         self.profile_table_arn = Fn.import_value("mre-profile-table-arn")
         self.profile_table_name = Fn.import_value("mre-profile-table-name")
         self.model_table_arn = Fn.import_value("mre-model-table-arn")
@@ -432,6 +434,7 @@ class ChaliceApp(Stack):
                     "dynamodb:DeleteItem"
                 ],
                 resources=[
+                    self.content_group_table_arn,
                     self.plugin_table_arn,
                     f"{self.plugin_table_arn}/index/*",
                     self.profile_table_arn,
@@ -479,6 +482,7 @@ class ChaliceApp(Stack):
             stage_config={
                 "environment_variables": {
                     "SFN_ROLE_ARN": self.sfn_role.role_arn,
+                    "CONTENT_GROUP_TABLE_NAME": self.content_group_table_name,
                     "PROFILE_TABLE_NAME": self.profile_table_name,
                     "PROBE_VIDEO_LAMBDA_ARN": self.probe_video_lambda.function_arn,
                     "MULTI_CHUNK_HELPER_LAMBDA_ARN": self.multi_chunk_helper_lambda.function_arn,

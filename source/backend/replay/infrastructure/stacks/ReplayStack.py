@@ -44,6 +44,8 @@ class ReplayStack(Stack):
         # Get Layers
         self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
         self.mre_plugin_helper_layer = common.MreCdkCommon.get_mre_plugin_helper_layer_from_arn(self)
+        self.timecode_layer = common.MreCdkCommon.get_timecode_layer_from_arn(self)
+        self.powertools_layer = common.MreCdkCommon.get_powertools_layer_from_arn(self)
 
         ### START: CreateReplay LAMBDA ###
 
@@ -135,7 +137,10 @@ class ReplayStack(Stack):
             "ENABLE_CUSTOM_METRICS": "Y",
             "CATCHUP_NUMBER_OF_LATEST_SEGMENTS_TO_FIND_FEATURES_IN": "20",
             "MAX_NUMBER_OF_THREADS": "50",
-            "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint
+            "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint,
+            "LOG_LEVEL": "INFO",
+            "POWERTOOLS_SERVICE_NAME": "MRE-Replay"
+
         }
 
         # Function: CreateReplay
@@ -151,7 +156,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
         self.create_replay_lambda.add_layers(awscli.AwsCliLayer(self, "AwsCliLayer"))
@@ -171,7 +178,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -188,7 +197,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -206,7 +217,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -223,7 +236,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -240,7 +255,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -257,7 +274,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -274,7 +293,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -291,7 +312,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(1),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -308,7 +331,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 
@@ -325,7 +350,9 @@ class ReplayStack(Stack):
             timeout=Duration.minutes(5),
             environment=self.replay_environment_config,
             layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer
+                    self.mre_plugin_helper_layer,
+                    self.timecode_layer,
+                    self.powertools_layer
                     ]
         )
 

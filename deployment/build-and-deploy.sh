@@ -505,7 +505,8 @@ else
   echo "Finished deploying the Frontend stack"
 
   echo "Updating Amplify environment variables and custom headers based on the CDK output"
-  (python3 init-amplify.py $region $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
+  mode="New"
+  (python3 init-amplify.py $region $mode $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
 
   if [ $? -ne 0 ]; then
       echo "ERROR: Failed to update Amplify environment variables and custom headers."

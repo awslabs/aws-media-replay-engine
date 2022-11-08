@@ -15,11 +15,19 @@ import urllib.parse
 
 CHUNK_TABLE_NAME = os.environ['CHUNK_TABLE_NAME']
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
+PARTITION_KEY_END_INDEX = os.environ['PARTITION_KEY_END_INDEX']
+MAX_DETECTOR_QUERY_WINDOW_SECS = int(os.environ['MAX_DETECTOR_QUERY_WINDOW_SECS'])
+PROGRAM_EVENT_LABEL_INDEX = os.environ['PROGRAM_EVENT_LABEL_INDEX']
+PAGINATION_QUERY_LIMIT = os.getenv('PAGINATION_QUERY_LIMIT')
+NON_OPTO_SEGMENTS_INDEX = os.environ['NON_OPTO_SEGMENTS_INDEX']
+PARTITION_KEY_CHUNK_NUMBER_INDEX = os.environ['PARTITION_KEY_CHUNK_NUMBER_INDEX']
 
 authorizer = IAMAuthorizer()
 
 ddb_resource = boto3.resource("dynamodb")
 API_SCHEMA = load_api_schema()
+
+EVAL_KEY_INDEX=3
 
 workflow_api = Blueprint(__name__)
 
@@ -44,7 +52,8 @@ def get_segment_state():
             "DependentPlugins": list,
             "ChunkNumber": integer,
             "ChunkStart": number,
-            "MaxSegmentLength": integer
+            "MaxSegmentLength": integer,
+            "LastEvaluatedKeys": list
         }
 
     Returns:
@@ -69,20 +78,20 @@ def get_segment_state():
         chunk_number = chunk["ChunkNumber"]
         chunk_start = chunk["ChunkStart"]
         max_segment_length = chunk["MaxSegmentLength"]
+        last_evaluated_keys = chunk['LastEvaluatedKeys'] if 'LastEvaluatedKeys' in chunk else {}
 
         print(
             f"Getting the state of the segment identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}'")
 
-        output = [None, {}, {}]
+        output={}
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
         response = plugin_result_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{plugin_name}"),
-            FilterExpression=Attr("ChunkNumber").lt(chunk_number),
+            IndexName=PARTITION_KEY_CHUNK_NUMBER_INDEX,
+            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{plugin_name}") & Key("ChunkNumber").lt(chunk_number),
             ScanIndexForward=False,
-            Limit=1,
-            ConsistentRead=True
+            Limit=1
         )
 
         if "Items" not in response or len(response["Items"]) < 1:
@@ -97,44 +106,56 @@ def get_segment_state():
             prior_segment = response["Items"][0]
             prior_segment_start = prior_segment["Start"]
             prior_segment_end = prior_segment["End"] if "End" in prior_segment else None
+            
+            output['PriorSegment'] = prior_segment
 
             if prior_segment_end is None or prior_segment_start == prior_segment_end:  # Partial segment
                 print("Prior segment is partial as only the 'Start' time is identified")
-                output[0] = "Start"
-                output[1] = prior_segment
+                output['State'] = "Start"
                 start_key_condition = prior_segment_start
 
             else:  # Complete segment
                 print("Prior segment is complete as both the 'Start' and 'End' times are identified")
-                output[0] = "End"
-                output[1] = prior_segment
+                output['State'] = "End"
                 start_key_condition = prior_segment_end
 
         print(
             f"Retrieving all the labels created by the dependent plugins '{dependent_plugins}' since '{start_key_condition}'")
 
+        if dependent_plugins:
+            output['DependentPluginResults'] = {}
+
         for d_plugin in dependent_plugins:
-            output[2][d_plugin] = []
+            # Only return the new data
+            if last_evaluated_keys and d_plugin not in last_evaluated_keys:
+                continue
 
             key_condition_expr = Key("PK").eq(f"{program}#{event}#{d_plugin}") & Key("Start").gt(start_key_condition)
 
-            response = plugin_result_table.query(
-                KeyConditionExpression=key_condition_expr,
-                FilterExpression=Attr("ChunkNumber").lte(chunk_number),
-                ConsistentRead=True
-            )
+            query_params = {
+                "KeyConditionExpression": key_condition_expr,
+                "FilterExpression": Attr("ChunkNumber").lte(chunk_number)
+            }
 
-            output[2][d_plugin].extend(response["Items"])
+            if PAGINATION_QUERY_LIMIT:
+                query_params['Limit']=int(PAGINATION_QUERY_LIMIT)
 
-            while "LastEvaluatedKey" in response:
-                response = plugin_result_table.query(
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                    KeyConditionExpression=key_condition_expr,
-                    FilterExpression=Attr("ChunkNumber").lte(chunk_number),
-                    ConsistentRead=True
-                )
+            if d_plugin in last_evaluated_keys:
+                print(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin]}'")
+                query_params["ExclusiveStartKey"]=last_evaluated_keys[d_plugin]
 
-                output[2][d_plugin].extend(response["Items"])
+            response = plugin_result_table.query(**query_params)
+            
+            if 'Items' in response and response["Items"]:
+                output['DependentPluginResults'][d_plugin] = {"Items" : response["Items"]}
+            else:
+                output['DependentPluginResults'][d_plugin] = {"Items" : []}
+
+            if "LastEvaluatedKey" in response and response["LastEvaluatedKey"]:
+                if d_plugin in output['DependentPluginResults']:
+                    output['DependentPluginResults'][d_plugin]['LastEvaluatedKey'] = response["LastEvaluatedKey"]
+                else:
+                    output['DependentPluginResults'][d_plugin] = {"LastEvaluatedKey" : response["LastEvaluatedKey"]}
 
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
@@ -189,19 +210,52 @@ def get_segment_state_for_labeling():
         classifier = request["Classifier"]
         dependent_plugins = request["DependentPlugins"]
         chunk_number = request["ChunkNumber"]
+        last_evaluated_keys = request['LastEvaluatedKeys'] if 'LastEvaluatedKeys' in request else {}
+
+        ## If the last evaluated keys include the classifier AND one or more of the dependent plugins- we should just GET the classifier object again
 
         print(
             f"Getting the complete, unlabeled segments for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
-        output = []
+        output = {}
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
-        response = plugin_result_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-            FilterExpression=Attr("ChunkNumber").lte(chunk_number) & Attr("LabelCode").eq("Not Attempted"),
-            ConsistentRead=True
-        )
+        query_params = {
+            "IndexName": PROGRAM_EVENT_LABEL_INDEX,
+            "KeyConditionExpression":Key("PK").eq(f"{program}#{event}#{classifier}") & Key("LabelCode").eq("Not Attempted"),
+            "FilterExpression":Attr("ChunkNumber").lte(chunk_number),
+            "Limit":1
+            }
+        
+        # Pass in the StartKey via 'classifier' name
+        if classifier in last_evaluated_keys:
+            print(f"Using LastEvaluatedKey '{last_evaluated_keys[classifier]}'")
+            query_params["ExclusiveStartKey"]=last_evaluated_keys[classifier]
+            
+        response = ''
+        if classifier in last_evaluated_keys and len(last_evaluated_keys) > 1:
+            # We need to use a temp key
+            temp_key = {'PK': last_evaluated_keys[classifier]['PK'], 'Start': last_evaluated_keys[classifier]['Start']}
+            ######
+            response = plugin_result_table.get_item(Key=temp_key)
+            print(response)
+            ## Add response as Items to keep rest of flow
+            response['Items'] = [response['Item']]
+            response['LastEvaluatedKey'] =last_evaluated_keys[classifier]
+        else:
+            response = plugin_result_table.query(**query_params)
+            while not response['Items'] and 'LastEvaluatedKey' in response:
+                # Use the last evaluated key from the response that returned no items (due to filter)
+                query_params["ExclusiveStartKey"]=response['LastEvaluatedKey']
+                response = plugin_result_table.query(**query_params)
+                print(f'Response from inner query: {response}')
+
+        # Remove classifier from input; don't need it anymore
+        last_evaluated_keys.pop(classifier,'n/a')
+
+        print(f'Response from query: {response}')
+       
 
         if "Items" not in response or len(response["Items"]) < 1:
             print(
@@ -211,38 +265,26 @@ def get_segment_state_for_labeling():
             print(
                 f"One or more unlabeled segments found for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
-            segments = response["Items"]
+            ## We're only working on 1 segment at a time
+            segment = response["Items"][0]
+            output['Segment'] = {'Item': segment}
+            if 'LastEvaluatedKey' in response:
+                output['Segment']['LastEvaluatedKey'] = response['LastEvaluatedKey']
+            segment_start = segment["Start"]
+            segment_end = segment["End"] if "End" in segment else None
 
-            while "LastEvaluatedKey" in response:
-                response = plugin_result_table.query(
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                    KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-                    FilterExpression=Attr("ChunkNumber").lte(chunk_number) & Attr("LabelCode").eq("Not Attempted"),
-                    ConsistentRead=True
-                )
+            # Get the Labeler dependent plugins output for the segment only if it is complete
+            if segment_end is not None and segment_start != segment_end:
+                print(
+                    f"Getting all the Labeler dependent plugins output between the segment Start '{segment_start}' and End '{segment_end}'")
+                ## last evaluated keys is now pagination w/ out the classifier key
+                dependent_plugins_output = get_labeler_dependent_plugins_output(program, event, dependent_plugins, 
+                segment_start, segment_end, last_evaluated_keys)
 
-                segments.extend(response["Items"])
+                output["DependentPluginsOutput"] = dependent_plugins_output
 
-            for segment in segments:
-                segment_start = segment["Start"]
-                segment_end = segment["End"] if "End" in segment else None
-
-                # Get the Labeler dependent plugins output for the segment only if it is complete
-                if segment_end is not None and segment_start != segment_end:
-                    print(
-                        f"Getting all the Labeler dependent plugins output between the segment Start '{segment_start}' and End '{segment_end}'")
-                    dependent_plugins_output = get_labeler_dependent_plugins_output(program, event, dependent_plugins,
-                                                                                    segment_start, segment_end)
-
-                    output.append(
-                        {
-                            "Segment": segment,
-                            "DependentPluginsOutput": dependent_plugins_output
-                        }
-                    )
-
-                else:
-                    print(f"Skipping the segment with Start '{segment_start}' as it is not a complete segment")
+            else:
+                print(f"Skipping the segment with Start '{segment_start}' as it is not a complete segment")
 
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
@@ -257,224 +299,6 @@ def get_segment_state_for_labeling():
     else:
         return replace_decimals(output)
 
-@workflow_api.route('/workflow/optimization/segments/all', cors=True, methods=['POST'], authorizer=authorizer)
-def get_segments_for_optimization():
-    """
-    Retrieve one or more non-optimized segments identified in the current/prior chunks
-
-    Body:
-
-    .. code-block:: python
-
-        {
-            "Program": string,
-            "Event": string,
-            "ChunkNumber": integer,
-            "Classifier": string,
-            "AudioTrack": integer
-        }
-
-    Returns:
-
-        List containing one or more non-optimized segments identified in the current/prior chunks 
-    
-    Raises:
-        400 - BadRequestError
-        500 - ChaliceViewError
-    """
-    try:
-        request = json.loads(workflow_api.current_app.current_request.raw_body.decode())
-
-        program = request["Program"]
-        event = request["Event"]
-        chunk_number = request["ChunkNumber"]
-        classifier = request["Classifier"]
-        audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
-        opto_audio_track = audio_track if audio_track is not None else "1"
-
-        segments = []
-
-        plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
-
-        print(
-            f"Getting all the non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
-
-        response = plugin_result_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-            FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
-                    Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
-            ConsistentRead=True
-        )
-
-        if "Items" not in response or len(response["Items"]) < 1:
-            print(
-                f"No non-optimized segment was identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
-
-        else:
-            print(
-                f"Got one or more non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
-
-            segments = response["Items"]
-
-            while "LastEvaluatedKey" in response:
-                response = plugin_result_table.query(
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                    KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-                    FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
-                        Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
-                    ConsistentRead=True
-                )
-
-                segments.extend(response["Items"])
-
-
-    except BadRequestError as e:
-        print(f"Got chalice BadRequestError: {str(e)}")
-        raise
-
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
-
-    except Exception as e:
-        print(
-            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
-        raise ChaliceViewError(
-            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
-
-    else:
-        return replace_decimals(segments)
-
-
-@workflow_api.route('/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}',cors=True, methods=['GET'], authorizer=authorizer)
-def get_dependent_detectors_results_for_optimization(event, program, plugin_name, audio_track=None):
-    """
-    Retrieves the dependent detector plugin's output 
-    
-    Returns:
-
-        Dependent detectors output captured thus far
-    
-    """
-    event = urllib.parse.unquote(event)
-    program = urllib.parse.unquote(program)
-    audio_track = urllib.parse.unquote(audio_track)
-    plugin_name = urllib.parse.unquote(plugin_name)
-
-    plugin_results = []
-
-    plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
-    if audio_track:
-        pk = f"{program}#{event}#{plugin_name}#{audio_track}"
-    else:
-        pk = f"{program}#{event}#{plugin_name}"
-
-    response =  plugin_result_table.query(
-                    KeyConditionExpression=Key("PK").eq(pk) & Key("Start").gt(0),
-                    ConsistentRead=True)
-                
-    if response:
-        if 'Items' in response:
-            plugin_results = response['Items']
-
-    while "LastEvaluatedKey" in response:
-        response = plugin_result_table.query(
-            ExclusiveStartKey=response["LastEvaluatedKey"],
-            KeyConditionExpression=Key("PK").eq(pk) & Key("Start").gt(0),
-            ConsistentRead=True
-        )
-
-        if response:
-            if 'Items' in response:
-                plugin_results.extend(response['Items'])
-
-
-    return replace_decimals(plugin_results)
-
-@workflow_api.route('/workflow/dependent/detectors/segment', cors=True, methods=['POST'], authorizer=authorizer)
-def get_dependent_detectors_for_optimization():
-    """
-    Retrieve one or more non-optimized segments identified in the current/prior chunks and all the dependent detectors output 
-    around the segments for optimization. Use "SearchWindowSeconds" to control the time window around the segments within which 
-    the dependent detectors output are queried for.
-
-    Body:
-
-    .. code-block:: python
-
-        {
-            "Program": string,
-            "Event": string,
-            "ChunkNumber": integer,
-            "Detectors": list,
-            "AudioTrack": integer,
-            "SearchWindowSeconds": integer,
-            "Segment": dict
-        }
-
-    Returns:
-
-        All the dependent detectors output for a segment
-        
-    
-    Raises:
-        400 - BadRequestError
-        500 - ChaliceViewError
-    """
-    try:
-        request = json.loads(workflow_api.current_app.current_request.raw_body.decode(), parse_float=Decimal)
-
-
-        program = request["Program"]
-        event = request["Event"]
-        chunk_number = request["ChunkNumber"]
-        detectors = request["Detectors"] if "Detectors" in request else []
-        audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
-        search_win_sec = request["SearchWindowSeconds"]
-        segment = request["Segment"]
-
-        segment_start = segment["Start"]
-        segment_end = segment["End"] if "End" in segment else None
-
-        print(
-            f"Getting all the dependent detectors output around segment Start '{segment_start}' within a search window of '{search_win_sec}' seconds")
-
-        # Get dependent detectors output for optimizing the segment Start
-        detectors_output = get_detectors_output_for_segment(program, event, detectors, search_win_sec,
-                                                            audio_track, start=segment_start)
-
-        # Get dependent detectors output for optimizing the segment End if segment End is present
-        if segment_end is not None and segment_start != segment_end:
-            print(
-                f"Getting all the dependent detectors output around segment End '{segment_end}' within a search window of '{search_win_sec}' seconds")
-
-            detectors_output.extend(
-                get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track,
-                                                    end=segment_end))
-
-        # output.append(
-        #     {
-        #         "Segment": segment,
-        #         "DependentDetectorsOutput": detectors_output
-        #     }
-        # )
-
-    except BadRequestError as e:
-        print(f"Got chalice BadRequestError: {str(e)}")
-        raise
-
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
-
-    except Exception as e:
-        print(
-            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
-        raise ChaliceViewError(
-            f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
-
-    else:
-        return replace_decimals(detectors_output)
 
 @workflow_api.route('/workflow/optimization/segment/state', cors=True, methods=['POST'], authorizer=authorizer)
 def get_segment_state_for_optimization():
@@ -507,7 +331,7 @@ def get_segment_state_for_optimization():
         500 - ChaliceViewError
     """
     try:
-        request = json.loads(workflow_api.current_app.current_request.raw_body.decode())
+        request = json.loads(workflow_api.current_app.current_request.raw_body.decode(), parse_float=Decimal)
 
         validate(instance=request, schema=API_SCHEMA["get_segment_state_for_optimization"])
 
@@ -521,71 +345,72 @@ def get_segment_state_for_optimization():
         audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
         opto_audio_track = audio_track if audio_track is not None else "1"
         search_win_sec = request["SearchWindowSeconds"]
+        last_evaluated_keys = request['LastEvaluatedKeys'] if 'LastEvaluatedKeys' in request else {}
 
-        output = []
+        output = {}
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
         print(
             f"Getting all the non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+        # Put together a value for limiting chunk #
+        query_params = {
+            "IndexName": NON_OPTO_SEGMENTS_INDEX,
+            "KeyConditionExpression":Key("PK").eq(f"{program}#{event}#{classifier}") & Key("NonOptoChunkNumber").lte(chunk_number),
+            "Limit": 1
+            }
+        # Pass in the StartKey via 'classifier' name
+        if classifier in last_evaluated_keys:
+            print(f"Using LastEvaluatedKey '{last_evaluated_keys[classifier]}'")
+            query_params["ExclusiveStartKey"]=last_evaluated_keys[classifier]
+            
+        response = ''
+        if classifier in last_evaluated_keys and len(last_evaluated_keys) > 1:
+            # We need to use a temp key
+            temp_key = {'PK': last_evaluated_keys[classifier]['PK']}
+            ######
+            response = plugin_result_table.get_item(Key=temp_key)
+            print(response)
+            ## Add response as Items to keep rest of flow
+            response['Items'] = [response['Item']]
+            response['LastEvaluatedKey'] =last_evaluated_keys[classifier]
+        else:
+            response = plugin_result_table.query(**query_params)
+            while not response['Items'] and 'LastEvaluatedKey' in response:
+                # Use the last evaluated key from the response that returned no items (due to filter)
+                query_params["ExclusiveStartKey"]=response['LastEvaluatedKey']
+                response = plugin_result_table.query(**query_params)
+                print(f'Response from inner query: {response}')
 
-        response = plugin_result_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-            FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
-                    Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
-            ConsistentRead=True
-        )
+        # Remove classifier from input; don't need it anymore
+        last_evaluated_keys.pop(classifier,'n/a')
 
+        print(f'Response from query: {response}')
+       
         if "Items" not in response or len(response["Items"]) < 1:
-            print(
-                f"No non-optimized segment was identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+            print(f"No non-optimized segment was identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
         else:
             print(
-                f"Got one or more non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+                f"Got one non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
-            segments = response["Items"]
+            ## We're only working on 1 segment at a time
+            segment = response["Items"][0]
+            output['Segment'] = {'Item': segment}
+            if 'LastEvaluatedKey' in response:
+                output['Segment']['LastEvaluatedKey'] = response['LastEvaluatedKey']
+            segment_start = segment["Start"]
+            segment_end = segment["End"] if "End" in segment else None
 
-            while "LastEvaluatedKey" in response:
-                response = plugin_result_table.query(
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                    KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-                    FilterExpression=Attr("ChunkNumber").lte(chunk_number) & (
-                        Attr(f"OptoStart.{opto_audio_track}").not_exists() | Attr(f"OptoEnd.{opto_audio_track}").not_exists()),
-                    ConsistentRead=True
-                )
+            detectors_output = get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track, start=segment_start)
+            output["DependentDetectorsOutput"] = detectors_output
 
-                segments.extend(response["Items"])
-
-            print(f"AK Opto Segments Count = {len(segments)}")
-            
-            #cached_file_groups = [self.__segment_mapping_file_names[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.__segment_mapping_file_names), MAX_NUMBER_OF_THREADS)]
-            for segment in segments:
-                segment_start = segment["Start"]
-                segment_end = segment["End"] if "End" in segment else None
-
-                print(
-                    f"Getting all the dependent detectors output around segment Start '{segment_start}' within a search window of '{search_win_sec}' seconds")
-
-                # Get dependent detectors output for optimizing the segment Start
-                detectors_output = get_detectors_output_for_segment(program, event, detectors, search_win_sec,
-                                                                    audio_track, start=segment_start)
-
-                # Get dependent detectors output for optimizing the segment End if segment End is present
-                if segment_end is not None and segment_start != segment_end:
-                    print(
-                        f"Getting all the dependent detectors output around segment End '{segment_end}' within a search window of '{search_win_sec}' seconds")
-
-                    detectors_output.extend(
-                        get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track,
-                                                         end=segment_end))
-
-                output.append(
-                    {
-                        "Segment": segment,
-                        "DependentDetectorsOutput": detectors_output
-                    }
-                )
+            # Get the Labeler dependent plugins output for the segment only if it is complete
+            if segment_end is not None and segment_start != segment_end:
+                print(f"Getting all the dependent detectors output around segment End '{segment_end}' within a search window of '{search_win_sec}' seconds")
+                ## last evaluated keys is now pagination w/ out the classifier key
+                output["DependentDetectorsOutput"].extend(get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track,
+                                                    end=segment_end))
 
     except BadRequestError as e:
         print(f"Got chalice BadRequestError: {str(e)}")
@@ -605,34 +430,40 @@ def get_segment_state_for_optimization():
         return replace_decimals(output)
 
 
-def get_labeler_dependent_plugins_output(program, event, dependent_plugins, start, end):
+def get_labeler_dependent_plugins_output(program, event, dependent_plugins, start, end, last_evaluated_keys) -> dict:
     if not dependent_plugins:
         print(
             f"Skipping the retrieval of Labeler dependent plugins output as no dependent plugin is present in the request")
-        return []
+        return {}
 
     dependent_plugins_output = {}
 
     plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
     for dependent_plugin in dependent_plugins:
-        response = plugin_result_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{dependent_plugin}") & Key("Start").between(start,
-                                                                                                                end),
-            ConsistentRead=True
-        )
 
-        dependent_plugins_output[dependent_plugin] = response["Items"]
+        if last_evaluated_keys and dependent_plugin not in last_evaluated_keys:
+            continue
 
-        while "LastEvaluatedKey" in response:
-            response = plugin_result_table.query(
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-                KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{dependent_plugin}") & Key("Start").between(
-                    start, end),
-                ConsistentRead=True
-            )
+        dependent_plugins_output[dependent_plugin] = {}
 
-            dependent_plugins_output[dependent_plugin].extend(response["Items"])
+        query_params = {
+            "KeyConditionExpression":Key("PK").eq(f"{program}#{event}#{dependent_plugin}") & Key("Start").between(start,end),
+            "ConsistentRead":True
+        }
+
+        if PAGINATION_QUERY_LIMIT:
+            query_params['Limit']=int(PAGINATION_QUERY_LIMIT)
+
+        if dependent_plugin in last_evaluated_keys:
+            query_params['ExclusiveStartKey']=last_evaluated_keys[dependent_plugin]
+
+        response = plugin_result_table.query(**query_params)
+
+        dependent_plugins_output[dependent_plugin]['Items'] = response["Items"]
+
+        if 'LastEvaluatedKey' in response:
+            dependent_plugins_output[dependent_plugin]['LastEvaluatedKey'] = response["LastEvaluatedKey"]
 
     return dependent_plugins_output
 
@@ -665,16 +496,14 @@ def get_detectors_output_for_segment(program, event, detectors, search_win_sec, 
 
         if start:
             response = plugin_result_table.query(
-                KeyConditionExpression=Key("PK").eq(pk) & Key("Start").lte(start),
-                FilterExpression=Attr("End").gte(start),
-                ConsistentRead=True
+                KeyConditionExpression=Key("PK").eq(pk) & Key("Start").between(start - MAX_DETECTOR_QUERY_WINDOW_SECS, start),
+                FilterExpression=Attr("End").gte(start)
             )
 
             if "Items" not in response or len(response["Items"]) < 1:
                 response = plugin_result_table.query(
-                    KeyConditionExpression=Key("PK").eq(pk),
-                    FilterExpression=Attr("End").between(start - search_win_sec, start),
-                    ConsistentRead=True
+                    IndexName=PARTITION_KEY_END_INDEX,
+                    KeyConditionExpression=Key("PK").eq(pk) & Key("End").between(start - search_win_sec, start)
                 )
 
                 detector_obj["Start"] = response["Items"]
@@ -684,15 +513,13 @@ def get_detectors_output_for_segment(program, event, detectors, search_win_sec, 
 
         if end:
             response = plugin_result_table.query(
-                KeyConditionExpression=Key("PK").eq(pk) & Key("Start").lte(end),
-                FilterExpression=Attr("End").gte(end),
-                ConsistentRead=True
+                KeyConditionExpression=Key("PK").eq(pk) & Key("Start").between(end - MAX_DETECTOR_QUERY_WINDOW_SECS, end),
+                FilterExpression=Attr("End").gte(end)
             )
 
             if "Items" not in response or len(response["Items"]) < 1:
                 response = plugin_result_table.query(
-                    KeyConditionExpression=Key("PK").eq(pk) & Key("Start").between(end, end + search_win_sec),
-                    ConsistentRead=True
+                    KeyConditionExpression=Key("PK").eq(pk) & Key("Start").between(end, end + search_win_sec)
                 )
 
                 detector_obj["End"] = response["Items"]
@@ -741,28 +568,27 @@ def get_segments_for_clip_generation():
         program = request["Program"]
         event = request["Event"]
         classifier = request["Classifier"]
+        last_evaluated_key = request['LastEvaluatedKey'] if 'LastEvaluatedKey' in request else {}
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
-        response = plugin_result_table.query(
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-            FilterExpression=Attr("OptoStart").exists() & Attr("OptoEnd").exists(),
-            ProjectionExpression="PK, Start, End, OptoStart, OptoEnd",
-            ConsistentRead=True
-        )
+        query_params = {
+                "KeyConditionExpression":Key("PK").eq(f"{program}#{event}#{classifier}"),
+                "FilterExpression":Attr("OptoStart").exists() & Attr("OptoEnd").exists(),
+                "ProjectionExpression":"PK, Start, End, OptoStart, OptoEnd",
+                "ConsistentRead":True
+        }
 
-        segments = response["Items"]
+        ## Add start key if passed in
+        if last_evaluated_key:
+            query_params['ExclusiveStartKey']=last_evaluated_key
 
-        while "LastEvaluatedKey" in response:
-            response = plugin_result_table.query(
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-                KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}"),
-                FilterExpression=Attr("OptoStart").exists() & Attr("OptoEnd").exists(),
-                ProjectionExpression="PK, Start, End, OptoStart, OptoEnd",
-                ConsistentRead=True
-            )
+        response = plugin_result_table.query(**query_params)
+        segments = {"Items": response["Items"]}
 
-            segments.extend(response["Items"])
+        ## Return LastEvaluatedKey in response
+        if 'LastEvaluatedKey' in response:
+            segments['LastEvaluatedKey'] = response['LastEvaluatedKey']
 
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")

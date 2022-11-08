@@ -12,6 +12,7 @@ import Grid from "@material-ui/core/Grid";
 import Link from "@material-ui/core/Link";
 import {ProgramDropdown} from "../../components/Programs/ProgramDropdown";
 import {EventDropdown} from "../../components/Event/EventDropdown";
+import {TransitionsDropdown} from "../../components/Replay/TransitionsDropdown";
 import Box from "@material-ui/core/Box";
 import Button from "@material-ui/core/Button";
 import {
@@ -35,7 +36,10 @@ import {PluginPriorityItem} from "./PluginPriorityItem"
 import {API} from "aws-amplify";
 import {useSessionContext} from "../../contexts/SessionContext";
 import {MultiSelectWithChips} from "../../components/MultiSelectWithChips/MultiSelectWithChips";
-
+import PlayCircleFilledIcon from "@material-ui/icons/PlayCircleFilled";
+import Tooltip from '@material-ui/core/Tooltip';
+import {TransitionClipPreview} from './TransitionClipPreview';
+import InfoIcon from '@material-ui/icons/Info';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -83,6 +87,8 @@ export const ReplayCreate = () => {
 
     const [audioTrackOptions, setAudioTrackOptions] = React.useState([]);
     const [selectedProgram, setSelectedProgram] = React.useState("-NA-");
+    const [selectedTransition, setSelectedTransition] = React.useState("None");
+    const [selectedTransitionConfig, setSelectedTransitionConfig] = React.useState("");
     const [selectedEvent, setSelectedEvent] = React.useState("-NA-");
     const [selectedAudioTrack, setSelectedAudioTrack] = React.useState("-NA-");
     const [replayDescription, setReplayDescription] = React.useState("");
@@ -90,7 +96,7 @@ export const ReplayCreate = () => {
     const [availableFeatures, setAvailableFeatures] = React.useState([]);
     const [isLoading, setIsLoading] = React.useState(false);
     const [isLoadingAttribValues, setIsLoadingAttribValues] = React.useState(false);
-    const [replayDuration, setReplayDuration] = React.useState(1);
+    const [replayDuration, setReplayDuration] = React.useState(60);
     const [adInsertDuration, setAdInsertDuration] = React.useState(1);
     const [adPosition, setAdPosition] = React.useState('Beginning')
     const [adInsertionMode, setAdInsertionMode] = React.useState('Minutes')
@@ -101,12 +107,19 @@ export const ReplayCreate = () => {
     const [resolutionValues, setResolutionValues] = React.useState([])
     const [outputFormat, setOutputFormat] = React.useState('')
     const [uxlabel, setUXlabel] = React.useState('')
+    const [open, setOpen] = React.useState(false);
+    const [previewOpen, setPreviewOpen] = React.useState(false);
+    const [fadeInMs, setFadeInMs] = React.useState(0);
+    const [fadeOutMs, setFadeOutMs] = React.useState(0);
+
 
     let featuresM = new Map()
     const [checkBoxState, setCheckBoxState] = React.useState({
         checkedFillToExact: true,
         checkedEqualDistro: false,
         checkedCatchup: false,
+        checkedTransitions: true,
+        checkedIgnoreLowQualitySegments: false
     });
 
     const handleCheckBoxChange = (event) => {
@@ -132,7 +145,8 @@ export const ReplayCreate = () => {
             "CreateMp4": outputFormat === "Mp4" ? true : false,
             "CreateHls": outputFormat === "Hls" ? true : false,
             "ClipfeaturebasedSummarization": replayMode === "Clips" ? true : false,
-            "Resolutions": outputFormat !== "" ? resolutionValues : []
+            "Resolutions": outputFormat !== "" ? resolutionValues : [],
+            "IgnoreDislikedSegments": checkBoxState.checkedIgnoreLowQualitySegments
         }
         if (replayMode === "Duration") {
             formValues['DurationbasedSummarization'] = {
@@ -183,9 +197,18 @@ export const ReplayCreate = () => {
         formValues['Priorities'] = {
             "Clips": clips
         }
+        formValues['TransitionName'] = selectedTransition
 
-        //console.log(formValues);
+        // Non Image Transitions may not have Config
+        if (selectedTransitionConfig.hasOwnProperty("Config")){
+            formValues['TransitionOverride'] = {
+                "FadeInMs": parseFloat(fadeInMs),
+                "FadeOutMs": parseFloat(fadeOutMs)
+            }
+        }
+        
 
+        
         return formValues
 
     }
@@ -205,7 +228,7 @@ export const ReplayCreate = () => {
                 history.push({pathname: "/listReplays"});
             }
             catch (error) {
-
+                console.log(error);
                 return {success: false};
             }
             finally {
@@ -246,8 +269,34 @@ export const ReplayCreate = () => {
         }
     };
 
+    
+    const handlePreviewClose = () => {
+        setPreviewOpen(false)
+    }
+    const handlePreviewClick = async (event) => {
+        setPreviewOpen(true)
+    }
+
+    const handleTransitionChange = async (selectedValue, selectedConfig) => {
+        setSelectedTransition(selectedValue);
+
+        setSelectedTransitionConfig(selectedConfig)
+        setFadeOutMs(
+          selectedConfig.hasOwnProperty("Config")
+            ? selectedConfig.Config.FadeOutMs
+            : 0
+        );
+
+        setFadeInMs(
+            selectedConfig.hasOwnProperty("Config")
+              ? selectedConfig.Config.FadeInMs
+              : 0
+          );
+    }
+
     const handleProgramChange = async (event) => {
         setSelectedProgram(event.target.value);
+        setSelectedEvent("-NA-");
         // Only if Program and Event are available , initiate a lookup
         if (selectedEvent !== '-NA-' && event.target.value !== '-NA-') {
             let res = await fetchAudioTracks(`event/${selectedEvent}/program/${event.target.value}`)
@@ -324,9 +373,15 @@ export const ReplayCreate = () => {
     }
 
     const handleReplayDurationChange = (e) => {
-        if (e.target.value > 0) {
-            setReplayDuration(e.target.value);
-        }
+        setReplayDuration(e.target.value);
+    }
+
+    const handleFadeInChange = (e) => {
+        setFadeInMs(e.target.value);
+    }
+
+    const handleFadeOutChange = (e) => {
+        setFadeOutMs(e.target.value);
     }
 
     const handleAdInsertDurationChange = (e) => {
@@ -557,7 +612,7 @@ export const ReplayCreate = () => {
                                             <FormLabel
                                                 required={true}>{"Event"}</FormLabel>
                                             <EventDropdown DisableLabel={true} handleChange={handleEventChange}
-                                                           selected={selectedEvent}/>
+                                                           selected={selectedEvent} SelectedProgram={selectedProgram}/>
                                         </Grid>
                                         <Grid item sm={11}>
                                             <FormControl variant="outlined" size="small" fullWidth>
@@ -609,6 +664,23 @@ export const ReplayCreate = () => {
                                                 onChange={handleInputChange}
                                             />
                                         </Grid>
+                                        <Grid item sm={11}>
+                                            <FormControlLabel control={
+                                                <Checkbox
+                                                    color="primary"
+                                                    checked={checkBoxState.checkedIgnoreLowQualitySegments}
+                                                    onChange={handleCheckBoxChange}
+                                                    name="checkedIgnoreLowQualitySegments"
+                                                    inputProps={{'aria-label': 'primary checkbox'}}
+                                                />
+                                            } label="Ignore low quality segments ?"/>
+                                            <Tooltip title="Ignores all segments which have been disliked (thumbs down) in the Clip Preview page">
+                                                <InfoIcon 
+                                                    style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer"}}
+                                                />
+                                            </Tooltip>
+                                            
+                                        </Grid>
                                         <Grid item sm={10} style={{padding: "0px"}}>
                                             <FormControl component="fieldset" style={{width: "100%"}}>
                                                 <RadioGroup aria-label="replayMode" name="replayMode" value={replayMode}
@@ -620,50 +692,43 @@ export const ReplayCreate = () => {
                                                                style={{width: "80%"}}>
                                                             <TableBody>
                                                                 <TableRow className={classes.root}>
-                                                                    <TableCell align="left"
-                                                                               style={{borderBlock: "none"}}>
+                                                                
+                                                                    <TableCell align="left" style={{borderBlock: "none", width: "30%"}}>
                                                                         <FormControlLabel value="Duration"
-                                                                                          control={<Radio size="small"
-                                                                                                          color="primary"/>}
-                                                                                          label="Duration based (Mins)"/>
+                                                                                        control={<Radio size="small"
+                                                                                                        color="primary"/>}
+                                                                                        label="Duration based (Secs)"/>
                                                                     </TableCell>
-                                                                    <TableCell align="left"
-                                                                               style={{borderBlock: "none"}}>
-                                                                        <TextField
-                                                                            className={classes.field}
-                                                                            id="desc"
-                                                                            size="small"
-                                                                            variant="outlined"
-                                                                            required
-                                                                            value={replayDuration}
-                                                                            onChange={handleReplayDurationChange}
-                                                                            type={"number"}
-                                                                        />
-                                                                    </TableCell>
-                                                                    {/* <TableCell align="left" style={{borderBlock: "none"}}>
-                                                            <FormControlLabel control={
-                                                                <Checkbox
-                                                                    color="primary"
-                                                                    checked={checkBoxState.checkedFillToExact}
-                                                                    name="checkedFillToExact"
-                                                                    onChange={handleCheckBoxChange}
-                                                                    inputProps={{ 'aria-label': 'primary checkbox' }}
-                                                                />
-                                                            } label="Fill to exact ?" />
-
-                                                        </TableCell> */}
-                                                                    <TableCell align="left"
-                                                                               style={{borderBlock: "none"}}>
-                                                                        <FormControlLabel control={
-                                                                            <Checkbox
-                                                                                color="primary"
-                                                                                checked={checkBoxState.checkedEqualDistro}
-                                                                                onChange={handleCheckBoxChange}
-                                                                                name="checkedEqualDistro"
-                                                                                inputProps={{'aria-label': 'primary checkbox'}}
+                                                                        <TableCell align="left" style={{borderBlock: "none", width: "20%"}}>
+                                                                        {
+                                                                            replayMode === "Duration" &&            
+                                                                            <TextField
+                                                                                className={classes.field}
+                                                                                id="desc"
+                                                                                size="small"
+                                                                                variant="outlined"
+                                                                                required
+                                                                                value={replayDuration}
+                                                                                onChange={handleReplayDurationChange}
+                                                                                type={"number"}
                                                                             />
-                                                                        } label="Equal distribution across event?"/>
-
+                                                                        }
+                                                                        </TableCell>
+                                                                    
+                                                                    <TableCell align="left"
+                                                                               style={{borderBlock: "none", width: "30%"}}>
+                                                                        {
+                                                                            replayMode === "Duration" &&  
+                                                                            <FormControlLabel control={
+                                                                                <Checkbox
+                                                                                    color="primary"
+                                                                                    checked={checkBoxState.checkedEqualDistro}
+                                                                                    onChange={handleCheckBoxChange}
+                                                                                    name="checkedEqualDistro"
+                                                                                    inputProps={{'aria-label': 'primary checkbox'}}
+                                                                                />
+                                                                            } label="Equal distribution across event?"/>
+                                                                        }
                                                                     </TableCell>
                                                                 </TableRow>
                                                                 <TableRow className={classes.root}>
@@ -823,6 +888,175 @@ export const ReplayCreate = () => {
                                                 />
                                             }/>
                                         </Grid>
+
+                                        <Grid item sm={11} style={{paddingBottom: "10px", paddingTop: "10px"}}>
+                                            <FormControlLabel value="VideoTransitionEffects"
+                                                control={<Typography
+                                                className={classes.title}
+                                                variant="h6"
+                                                id="tableTitle"
+                                                component="div">
+                                                Video Transition Effects
+                                                </Typography>}
+                                                style={{paddingLeft: "10px", paddingBottom: "10px"}}/>
+
+                                                <Box style={{
+                                                    borderStyle: "solid",
+                                                    borderColor: "gray",
+                                                    padding: 10,
+                                                    borderWidth: 1
+                                                }}>
+                                                    <FormControlLabel label="Transition" labelPlacement="start" control={ 
+                                                        <TransitionsDropdown DisableLabel={true} handleTransitionChange={handleTransitionChange}
+                                                                    selected={selectedTransition}
+                                                                    hasSelectAll={false}/>
+
+                                                    }/>
+                                                    {
+                                                        selectedTransition !== "None" &&
+                                                        <>
+                                                            <Tooltip title="Preview Transition effect">
+                                                                <PlayCircleFilledIcon  
+                                                                    color={selectedTransition === "None" ? "initial" : "primary"} 
+                                                                    style={{ marginLeft: "20px", verticalAlign: "middle", cursor: "pointer"}}
+                                                                    onClick={handlePreviewClick}
+                                                                    
+                                                                />
+                                                            </Tooltip>
+                                                            <TableContainer component={Paper}
+                                                                        className={classes.expandableTableContainer}
+                                                                        style={{paddingTop: "10px", width: "100%"}}>
+                                                                <Table aria-label="inner table" size="small"
+                                                                    style={{width: "100%"}}>
+                                                                    <TableBody>
+                                                                        <TableRow className={classes.root}>
+                                                                            <TableCell align="left"
+                                                                                    style={{borderBlock: "none", width: "20%"}}>
+                                                                                Description
+                                                                            </TableCell>
+                                                                            <TableCell align="left"
+                                                                                    style={{borderBlock: "none"}}>
+                                                                                {
+                                                                                    selectedTransitionConfig.Description
+                                                                                }
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                        {   
+                                                                            selectedTransitionConfig.hasOwnProperty("Config") &&
+                                                                            <>
+                                                                            <TableRow className={classes.root}>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    Fade in (ms)
+                                                                                </TableCell>
+                                                                                <TableCell align="left" style={{borderBlock: "none"}}>
+                                                                                    <>
+                                                                                    <FormControlLabel control={ 
+                                                                                            <TextField
+                                                                                                className={classes.field}
+                                                                                                id="desc"
+                                                                                                size="small"
+                                                                                                variant="outlined"
+                                                                                                required
+                                                                                                value={fadeInMs}
+                                                                                                onChange={handleFadeInChange}
+                                                                                                type={"number"}
+                                                                                            />
+                                                                                        }/>
+                                                                                    <Tooltip title="Specify the length of time, in milliseconds for the transition overlay image to reach full opacity">
+                                                                                        <InfoIcon 
+                                                                                            style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer"}}
+                                                                                        />
+                                                                                    </Tooltip>    
+                                                                                    </>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                            <TableRow className={classes.root}>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                        Fade Out (ms)
+                                                                                </TableCell>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                        <>
+                                                                                        <FormControlLabel control={ 
+                                                                                            <TextField
+                                                                                                className={classes.field}
+                                                                                                id="desc"
+                                                                                                size="small"
+                                                                                                variant="outlined"
+                                                                                                required
+                                                                                                value={ fadeOutMs }
+                                                                                                onChange={handleFadeOutChange}
+                                                                                                type={"number"}
+                                                                                            />
+                                                                                        }/>
+                                                                                        <Tooltip title="Specify the length of time, in milliseconds for the transition overlay image to reach full transparency">
+                                                                                            <InfoIcon 
+                                                                                                style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer"}}
+                                                                                            />
+                                                                                        </Tooltip>    
+                                                                                        </>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                            </>
+                                                                        }
+                                                                        {   
+                                                                            selectedTransitionConfig.hasOwnProperty("PreviewVideoLocation") &&
+                                                                            <TableRow className={classes.root}>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    Preview clip location
+                                                                                </TableCell>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    {
+                                                                                        selectedTransitionConfig.PreviewVideoLocation
+                                                                                    }
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        }
+                                                                        {   
+                                                                            selectedTransitionConfig.hasOwnProperty("TransitionClipLocation") &&
+                                                                            <TableRow className={classes.root}>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    Transition clip location
+                                                                                </TableCell>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    {
+                                                                                        selectedTransitionConfig.TransitionClipLocation
+                                                                                    }
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        }
+                                                                        {   
+                                                                            selectedTransitionConfig.hasOwnProperty("ImageLocation") &&
+                                                                            <TableRow className={classes.root}>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    Transition image location
+                                                                                </TableCell>
+                                                                                <TableCell align="left"
+                                                                                        style={{borderBlock: "none"}}>
+                                                                                    {
+                                                                                        selectedTransitionConfig.ImageLocation
+                                                                                    }
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        }
+                                                                        
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </TableContainer>
+                                                        </>
+                                                    }
+                                                    
+                                                </Box>
+
+                                        </Grid>
+
                                     </Grid>
                                 </Paper>
                                 <Box py={3}>
@@ -842,7 +1076,19 @@ export const ReplayCreate = () => {
                                 </Box>
                             </Grid>
                         </Grid>
+
+                        
                     </form>
+            }
+
+            {
+                previewOpen &&
+                <TransitionClipPreview 
+                    Open={previewOpen} 
+                    OnPreviewClose={handlePreviewClose} 
+                    TransitionName={selectedTransition}
+                    TransitionConfig={selectedTransitionConfig}/>
+
             }
 
         </div>

@@ -210,3 +210,21 @@ def lambda_handler(event, context):
         raise
 
 ```
+
+**How does the Optimizer plugin know what segments are available to optimize?**
+```
+segments = mre_dataplane.get_segment_state_for_optimization(search_window_sec=optimization_search_window_sec)
+
+for segment in segments:
+    segment_to_optimize = segment['Segment'] # Non-optimized Segment object
+    dependent_detectors_data = segment['DependentDetectorsOutput'] # Output from DependentPlugins of the Optimizer plugin
+
+    # TODO: Use the dependent detectors data to optimize the segment start and/or end
+```
+get_segment_state_for_optimization() outputs a list of dictionaries where each dictionary has two keys: 
+- The first key called "Segment" is a dictionary containing the non-optimized segment having both "Start" and "End" (a.k.a. complete segment) found during or before the current chunk.
+- The second key called "DependentDetectorsOutput" contains a list of dictionaries, one for each dependent plugin of the Optimizer plugin. Each dictionary typically has the output of the corresponding dependent plugin focused around the segment "Start" and/or "End" using which the segment can be optimized.
+
+**Configuration parameters used by get_segment_state_for_optimization()**
+- *optimization_search_window_sec* is a required Optimizer plugin configuration parameter. It tells MRE how far to look back given a segment "Start" and how far to look forward given a segment "End" when querying for the dependent plugin(s) data while attempting to optimize (extend) the segment "Start" and/or "End" time.
+- *MAX_DETECTOR_QUERY_WINDOW_SECS* is a configuration parameter in the aws-mre-dataplane-APIHandler Lambda function environment variables. It tells MRE how far to look back when querying for the dependent plugin(s) data given a segment "Start" or "End" in order to figure out if the segment is already in the range (overlap) of the dependent plugin(s) output. By default, this parameter is configured with a value of 60 seconds and may need to be adjusted if one or more dependent plugins produce needed data earlier than 60 seconds given a segment "Start" or "End" time.

@@ -193,8 +193,16 @@
 </dl>
 </section>
 <section class="chalice-route" id="get-clip-preview-feedback">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/reviewer/{reviewer}/feedback</span><a class="headerlink" href="#get-clip-preview-feedback" title="Permalink to this heading">¶</a></h2>
-<p>Gets the feedback provided by a user for a Segment’s clip</p>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/feedback</span><a class="headerlink" href="#get-clip-preview-feedback" title="Permalink to this heading">¶</a></h2>
+<p>Gets the Clip feedback provided by a user for a Segment’s clip</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Feedback if present. Empty Dictionary of no feedback exists.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="get-all-clip-preview-feedback">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/track/{audio_track}/feedback</span><a class="headerlink" href="#get-all-clip-preview-feedback" title="Permalink to this heading">¶</a></h2>
+<p>Gets all the Clip feedback provided for a given event</p>
 <p>Returns:</p>
 <blockquote>
 <div><p>Feedback if present. Empty Dictionary of no feedback exists.</p>
@@ -626,41 +634,6 @@ PTS timecodes are ideal for accurately clipping a video given the start and end 
 </div>
 </div></blockquote>
 </section>
-<section class="chalice-route" id="get-dependent-detectors-for-optimization">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/segment</span><a class="headerlink" href="#get-dependent-detectors-for-optimization" title="Permalink to this heading">¶</a></h2>
-<p>Retrieve one or more non-optimized segments identified in the current/prior chunks and all the dependent detectors output
-around the segments for optimization. Use “SearchWindowSeconds” to control the time window around the segments within which
-the dependent detectors output are queried for.</p>
-<p>Body:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
-    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
-    <span class="s2">&quot;ChunkNumber&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
-    <span class="s2">&quot;Detectors&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
-    <span class="s2">&quot;AudioTrack&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
-    <span class="s2">&quot;SearchWindowSeconds&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
-    <span class="s2">&quot;Segment&quot;</span><span class="p">:</span> <span class="nb">dict</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Returns:</p>
-<blockquote>
-<div><p>All the dependent detectors output for a segment</p>
-</div></blockquote>
-<dl class="simple">
-<dt>Raises:</dt><dd><p>400 - BadRequestError
-500 - ChaliceViewError</p>
-</dd>
-</dl>
-</section>
-<section class="chalice-route" id="get-dependent-detectors-results-for-optimization">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}</span><a class="headerlink" href="#get-dependent-detectors-results-for-optimization" title="Permalink to this heading">¶</a></h2>
-<p>Retrieves the dependent detector plugin’s output</p>
-<p>Returns:</p>
-<blockquote>
-<div><p>Dependent detectors output captured thus far</p>
-</div></blockquote>
-</section>
 <section class="chalice-route" id="get-chunks-for-segment">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/engine/clipgen/chunks</span><a class="headerlink" href="#get-chunks-for-segment" title="Permalink to this heading">¶</a></h2>
 <p>Retrieve the filename, location and duration of all the chunks that contain the provided segment
@@ -760,29 +733,6 @@ detectors output around the segments</p>
 </dd>
 </dl>
 </section>
-<section class="chalice-route" id="get-segments-for-optimization">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/optimization/segments/all</span><a class="headerlink" href="#get-segments-for-optimization" title="Permalink to this heading">¶</a></h2>
-<p>Retrieve one or more non-optimized segments identified in the current/prior chunks</p>
-<p>Body:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
-    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
-    <span class="s2">&quot;ChunkNumber&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
-    <span class="s2">&quot;Classifier&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
-    <span class="s2">&quot;AudioTrack&quot;</span><span class="p">:</span> <span class="n">integer</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Returns:</p>
-<blockquote>
-<div><p>List containing one or more non-optimized segments identified in the current/prior chunks</p>
-</div></blockquote>
-<dl class="simple">
-<dt>Raises:</dt><dd><p>400 - BadRequestError
-500 - ChaliceViewError</p>
-</dd>
-</dl>
-</section>
 <section class="chalice-route" id="get-segment-state">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/segment/state</span><a class="headerlink" href="#get-segment-state" title="Permalink to this heading">¶</a></h2>
 <p>Retrieve the state of the segment identified in chunks (HLS .ts files) prior to the given chunk number and all the
@@ -798,7 +748,8 @@ return None along with all the labels created by the dependent plugins before th
     <span class="s2">&quot;DependentPlugins&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="s2">&quot;ChunkNumber&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
     <span class="s2">&quot;ChunkStart&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
-    <span class="s2">&quot;MaxSegmentLength&quot;</span><span class="p">:</span> <span class="n">integer</span>
+    <span class="s2">&quot;MaxSegmentLength&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;LastEvaluatedKeys&quot;</span><span class="p">:</span> <span class="nb">list</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -837,7 +788,8 @@ return None along with all the labels created by the dependent plugins before th
                             <ul>
 <li><a class="reference internal" href="#">Aws-Mre-Dataplane-Api</a><ul>
 <li><a class="reference internal" href="#record-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/preview/feedback</span></a></li>
-<li><a class="reference internal" href="#get-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/reviewer/{reviewer}/feedback</span></a></li>
+<li><a class="reference internal" href="#get-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/feedback</span></a></li>
+<li><a class="reference internal" href="#get-all-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/track/{audio_track}/feedback</span></a></li>
 <li><a class="reference internal" href="#store-clip-result"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/result</span></a></li>
 <li><a class="reference internal" href="#get-all-event-segments"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export/all/segments</span></a></li>
 <li><a class="reference internal" href="#add-attribute-to-existing-segment"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/classifier/{classifier}/start/{start}/attrName/{attrName}/attrVal/{attrVal}</span></a></li>
@@ -866,13 +818,10 @@ return None along with all the labels created by the dependent plugins before th
 <li><a class="reference internal" href="#update-replay-results"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/result</span></a></li>
 <li><a class="reference internal" href="#get-segments-for-event"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/segments/all/program/{program}/event/{event}/classifier/{classifier}/replay</span></a></li>
 <li><a class="reference internal" href="#version"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/version</span></a></li>
-<li><a class="reference internal" href="#get-dependent-detectors-for-optimization"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/segment</span></a></li>
-<li><a class="reference internal" href="#get-dependent-detectors-results-for-optimization"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}</span></a></li>
 <li><a class="reference internal" href="#get-chunks-for-segment"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/engine/clipgen/chunks</span></a></li>
 <li><a class="reference internal" href="#get-segments-for-clip-generation"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/engine/clipgen/segments</span></a></li>
 <li><a class="reference internal" href="#get-segment-state-for-labeling"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/labeling/segment/state</span></a></li>
 <li><a class="reference internal" href="#get-segment-state-for-optimization"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/optimization/segment/state</span></a></li>
-<li><a class="reference internal" href="#get-segments-for-optimization"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/optimization/segments/all</span></a></li>
 <li><a class="reference internal" href="#get-segment-state"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/workflow/segment/state</span></a></li>
 </ul>
 </li>

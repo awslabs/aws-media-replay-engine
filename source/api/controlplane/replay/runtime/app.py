@@ -20,7 +20,7 @@ from jsonschema import validate, ValidationError, FormatChecker
 from botocore.signers import CloudFrontSigner
 from chalicelib import DecimalEncoder
 from chalicelib import load_api_schema, replace_decimals
-    
+from botocore.config import Config
 
 app = Chalice(app_name='aws-mre-controlplane-replay-api')
 
@@ -33,6 +33,8 @@ HLS_STREAM_CLOUDFRONT_DISTRO = os.environ['HLS_STREAM_CLOUDFRONT_DISTRO']
 PLUGIN_TABLE_NAME = os.environ['PLUGIN_TABLE_NAME']
 PROFILE_TABLE_NAME = os.environ['PROFILE_TABLE_NAME']
 EVENT_TABLE_NAME = os.environ['EVENT_TABLE_NAME']
+TRANSITION_CLIP_S3_BUCKET = os.environ["TRANSITION_CLIP_S3_BUCKET"]
+TRANSITIONS_CONFIG_TABLE_NAME = os.environ["TRANSITIONS_CONFIG_TABLE_NAME"]
 
 authorizer = IAMAuthorizer()
 serializer = TypeSerializer()
@@ -49,7 +51,7 @@ API_SCHEMA = load_api_schema()
 def add_replay():
     """
     Add a new Replay Summarization to the system.
-    
+
     Body:
 
     .. code-block:: python
@@ -83,26 +85,35 @@ def add_replay():
             "Catchup": boolean,
             "Resolutions": list,
             "CreateHls": boolean,
-            "CreateMp4": boolean
+            "CreateMp4": boolean,
+            "TransitionName": string,
+            "TransitionOverride": {
+                "FadeInMs": number,
+                "FadeOutMs": number,
+            },
+            "IgnoreDislikedSegments": boolean
         }
 
     Parameters:
 
-        - Program: Name of the Program
+        - Program: Name of the Program       
         - Event: Name of the Event
         - AudioTrack: AudioTrack number which helps MRE support regional audience needs
         - Description: Description of the Replay being created
         - Requester: Requester of the Replay
-        - DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created
+        - DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs.
         - Priorities: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay
         - ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.
         - Catchup: True if a CatchUp replay is to be created, False otherwise.
         - CreateHls: True if HLS replay output is to be created
         - Resolutions: List of replay Resolutions to be created. Supported values ["4K (3840 x 2160)","2K (2560 x 1440)","16:9 (1920 x 1080)","16:9 (1920 x 1080)","16:9 (1920 x 1080)","1:1 (1080 x 1080)","4:5 (864 x 1080)","9:16 (608 x 1080)","720p (1280 x 720)","480p (854 x 480)","360p (640 x 360)"]
         - CreateMp4:True if MP4 replay output is to be created
+        - TransitionName: Optional. Name of the Transition to be used when Creating Replay clips. 
+        - TransitionOverride: Optional. Objects represents additional Transition configuration that can be overwritten during Replay creation.
+        - IgnoreDislikedSegments: Optional. Ignores segments which have been disliked when reviewing the Segment clip. Default False.
 
     Returns:
-    
+
         None
 
     Raises:
@@ -114,6 +125,18 @@ def add_replay():
         model = json.loads(app.current_request.raw_body.decode())
 
         validate(instance=model, schema=API_SCHEMA["add_replay"])
+
+        # Validate that an Event is Valid - If a Event does not belong to a Program, error out
+        event_table = ddb_resource.Table(EVENT_TABLE_NAME)
+        response = event_table.get_item(
+            Key={
+                "Name": model['Event'],
+                "Program": model['Program']
+            }
+        )
+        if "Item" not in response:
+            raise ConflictError(
+                f"Event '{model['Event']}' not found in Program '{model['Program']}'")
 
         model["PK"] = f"{model['Program']}#{model['Event']}"
         model["ReplayId"] = str(uuid.uuid4())
@@ -128,8 +151,12 @@ def add_replay():
         model["Mp4Location"] = {}
         model["Mp4ThumbnailLocation"] = {}
         model["IgnoredSegments"] = []
+        model["TransitionName"] = "None" if 'TransitionName' not in model else model['TransitionName']
+        model["IgnoreDislikedSegments"] = False if 'IgnoreDislikedSegments' not in model else model['IgnoreDislikedSegments']
+        
 
-        print(f"Adding the Replay Request '{model['Program']}#{model['Event']}'")
+        print(
+            f"Adding the Replay Request '{model['Program']}#{model['Event']}'")
 
         replay_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
 
@@ -166,12 +193,18 @@ def add_replay():
         print(f"Got DynamoDB ClientError: {str(e)}")
         raise
 
+    except ConflictError as e:
+        print(
+            f"Event '{model['Event']}' not found in Program '{model['Program']}': {str(e)}")
+        raise
+
     except Exception as e:
         print(f"Unable to add a new Replay Request: {str(e)}")
         raise ChaliceViewError(f"Unable to add a new Replay Request: {str(e)}")
 
     else:
-        print(f"Successfully added a new new Replay Request: {json.dumps(model)}")
+        print(
+            f"Successfully added a new new Replay Request: {json.dumps(model)}")
 
         return {}
 
@@ -200,7 +233,8 @@ def get_all_replays():
         )
         replayInfo.extend(response["Items"])
 
-    sorted_replayInfo = sorted(replayInfo, key=lambda x: x['Created'], reverse=True)
+    sorted_replayInfo = sorted(
+        replayInfo, key=lambda x: x['Created'], reverse=True)
 
     for item in sorted_replayInfo:
         replays.append({
@@ -217,7 +251,9 @@ def get_all_replays():
             "Description": item['Description'],
             "EdlLocation": item['EdlLocation'] if 'EdlLocation' in item else '-',
             "HlsLocation": item['HlsLocation'] if 'HlsLocation' in item else '-',
-            "UxLabel": item['UxLabel'] if 'UxLabel' in item else ''
+            "UxLabel": item['UxLabel'] if 'UxLabel' in item else '',
+            "TransitionName": item['TransitionName'] if 'TransitionName' in item else '',
+            "TransitionOverride": item['TransitionOverride'] if 'TransitionOverride' in item else ''
         })
 
     return {
@@ -249,7 +285,8 @@ def listreplay_by_program_event(program, event):
             ConsistentRead=True
         )
 
-        sorted_replayInfo = sorted(response['Items'], key=lambda x: x['Created'], reverse=True)
+        sorted_replayInfo = sorted(
+            response['Items'], key=lambda x: x['Created'], reverse=True)
 
         for item in sorted_replayInfo:
             replays.append({
@@ -264,11 +301,14 @@ def listreplay_by_program_event(program, event):
                 "ReplayId": item['ReplayId'],
                 "EdlLocation": item['EdlLocation'] if 'EdlLocation' in item else '-',
                 "HlsLocation": item['HlsLocation'] if 'HlsLocation' in item else '-',
+                "TransitionName": item['TransitionName'] if 'TransitionName' in item else '',
+                "TransitionOverride": item['TransitionOverride'] if 'TransitionOverride' in item else ''
             })
 
     except Exception as e:
         print(f"Unable to get replays for Program and Event: {str(e)}")
-        raise ChaliceViewError(f"Unable to get replays for Program and Event: {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get replays for Program and Event: {str(e)}")
 
     return replace_decimals(replays)
 
@@ -311,13 +351,15 @@ def listreplay_by_content_group(contentGrp):
 
             if 'ContentGroups' in profile_obj:
 
-                # If the Profile has the Content Group, return the replays associated with the 
+                # If the Profile has the Content Group, return the replays associated with the
                 # Program and Event
                 if contentGroup in profile_obj['ContentGroups']:
 
-                    replay_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
+                    replay_table = ddb_resource.Table(
+                        REPLAY_REQUEST_TABLE_NAME)
                     replayresponse = replay_table.query(
-                        KeyConditionExpression=Key("PK").eq(f"{event['Program']}#{event['Name']}"),
+                        KeyConditionExpression=Key("PK").eq(
+                            f"{event['Program']}#{event['Name']}"),
                         ConsistentRead=True
                     )
 
@@ -335,13 +377,17 @@ def listreplay_by_content_group(contentGrp):
                             'Created': item['Created'],
                             "EdlLocation": item['EdlLocation'] if 'EdlLocation' in item else '-',
                             "HlsLocation": item['HlsLocation'] if 'HlsLocation' in item else '-',
+                            "TransitionName": item['TransitionName'] if 'TransitionName' in item else '',
+                            "TransitionOverride": item['TransitionOverride'] if 'TransitionOverride' in item else ''
                         })
 
-        sorted_replayInfo = sorted(replays, key=lambda x: x['Created'], reverse=True)
+        sorted_replayInfo = sorted(
+            replays, key=lambda x: x['Created'], reverse=True)
 
     except Exception as e:
         print(f"Unable to get replays for Program and Event: {str(e)}")
-        raise ChaliceViewError(f"Unable to get replays for Program and Event: {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get replays for Program and Event: {str(e)}")
 
     return replace_decimals(sorted_replayInfo)
 
@@ -434,16 +480,19 @@ def get_all_replay_requests_for_completed_event(event, program, audioTrack):
         replay_request_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
         response = replay_request_table.query(
             KeyConditionExpression=Key("PK").eq(f"{program}#{eventname}"),
-            FilterExpression=Attr('Status').eq('Queued') & Attr('AudioTrack').eq(int(audioTrack)),
+            FilterExpression=Attr('Status').eq('Queued') & Attr(
+                'AudioTrack').eq(int(audioTrack)),
             ConsistentRead=True
         )
 
         if "Items" not in response:
-            raise NotFoundError(f"No Replay Requests found for program '{program}' and {eventname}")
+            raise NotFoundError(
+                f"No Replay Requests found for program '{program}' and {eventname}")
 
         return replace_decimals(response['Items'])
 
     return []
+
 
 def get_event(name, program):
     """
@@ -497,18 +546,22 @@ def get_event(name, program):
         )
 
         if "Item" not in response:
-            raise NotFoundError(f"Event '{name}' in Program '{program}' not found")
+            raise NotFoundError(
+                f"Event '{name}' in Program '{program}' not found")
 
     except NotFoundError as e:
         print(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
-        raise ChaliceViewError(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
+        print(
+            f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
 
     else:
         return replace_decimals(response["Item"])
+
 
 @app.route('/replay/track/{audioTrack}/program/{program}/event/{event}', cors=True, methods=['GET'],
            authorizer=authorizer)
@@ -532,12 +585,14 @@ def get_all_replay_requests_for_event_optosegment_end(event, program, audioTrack
 
     response = replay_request_table.query(
         KeyConditionExpression=Key("PK").eq(f"{program}#{eventname}"),
-        FilterExpression=Attr('Status').ne('Complete') & Attr('Status').ne('Error') & Attr('AudioTrack').eq(int(audioTrack)),
+        FilterExpression=Attr('Status').ne('Complete') & Attr(
+            'Status').ne('Error') & Attr('AudioTrack').eq(int(audioTrack)),
         ConsistentRead=True
     )
 
     if "Items" not in response:
-        raise NotFoundError(f"No Replay Requests found for program '{program}' and {eventname}")
+        raise NotFoundError(
+            f"No Replay Requests found for program '{program}' and {eventname}")
 
     return replace_decimals(response['Items'])
 
@@ -563,16 +618,16 @@ def get_all_replays_for_segment_end(event, program):
 
     response = replay_request_table.query(
         KeyConditionExpression=Key("PK").eq(f"{program}#{eventname}"),
-        FilterExpression=Attr('Status').ne('Complete') & Attr('Status').ne('Error'),
+        FilterExpression=Attr('Status').ne(
+            'Complete') & Attr('Status').ne('Error'),
         ConsistentRead=True
     )
 
     if "Items" not in response:
-        raise NotFoundError(f"No Replay Requests found for program '{program}' and {eventname}")
+        raise NotFoundError(
+            f"No Replay Requests found for program '{program}' and {eventname}")
 
     return replace_decimals(response['Items'])
-
-
 
 
 @app.route('/replay/program/{program}/event/{event}/features', cors=True, methods=['GET'], authorizer=authorizer)
@@ -603,7 +658,8 @@ def getfeatures_by_program_event(program, event):
             ConsistentRead=True
         )
         if "Item" not in response:
-            raise NotFoundError(f"Event '{event}' in Program '{program}' not found")
+            raise NotFoundError(
+                f"Event '{event}' in Program '{program}' not found")
 
         profile = response['Item']['Profile']
 
@@ -637,7 +693,8 @@ def getfeatures_by_program_event(program, event):
                         for key in response['Item']['OutputAttributes'].keys():
                             features.append(f"{feature['Name']} | {key}")
 
-                dependent_plugin_features = get_features_from_dependent_plugins(feature)
+                dependent_plugin_features = get_features_from_dependent_plugins(
+                    feature)
                 features.extend(dependent_plugin_features)
 
         if 'Classifier' in profile_response['Item']:
@@ -652,9 +709,11 @@ def getfeatures_by_program_event(program, event):
             if "Item" in response:
                 if "OutputAttributes" in response['Item']:
                     for key in response['Item']['OutputAttributes'].keys():
-                        features.append(f"{profile_response['Item']['Classifier']['Name']} | {key}")
+                        features.append(
+                            f"{profile_response['Item']['Classifier']['Name']} | {key}")
 
-                dependent_plugin_features = get_features_from_dependent_plugins(profile_response['Item']['Classifier'])
+                dependent_plugin_features = get_features_from_dependent_plugins(
+                    profile_response['Item']['Classifier'])
                 features.extend(dependent_plugin_features)
 
         if 'Labeler' in profile_response['Item']:
@@ -669,17 +728,20 @@ def getfeatures_by_program_event(program, event):
             if "Item" in response:
                 if "OutputAttributes" in response['Item']:
                     for key in response['Item']['OutputAttributes'].keys():
-                        features.append(f"{profile_response['Item']['Labeler']['Name']} | {key}")
+                        features.append(
+                            f"{profile_response['Item']['Labeler']['Name']} | {key}")
 
-                dependent_plugin_features = get_features_from_dependent_plugins(profile_response['Item']['Labeler'])
+                dependent_plugin_features = get_features_from_dependent_plugins(
+                    profile_response['Item']['Labeler'])
                 features.extend(dependent_plugin_features)
-
 
     except Exception as e:
         print(f"Unable to get replays for Program and Event: {str(e)}")
-        raise ChaliceViewError(f"Unable to get replays for Program and Event: {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get replays for Program and Event: {str(e)}")
 
     return replace_decimals(features)
+
 
 def get_features_from_dependent_plugins(pluginType):
     plugin_table = ddb_resource.Table(PLUGIN_TABLE_NAME)
@@ -700,9 +762,6 @@ def get_features_from_dependent_plugins(pluginType):
                         features.append(f"{dependent_plugin['Name']} | {key}")
 
     return features
-    
-
-
 
 
 @app.route('/replay/program/{program}/event/{event}/hls/replaymanifest/replayid/{replayid}', cors=True, methods=['GET'],
@@ -733,7 +792,8 @@ def get_hls_manifest_by_replayid(program, event, replayid):
         ConsistentRead=True
     )
     if "Item" not in response:
-        raise NotFoundError(f"Event '{event}' in Program '{program}' not found")
+        raise NotFoundError(
+            f"Event '{event}' in Program '{program}' not found")
 
     if 'HlsLocation' not in response['Item']:
         return {
@@ -752,7 +812,8 @@ def get_hls_manifest_by_replayid(program, event, replayid):
         key = '/'.join(parts[-3:])
 
         hlsfilecontent = ""
-        file_content = s3_resource.Object(bucket, key).get()['Body'].read().decode('utf-8').splitlines()
+        file_content = s3_resource.Object(bucket, key).get()[
+            'Body'].read().decode('utf-8').splitlines()
         for line in file_content:
             hlsfilecontent += str(line) + "\n"
 
@@ -764,8 +825,6 @@ def get_hls_manifest_by_replayid(program, event, replayid):
         return {
             "BlobContent": "No Content found"
         }
-
-
 
 
 @app.route('/replay/mp4location/update', cors=True, methods=['POST'], authorizer=authorizer)
@@ -872,7 +931,6 @@ def update_hls_for_replay_request():
         return {}
 
 
-
 def get_cloudfront_security_credentials():
     '''
         Generates Cloudfront Signed Cookie creds which are valid for 1 day.
@@ -900,7 +958,8 @@ def get_cloudfront_security_credentials():
         rsa.sign, priv_key=privateKey, hash_method='SHA-1'
     )
     cf_signer = CloudFrontSigner(key_pair_id, rsa_signer)
-    policy = cf_signer.build_policy(f"https://{HLS_STREAM_CLOUDFRONT_DISTRO}/*", expiry).encode('utf8')
+    policy = cf_signer.build_policy(
+        f"https://{HLS_STREAM_CLOUDFRONT_DISTRO}/*", expiry).encode('utf8')
     policy_64 = cf_signer._url_b64encode(policy).decode('utf8')
     signature = rsa_signer(policy)
     signature_64 = cf_signer._url_b64encode(signature).decode('utf8')
@@ -978,7 +1037,8 @@ def get_replay_hls_locations(program, event):
                 s3_hls_location = replay['HlsLocation']
 
                 if s3_hls_location != '-':
-                    s3_hls_location = s3_hls_location.replace(':', '').split('/')
+                    s3_hls_location = s3_hls_location.replace(
+                        ':', '').split('/')
 
                     # ['s3', '', 'aws-mre-clip-gen-output', 'HLS', 'ak555-testprogram', '4K', '']
                     keyprefix = f"{s3_hls_location[3]}/{s3_hls_location[4]}/{s3_hls_location[5]}"
@@ -991,7 +1051,8 @@ def get_replay_hls_locations(program, event):
             if 'HlsThumbnailLoc' in replay:
                 hls_thumbnail_location = replay['HlsThumbnailLoc']
                 if hls_thumbnail_location != '-':
-                    tmp_loc = hls_thumbnail_location.replace(':', '').split('/')
+                    tmp_loc = hls_thumbnail_location.replace(
+                        ':', '').split('/')
 
                     # ['s3', '', 'bucket_name', 'HLS', 'UUID', 'thumbnails', '4K', '']
                     key_prefix = f"{tmp_loc[3]}/{tmp_loc[4]}/{tmp_loc[5]}/{tmp_loc[6]}/{tmp_loc[7]}"
@@ -1015,8 +1076,6 @@ def get_replay_hls_locations(program, event):
             "KeyPaidId": cfn_credentials["CloudFront-Key-Pair-Id"]
         }
     }
-
-
 
 
 @app.route('/replay/event/{name}/program/{program}/id/{replayid}', cors=True, methods=['DELETE'], authorizer=authorizer)
@@ -1049,9 +1108,11 @@ def delete_replay(name, program, replayid):
         )
 
         if "Item" not in response:
-            raise NotFoundError(f"Event '{name}' in Program '{program}' not found")
+            raise NotFoundError(
+                f"Event '{name}' in Program '{program}' not found")
         elif response["Item"]["Status"] == "In Progress":
-            raise BadRequestError(f"Cannot delete Replay as it is currently in progress")
+            raise BadRequestError(
+                f"Cannot delete Replay as it is currently in progress")
 
         print(f"Deleting the Replay")
 
@@ -1079,8 +1140,7 @@ def delete_replay(name, program, replayid):
         return {}
 
 
-
-@app.route('/replay/event/program/export_data', cors=True, methods=['PUT'],authorizer=authorizer)
+@app.route('/replay/event/program/export_data', cors=True, methods=['PUT'], authorizer=authorizer)
 def store_replay_export_data():
     """
     Store the Export data generated for the Replay
@@ -1091,15 +1151,16 @@ def store_replay_export_data():
 
     Raises:
         500 - ChaliceViewError
-        
+
     """
     try:
-        payload = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
+        payload = json.loads(
+            app.current_request.raw_body.decode(), parse_float=Decimal)
         event_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
 
         event_name = payload['Name']
         program = payload['Program']
-        
+
         if 'IsBaseEvent' not in payload:
             raise Exception(f"Unable to determine the event type")
 
@@ -1107,13 +1168,17 @@ def store_replay_export_data():
             raise Exception(f"Invalid base event type")
 
         if payload['IsBaseEvent'] == 'Y':
-            updateExpression="SET #ReplayDataExportLocation = :ReplayDataExportLocation"
-            expressionAttributeNames= { "#ReplayDataExportLocation": "ReplayDataExportLocation" }
-            expressionAttributeValues= { ":ReplayDataExportLocation": payload['ExportDataLocation'] }
+            updateExpression = "SET #ReplayDataExportLocation = :ReplayDataExportLocation"
+            expressionAttributeNames = {
+                "#ReplayDataExportLocation": "ReplayDataExportLocation"}
+            expressionAttributeValues = {
+                ":ReplayDataExportLocation": payload['ExportDataLocation']}
         else:
-            updateExpression="SET #FinalReplayDataExportLocation = :FinalReplayDataExportLocation"
-            expressionAttributeNames= { "#FinalReplayDataExportLocation": "FinalReplayDataExportLocation" }
-            expressionAttributeValues= { ":FinalReplayDataExportLocation": payload['ExportDataLocation'] }
+            updateExpression = "SET #FinalReplayDataExportLocation = :FinalReplayDataExportLocation"
+            expressionAttributeNames = {
+                "#FinalReplayDataExportLocation": "FinalReplayDataExportLocation"}
+            expressionAttributeValues = {
+                ":FinalReplayDataExportLocation": payload['ExportDataLocation']}
 
         event_table.update_item(
             Key={
@@ -1132,12 +1197,13 @@ def store_replay_export_data():
             f"Unable to store the Replay data export of event '{event_name}' in program '{program}': {str(e)}")
 
     else:
-        print(f"Successfully stored the Replay data export of event '{event_name}' in program '{program}'")
+        print(
+            f"Successfully stored the Replay data export of event '{event_name}' in program '{program}'")
 
         return {}
 
 
-@app.route('/replay/update/ignore/segment/cache', cors=True, methods=['PUT'],authorizer=authorizer)
+@app.route('/replay/update/ignore/segment/cache', cors=True, methods=['PUT'], authorizer=authorizer)
 def update_segments_to_be_ignored():
     """
     Updates name of segment cache files which do not have matching Features configured for a Replay
@@ -1145,10 +1211,11 @@ def update_segments_to_be_ignored():
     Returns:
 
         None
-        
+
     """
-    
-    payload = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
+
+    payload = json.loads(
+        app.current_request.raw_body.decode(), parse_float=Decimal)
     event = payload['Name']
     program = payload['Program']
     segment_cache_name = payload['SegmentCacheName']
@@ -1160,16 +1227,17 @@ def update_segments_to_be_ignored():
     expression_attribute_names = {}
     expression_attribute_values = {}
 
-    update_expression.append("#IgnoredSegments = list_append(if_not_exists(#IgnoredSegments, :initialIgnoredSegments), :IgnoredSegments)")
+    update_expression.append(
+        "#IgnoredSegments = list_append(if_not_exists(#IgnoredSegments, :initialIgnoredSegments), :IgnoredSegments)")
     expression_attribute_names["#IgnoredSegments"] = "IgnoredSegments"
-    expression_attribute_values[":IgnoredSegments"] = [segment_cache_name] 
+    expression_attribute_values[":IgnoredSegments"] = [segment_cache_name]
     expression_attribute_values[":initialIgnoredSegments"] = []
 
     replay_request_table.update_item(
         Key={
-                "PK": f"{program}#{event}",
-                "ReplayId": replay_id
-            },
+            "PK": f"{program}#{event}",
+            "ReplayId": replay_id
+        },
         UpdateExpression="SET " + ", ".join(update_expression),
         ExpressionAttributeNames=expression_attribute_names,
         ExpressionAttributeValues=expression_attribute_values
@@ -1193,7 +1261,6 @@ def get_replay_export_data(program, event, id):
     program = urllib.parse.unquote(program)
     event = urllib.parse.unquote(event)
     replay_id = urllib.parse.unquote(id)
-    
 
     replay_table = ddb_resource.Table(REPLAY_REQUEST_TABLE_NAME)
 
@@ -1205,7 +1272,8 @@ def get_replay_export_data(program, event, id):
         ConsistentRead=True
     )
     if "Item" not in response:
-        raise NotFoundError(f"Event '{event}' in Program '{program}' not found")
+        raise NotFoundError(
+            f"Event '{event}' in Program '{program}' not found")
 
     if 'ReplayDataExportLocation' not in response['Item']:
         return {
@@ -1213,16 +1281,203 @@ def get_replay_export_data(program, event, id):
         }
 
     export_location = response['Item']['ReplayDataExportLocation']
-    
+
     parts = export_location.split('/')
     bucket = parts[2]
     key = '/'.join(parts[-3:])
 
     export_filecontent = ""
-    file_content = s3_resource.Object(bucket, key).get()['Body'].read().decode('utf-8').splitlines()
+    file_content = s3_resource.Object(bucket, key).get()[
+        'Body'].read().decode('utf-8').splitlines()
     for line in file_content:
         export_filecontent += str(line) + "\n"
 
     return {
-            "BlobContent": export_filecontent
-        }
+        "BlobContent": export_filecontent
+    }
+
+
+@app.route('/replay/transition/{transition_name}', cors=True, methods=['GET'], authorizer=authorizer)
+def get_transitions_config(transition_name):
+    """
+    Get a Clip Transition Configuration
+
+    Returns:
+        .. code-block:: python
+
+            {
+                "ImageLocations": [
+                {
+                    "1080p": "",
+                    "2k": "",
+                    "720p": "",
+                    "4k": ""
+                }
+                ],
+                "PreviewVideoLocation": "",
+                "IsDefault": false,
+                "Config": {
+                "FadeOutMs": ,
+                "FadeInMs": ,
+                },
+                "Description": "",
+                "VideoLocations": [
+                {
+                    "1080p": "",
+                    "2k": "",
+                    "720p": "",
+                    "4k": ""
+                }
+                ],
+                "MediaType": "Video/Image",
+                "Name": ""
+            }
+
+    Raises:
+        500 - ChaliceViewError
+    """
+    transition_name = urllib.parse.unquote(transition_name)
+    transitions_config_table = ddb_resource.Table(
+        TRANSITIONS_CONFIG_TABLE_NAME)
+
+    response = transitions_config_table.get_item(
+        Key={
+            "Name": transition_name
+        },
+        ConsistentRead=True
+    )
+    if "Item" not in response:
+        raise NotFoundError(f"Transition '{transition_name}' not found")
+
+    else:
+        config = response["Item"]
+        try:
+            if 'PreviewVideoLocation' in config:
+                full_s3_path = config['PreviewVideoLocation'].split('/')
+                key = '/'.join(full_s3_path[3:])
+                config['PreviewVideoUrl'] = get_media_presigned_url(key)
+        except Exception as e:
+            print(f'Error when creating PreSigned Url for Transition - {transition_name}. Error details - {e}')
+            raise ChaliceViewError(f'Error when creating PreSigned Url for Transition - {transition_name}')
+
+    return replace_decimals(config)
+
+
+@app.route('/replay/transitions/all', cors=True, methods=['GET'], authorizer=authorizer)
+def list_all_transitions_config():
+    """
+    List all Clip Transitions Configurations
+
+    Returns:
+        .. code-block:: python
+
+            {
+            "Items":
+                [
+                    {
+                        "ImageLocations": [
+                        {
+                            "1080p": "",
+                            "2k": "",
+                            "720p": "",
+                            "4k": ""
+                        }
+                        ],
+                        "PreviewVideoLocation": "",
+                        "IsDefault": false,
+                        "Config": {
+                        "FadeOutMs": ,
+                        "FadeInMs": ,
+                        },
+                        "Description": "",
+                        "VideoLocations": [
+                        {
+                            "1080p": "",
+                            "2k": "",
+                            "720p": "",
+                            "4k": ""
+                        }
+                        ],
+                        "MediaType": "Video/Image",
+                        "Name": ""
+                    },,
+                    ...
+                ]
+            }
+
+    Raises:
+        500 - ChaliceViewError
+    """
+
+    try:
+        print(f"Listing all the programs")
+
+        transitions_config_table = ddb_resource.Table(
+            TRANSITIONS_CONFIG_TABLE_NAME)
+
+        response = transitions_config_table.scan(
+            ConsistentRead=True
+        )
+
+        trans_config = response["Items"]
+
+        while "LastEvaluatedKey" in response:
+            response = transitions_config_table.scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+                ConsistentRead=True
+            )
+
+            trans_config.extend(response["Items"])
+
+    except Exception as e:
+        print(
+            f"Unable to list all the Transitions Config stored in the system: {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to list all the Transitions Config stored in the system: {str(e)}")
+
+    else:
+        return trans_config
+
+
+def get_media_presigned_url(key):
+    """
+    Generate pre-signed URL for downloading the media (video) file from S3.
+
+    Returns:
+
+        S3 pre-signed URL for downloading the media (video) file.
+
+    Raises:
+        500 - ChaliceViewError
+    """
+    key = urllib.parse.unquote(key)
+
+    s3 = boto3.client('s3', config=Config(
+        signature_version='s3v4', s3={'addressing_style': 'virtual'}))
+
+    try:
+        response = s3.generate_presigned_url(
+            ClientMethod='get_object',
+            Params={
+                'Bucket': TRANSITION_CLIP_S3_BUCKET,
+                'Key': key
+            },
+            ExpiresIn=86400  # 24Hrs
+        )
+
+    except ClientError as e:
+        print(f"Got S3 ClientError: {str(e)}")
+        error = e.response['Error']['Message']
+        print(
+            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(error)}")
+        raise ChaliceViewError(
+            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(error)}")
+
+    except Exception as e:
+        print(
+            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(e)}")
+
+    else:
+        return response

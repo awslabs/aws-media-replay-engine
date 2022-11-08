@@ -15,6 +15,8 @@ from queue import Queue
 from time import sleep
 from pathlib import Path
 from datetime import datetime
+from aws_lambda_powertools import Logger
+logger = Logger()
 
 # Represents the Maximum number of Concurrent Threads
 MAX_NUMBER_OF_THREADS = 20
@@ -153,10 +155,10 @@ class Mp4JobInitializer:
     def create_input_settings_for_segments(self):
         segment_groups = [self.replay_segments[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.replay_segments), MAX_NUMBER_OF_THREADS)]
 
-        print(f"No. of Replay segments for creating MP4 = {len(self.replay_segments)}")
+        logger.info(f"No. of Replay segments for creating MP4 = {len(self.replay_segments)}")
         
         for seg_groups in segment_groups:
-            print(f"No. of threads being spawned for creating MP4 = {len(seg_groups)}")
+            logger.info(f"No. of threads being spawned for creating MP4 = {len(seg_groups)}")
             self.__configure_threads(seg_groups)
             self.__start_threads()
             self.__join_threads()

@@ -33,21 +33,36 @@ export const EventDropdown = (props) => {
 
     React.useEffect(() => {
         (async () => {
-            await fetchData();
+            setEventOptions([])
+            setNextToken('')
+            initQueryParams["LastEvaluatedKey"] = ''
+            if (props.SelectedProgram !== "-NA-")
+                await fetchData();
         })();
-    }, []);
+    }, [props.SelectedProgram]);
 
     const fetchData = async (isLoadMore) => {
-        initQueryParams["LastEvaluatedKey"] = nextToken || "";
-        let response = await query('get', 'api', 'event/all', initQueryParams);
-        let eventNames = _.map(response.data, 'Name');
+        if (isLoadMore)
+            initQueryParams["LastEvaluatedKey"] = nextToken || "";
+        else
+            initQueryParams["LastEvaluatedKey"] = "";
 
-        setNextToken(response.LastEvaluatedKey ? JSON.stringify(response.LastEvaluatedKey) : "");
+        console.log(`event/by/${props.SelectedProgram}`);
+        let response = await query('get', 'api', `event/by/${props.SelectedProgram}`, initQueryParams);
+        let eventNames = _.map(response.data, 'Name');
 
         if (props.initValue) {
             eventNames.push(props.initValue);
         }
-        setEventOptions(_.uniq(eventOptions.concat(eventNames)));
+
+        if (isLoadMore)
+            setEventOptions(_.uniq(eventOptions.concat(eventNames)));
+        else{
+            setEventOptions(_.uniq(eventNames));
+            
+        }
+        setNextToken(response.LastEvaluatedKey ? JSON.stringify(response.LastEvaluatedKey) : "");
+            
 
         isLoadMore && setIsSelectorOpen(true);
     };
@@ -63,14 +78,14 @@ export const EventDropdown = (props) => {
                     <Container>
                         <CircularProgress color="inherit"/>
                     </Container> :
-                    <Select
+                    <Select 
                         value={props.selected}
                         onChange={props.handleChange}
                         MenuProps={{classes: {paper: classes.menu}}}
                         open={isSelectorOpen}
                         onClick={() => setIsSelectorOpen(!isSelectorOpen)}
                     >
-                        <MenuItem value={"ALL"}>Select All</MenuItem>
+                        
                         {
                             _.map(eventOptions, (event, index) => {
                                 return (

@@ -33,6 +33,12 @@
             "title": "The SourceVideoMetadata Schema",
             "minProperties": 1
         },
+        "SourceVideoBucket": {
+            "$id": "#/properties/SourceVideoBucket",
+            "type": "string",
+            "title": "The SourceVideoBucket schema",
+            "pattern": "^([a-z]+)([a-z0-9-]*)$"
+        },
         "BootstrapTimeInMinutes": {
             "$id": "#/properties/BootstrapTimeInMinutes",
             "type": "integer",

@@ -420,38 +420,100 @@ def notify_event_deletion_queue(name, program, profile):
         print(
             f"Unable to send a message to the SQS queue '{SQS_QUEUE_URL}' to notify the deletion of event '{name}' in program '{program}': {str(e)}")
 
-
-def s3_bucket_trigger_exists(bucket_name: str) -> bool:
+def get_s3_bucket_triggers(bucket_name: str) -> bool:
     try:
-        response = s3_client.get_bucket_notification_configuration(
-            Bucket=bucket_name
-        )
-        if response and 'LambdaFunctionConfigurations' in response:
-            for trigger in response['LambdaFunctionConfigurations']:
-                if trigger['LambdaFunctionArn'] == TRIGGER_LAMBDA_ARN:
-                    return True
-        return False
+        triggers = s3_client.get_bucket_notification_configuration(Bucket=bucket_name)
+        ## remove Response Metadata
+        if 'ResponseMetadata' in triggers:
+            triggers.pop('ResponseMetadata', None)
+        return triggers
     except Exception as e:
         print(e)
         raise Exception(f"Unable to check S3 triggers on {bucket_name}'")
 
+def s3_bucket_trigger_exists(notifiction_config: dict, upload_path: str) -> bool:
+    try:
+        if notifiction_config and 'LambdaFunctionConfigurations' in notifiction_config:
+            for trigger in notifiction_config['LambdaFunctionConfigurations']:
+                ## We're checking if it exists based on the Id schema (using the upload path)
+                if trigger['Id'] == f'{NOTIFICATION_ID}#{upload_path}':
+                    return True
+        return False
+    except Exception as e:
+        print(e)
+        raise Exception(f"Unable to check S3 triggers'")
 
-def create_s3_bucket_trigger(bucket_name: str) -> None:
+def merge_config(notification_config: dict, upload_path: str) -> dict:
+    """Merge Notification Configuration
+
+    Args:
+        notification_config (dict): Exisiting Configuration
+
+    Returns:
+        dict: Updated Notification Configuration
+    """
+    byob_notification = {
+                "Id": f'{NOTIFICATION_ID}#{upload_path}',
+                "LambdaFunctionArn": TRIGGER_LAMBDA_ARN,
+                "Events": ["s3:ObjectCreated:*"],
+                "Filter":{
+                    'Key': {
+                        'FilterRules': [
+                            {
+                                'Name': 'prefix',
+                                'Value': f'{upload_path}'
+                            },
+                        ]
+                    }
+                }
+            }
+    if 'LambdaFunctionConfigurations' in notification_config:
+        notification_config['LambdaFunctionConfigurations'].append(byob_notification)
+    else:
+        notification_config['LambdaFunctionConfigurations'] = [byob_notification]
+    return notification_config
+
+def delete_config(notification_config: dict, upload_path: str) -> dict:
+    """Merge Notification Configuration
+
+    Args:
+        notification_config (dict): Exisiting Configuration
+
+    Returns:
+        dict: Updated Notification Configuration
+    """
+    try:
+        if notification_config and 'LambdaFunctionConfigurations' in notification_config:
+            for index, trigger in enumerate(notification_config['LambdaFunctionConfigurations']):
+                if 'Id' in trigger and trigger['Id'] == f'{NOTIFICATION_ID}#{upload_path}':
+                    del notification_config['LambdaFunctionConfigurations'][index]
+        return notification_config
+    except Exception as e:
+        print(e)
+        raise Exception(f"Unable to check S3 triggers'")
+
+
+def create_s3_bucket_trigger(bucket_name: str, upload_path: str) -> None:
     try:
         # Make sure bucket trigger for Lambda function doesn't already exist
-        if not s3_bucket_trigger_exists(bucket_name):
-            response = s3_client.put_bucket_notification_configuration(
+        s3_triggers = get_s3_bucket_triggers(bucket_name)
+        if not s3_bucket_trigger_exists(s3_triggers, upload_path):
+            notification_config = merge_config(s3_triggers,upload_path)
+            s3_client.put_bucket_notification_configuration(
                 Bucket=bucket_name,
-                NotificationConfiguration={
-                    "LambdaFunctionConfigurations": [
-                        {
-                            "Id": NOTIFICATION_ID,
-                            "LambdaFunctionArn": TRIGGER_LAMBDA_ARN,
-                            "Events": ["s3:ObjectCreated:*"]
-                        }
-                    ]
-                })
-            print(response)
+                NotificationConfiguration=notification_config)
     except Exception as e:
         print(e)
         raise Exception(f"Unable to create Lambda trigger on '{bucket_name}'. Refer to README to ensure proper permissions.")
+
+def delete_s3_bucket_trigger(bucket_name: str, upload_path: str) -> None:
+    try:
+        # Make sure bucket trigger for Lambda function doesn't already exist
+        s3_triggers = get_s3_bucket_triggers(bucket_name)
+        notification_config = delete_config(s3_triggers, upload_path)
+        s3_client.put_bucket_notification_configuration(
+            Bucket=bucket_name,
+            NotificationConfiguration=notification_config)
+    except Exception as e:
+        print(e)
+        raise Exception(f"Unable to delete Lambda trigger on '{bucket_name}'. Refer to README to ensure proper permissions.")

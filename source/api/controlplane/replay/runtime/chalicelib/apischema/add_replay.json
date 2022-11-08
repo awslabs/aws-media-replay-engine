@@ -136,6 +136,11 @@
         "type": "boolean",
         "title": "The Catchup Schema"
     },
+    "IgnoreDislikedSegments": {
+      "$id": "#/properties/IgnoreDislikedSegments",
+      "type": "boolean",
+      "title": "The IgnoreDislikedSegments Schema"
+  },
     "CreateHls": {
       "$id": "#/properties/CreateHls",
       "type": "boolean",
@@ -145,6 +150,28 @@
       "$id": "#/properties/CreateHls",
       "type": "boolean",
       "title": "The CreateMp4 Schema"
+    },
+    "TransitionName": {
+      "$id": "#/properties/TransitionName",
+      "type": "string",
+      "title": "The TransitionName Schema"
+    },
+    "TransitionOverride": {
+      "$id": "#/properties/TransitionOverride",
+      "type": "object",
+      "title": "The TransitionName Schema",
+      "properties": {
+        "FadeInMs" : {
+          "$id": "#/properties/TransitionOverride/FadeInMs",
+          "type": "number",
+          "title": "The FadeInMs Schema"
+        },
+        "FadeOutMs" : {
+          "$id": "#/properties/TransitionOverride/FadeOutMs",
+          "type": "number",
+          "title": "The FadeOutMs Schema"
+        }
+      }
     },
     "MediaTailorChannel" : {
         "$id": "#/properties/CreateHls/MediaTailorChannel",

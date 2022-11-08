@@ -35,9 +35,11 @@ sm_client = boto3.client("secretsmanager")
 
 API_SCHEMA = load_api_schema()
 
+PROGRAM_TABLE_NAME = os.environ['PROGRAM_TABLE_NAME']
 EVENT_TABLE_NAME = os.environ['EVENT_TABLE_NAME']
 EVENT_PAGINATION_INDEX = os.environ['EVENT_PAGINATION_INDEX']
 EVENT_PROGRAMID_INDEX = os.environ['EVENT_PROGRAMID_INDEX']
+EVENT_PROGRAM_INDEX = os.environ['EVENT_PROGRAM_INDEX']
 EVENT_CHANNEL_INDEX = os.environ['EVENT_CHANNEL_INDEX']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 CURRENT_EVENTS_TABLE_NAME = os.environ['CURRENT_EVENTS_TABLE_NAME']
@@ -113,6 +115,15 @@ def create_event():
         name = event["Name"]
         program = event["Program"]
 
+        program_table = ddb_resource.Table(PROGRAM_TABLE_NAME)
+
+        # Add the program to Program DDB table
+        program_table.put_item(
+            Item={
+                "Name": program
+            }
+        )
+
         is_vod_event = False
 
         start_utc_time = datetime.strptime(event["Start"], "%Y-%m-%dT%H:%M:%SZ")
@@ -172,7 +183,8 @@ def create_event():
 
         # S3 bucket source
         if "SourceVideoBucket" in event and event["SourceVideoBucket"]:
-            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"])
+            uploadPath = f'{event["Program"]}/{event["Name"]}/{event["Profile"]}'
+            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"],uploadPath)
 
         print(f"Creating the event '{name}' in program '{program}'")
 
@@ -425,6 +437,124 @@ def list_events_by_content_group(content_group):
     return list_events({"ContentGroup": content_group})
 
 
+@app.route('/event/by/{program}', cors=True, methods=['GET'], authorizer=authorizer)
+def list_events_by_program(program):
+    """
+    List all events in MRE for a Program. Supports pagination and filters.
+
+    Returns:
+
+        .. code-block:: python
+
+            {
+            "Items":
+                [
+                    {
+                        "Name": string,
+                        "Program": string,
+                        "Description": string,
+                        "Channel": string,
+                        "ProgramId": string,
+                        "SourceVideoUrl": string,
+                        "SourceVideoAuth": object,
+                        "SourceVideoMetadata": object,
+                        "SourceVideoBucket": string,
+                        "BootstrapTimeInMinutes": integer,
+                        "Profile": string,
+                        "ContentGroup": string,
+                        "Start": timestamp,
+                        "DurationMinutes": integer,
+                        "Archive": boolean,
+                        "FirstPts": number,
+                        "FrameRate": number,
+                        "AudioTracks": list,
+                        "Status": string,
+                        "Id": uuid,
+                        "Created": timestamp,
+                        "ContentGroup: string,
+                        "GenerateOrigClips": boolean,
+                        "GenerateOptoClips": boolean,
+                        "TimecodeSource": string
+                    },
+                    ...
+                ]
+            "LastEvaluatedKey":
+                {
+                    Obj
+                }
+            }
+
+    Raises:
+        500 - ChaliceViewError
+    """
+    
+    try:
+        program = urllib.parse.unquote(program)
+        query_params = app.current_request.query_params
+        limit = 100
+        filter_expression = None
+        last_evaluated_key = None
+        projection_expression = None
+
+        if query_params:
+            if "limit" in query_params:
+                limit = int(query_params.get("limit"))
+            if "LastEvaluatedKey" in query_params:
+                last_evaluated_key = query_params.get("LastEvaluatedKey")
+            if "ProjectionExpression" in query_params:
+                projection_expression = query_params.get("ProjectionExpression")
+            if "fromFilter" in query_params:
+                start = query_params.get("fromFilter")
+                filter_expression = Attr("StartFilter").gte(start) if \
+                    not filter_expression else filter_expression & Attr("StartFilter").gte(start)
+            if "toFilter" in query_params:
+                end = query_params.get("toFilter")
+                filter_expression = Attr("StartFilter").lte(end) if \
+                    not filter_expression else filter_expression & Attr("StartFilter").lte(end)
+            
+
+        event_table = ddb_resource.Table(EVENT_TABLE_NAME)
+
+        query = {
+            'IndexName': EVENT_PROGRAM_INDEX,
+            'Limit': limit,
+            'ScanIndexForward': False,  # descending
+            'KeyConditionExpression': Key("Program").eq(program)
+        }
+
+        if filter_expression:
+            query["FilterExpression"] = filter_expression
+        if last_evaluated_key:
+            query["ExclusiveStartKey"] = json.loads(last_evaluated_key)
+        if projection_expression:
+            query["ProjectionExpression"] = ", ".join(["#" + name for name in projection_expression.split(', ')])
+            expression_attribute_names = {}
+            for item in query["ProjectionExpression"].split(', '):
+                expression_attribute_names[item] = item[1:]
+            query["ExpressionAttributeNames"] = expression_attribute_names
+
+        response = event_table.query(**query)
+        events = response["Items"]
+
+        while "LastEvaluatedKey" in response and (limit - len(events) > 0):
+            query["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+            query["Limit"] = limit - len(events)
+            response = event_table.query(**query)
+            events.extend(response["Items"])
+
+    except Exception as e:
+        print(e)
+        print(f"Unable to get the Events")
+        raise ChaliceViewError(f"Unable to get Events")
+
+    else:
+        ret_val = {
+            "LastEvaluatedKey": response["LastEvaluatedKey"] if "LastEvaluatedKey" in response else "",
+            "Items": replace_decimals(events)
+        }
+
+        return ret_val
+
 @app.route('/event/all', cors=True, methods=['GET'], authorizer=authorizer)
 def list_events_all():
     """
@@ -672,11 +802,24 @@ def update_event(name, program):
                 event["SourceVideoAuthSecretARN"] = response["ARN"]
                 event.pop("SourceVideoAuth", None)
 
-        update_expression = "SET #Description = :Description, #ProgramId = :ProgramId, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive, #GenerateOrigClips = :GenerateOrigClips, #GenerateOptoClips = :GenerateOptoClips, #TimecodeSource = :TimecodeSource"
+        ## S3 bucket source
+        if "SourceVideoBucket" in event and event["SourceVideoBucket"]:
+            ## Get current bucket
+            if "SourceVideoBucket" in response["Item"]:
+                existing_bucket = response["Item"]["SourceVideoBucket"]
+                ## Get current path of the prefix for BYOB
+                existing_upload_path = f'{response["Item"]["Program"]}/{response["Item"]["Name"]}/{response["Item"]["Profile"]}'
+                ## Remove trigger from bucket
+                helpers.delete_s3_bucket_trigger(existing_bucket,existing_upload_path)
+            ## Add trigger to updated bucket
+            ## We can reuse Program and Name because they won't change; profile *may* change
+            new_upload_path = f'{response["Item"]["Program"]}/{response["Item"]["Name"]}/{event["Profile"] if "Profile" in event else response["Item"]["Profile"]}'
+            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"],new_upload_path)
+
+        update_expression = "SET #Description = :Description, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive, #GenerateOrigClips = :GenerateOrigClips, #GenerateOptoClips = :GenerateOptoClips, #TimecodeSource = :TimecodeSource"
 
         expression_attribute_names = {
             "#Description": "Description",
-            "#ProgramId": "ProgramId",
             "#Profile": "Profile",
             "#ContentGroup": "ContentGroup",
             "#Start": "Start",
@@ -690,8 +833,6 @@ def update_event(name, program):
         expression_attribute_values = {
             ":Description": event["Description"] if "Description" in event else (
                 response["Item"]["Description"] if "Description" in response["Item"] else ""),
-            ":ProgramId": event["ProgramId"] if "ProgramId" in event else (
-                response["Item"]["ProgramId"] if "ProgramId" in response["Item"] else ""),
             ":Profile": event["Profile"] if "Profile" in event else response["Item"]["Profile"],
             ":ContentGroup": event["ContentGroup"] if "ContentGroup" in event else response["Item"]["ContentGroup"],
             ":Start": event["Start"] if "Start" in event else response["Item"]["Start"],
@@ -703,7 +844,15 @@ def update_event(name, program):
             ":TimecodeSource": event["TimecodeSource"] if "TimecodeSource" in event else (response["Item"]["TimecodeSource"] if "TimecodeSource" in response["Item"] else "NOT_EMBEDDED")
         }
 
-        if "Channel" not in response["Item"]:
+        ## BYOB events do not have ProgramId
+        if "ProgramId" in response["Item"]:
+            update_expression += ", #ProgramId = :ProgramId"
+            expression_attribute_names["#ProgramId"] = "ProgramId"
+            ## Since this is a GSI we cannot have a null string
+            expression_attribute_values[":ProgramId"] = event["ProgramId"] if "ProgramId" in event else response["Item"]["ProgramId"]
+
+        if "SourceVideoAuth" in response["Item"]:
+        # if "Channel" not in response["Item"]:
             update_expression += ", #SourceVideoUrl = :SourceVideoUrl, #SourceVideoAuthSecretARN = :SourceVideoAuthSecretARN, #SourceVideoMetadata = :SourceVideoMetadata, #BootstrapTimeInMinutes = :BootstrapTimeInMinutes"
 
             expression_attribute_names["#SourceVideoUrl"] = "SourceVideoUrl"
@@ -722,6 +871,12 @@ def update_event(name, program):
             expression_attribute_values[":BootstrapTimeInMinutes"] = event[
                 "BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else response["Item"][
                 "BootstrapTimeInMinutes"]
+
+        ## If BYOB
+        if "SourceVideoBucket" in response["Item"]:
+            update_expression += ", #SourceVideoBucket = :SourceVideoBucket"
+            expression_attribute_names["#SourceVideoBucket"] = "SourceVideoBucket"
+            expression_attribute_values[":SourceVideoBucket"] = event["SourceVideoBucket"] if "SourceVideoBucket" in event else response["Item"]["SourceVideoBucket"]
 
         event_table.update_item(
             Key={
@@ -794,6 +949,7 @@ def delete_event(name, program):
         profile = response["Item"]["Profile"]
         source_auth_secret_arn = response["Item"]["SourceVideoAuthSecretARN"] if "SourceVideoAuthSecretARN" in response[
             "Item"] else None
+        source_bucket = response["Item"]["SourceVideoBucket"] if "SourceVideoBucket" in response["Item"] else None
 
         if channel_id:
             print(
@@ -838,6 +994,11 @@ def delete_event(name, program):
                     SecretId=source_auth_secret_arn,
                     RecoveryWindowInDays=7
                 )
+
+        if source_bucket:
+            existing_upload_path = f'{response["Item"]["Program"]}/{response["Item"]["Name"]}/{response["Item"]["Profile"]}'
+            ## Remove trigger from bucket
+            helpers.delete_s3_bucket_trigger(source_bucket,existing_upload_path)
 
         print(f"Deleting the Event '{name}' in Program '{program}'")
 

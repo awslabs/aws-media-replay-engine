@@ -49,7 +49,7 @@ export const ReplayList = () => {
             tableHeaders={[
                 <TableCell align="left">Program</TableCell>,
                 <TableCell align="left" style={{minWidth: 150}}>Event</TableCell>,
-                <TableCell align="left" style={{maxWidth: 100}}>Duration (minutes)</TableCell>,
+                <TableCell align="left" style={{maxWidth: 100}}>Duration (Secs)</TableCell>,
                 <TableCell align="left">Requester</TableCell>,
                 <TableCell align="left">Audio Track</TableCell>,
                 <TableCell align="left">Catch-up</TableCell>,

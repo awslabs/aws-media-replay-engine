@@ -83,7 +83,7 @@ export const SummaryView = (props) => {
                         <Grid item sm={4}>
                             <Typography variant={"body2"}>Plugin Name and Version</Typography>
                         </Grid>
-                        <Grid item>
+                        <Grid item sm={4}>
                             <Link
                                 component="button"
                                 onClick={() => {
@@ -91,6 +91,13 @@ export const SummaryView = (props) => {
                                 }}
                                 variant={"body1"}>{pluginData.Name}:{pluginData.Version}</Link>
                         </Grid>
+                        {
+                            pluginData.hasOwnProperty("IsPriorityForReplay") &&
+                            <Grid item >
+                                <Typography variant={"body1"}>Priority for Replay:  {pluginData.IsPriorityForReplay ? "Yes" : "No"} </Typography>
+                            </Grid>
+                        }
+                        
                         {pluginData.DependentPlugins &&
                             <Grid container direction="column" style={{paddingTop: "1vw"}}>
                                 <Grid container item direction="row" style={{paddingLeft: "2vw"}}>
@@ -119,6 +126,7 @@ export const SummaryView = (props) => {
                                                         Dependency for: {dependentPlugin.DependentFor.join(", ")}
                                                     </Typography>
                                                 }
+                                                
                                             </Grid>
                                         </Grid>
                                     })}

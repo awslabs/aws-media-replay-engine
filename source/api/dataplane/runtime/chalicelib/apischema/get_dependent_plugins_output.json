@@ -53,9 +53,18 @@
             "$id": "#/properties/AudioTrack",
             "type": "integer",
             "title": "The AudioTrack Schema"
+        },
+        "LastEvaluatedKeys": {
+            "$id": "#/properties/LastEvaluatedKeys",
+            "type": "object",
+            "items": {
+                "type": "object"
+            },
+            "uniqueItems": true,
+            "title": "The LastEvaluatedKey Schema"
         }
     },
-    "additionalProperties": false,
+    "additionalProperties": true,
     "required": [
         "Program",
         "Event",

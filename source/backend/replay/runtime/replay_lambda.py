@@ -20,6 +20,11 @@ from subprocess import Popen
 from MediaReplayEngineWorkflowHelper import ControlPlane
 controlplane = ControlPlane()
 from MediaReplayEnginePluginHelper import DataPlane
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
+logger = Logger()
+
 
 s3_client = boto3.client("s3")
 ssm = boto3.client('ssm')
@@ -30,13 +35,13 @@ OUTPUT_BUCKET = os.environ['OutputBucket']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 eb_client = boto3.client("events")
 
-
+@logger.inject_lambda_context
 def CreateReplay(event, context):
     '''
         This is the entry point for MRE Replay Creation.
     '''
    
-    print(f"Event passed to the Replay function = {event}")
+    logger.info(f"Event passed to the Replay function = {event}")
     replay: ReplayEngine = None
     try:
         process_replay, msg = should_replay_be_processed(event)
@@ -58,7 +63,7 @@ def CreateReplay(event, context):
 
             runId = str(uuid.uuid4())
             start_time = datetime.datetime.now()
-            print(f"------- Starting replay creation run id {runId} ----------------- {start_time}")
+            logger.info(f"------- Starting replay creation run id {runId} ----------------- {start_time}")
             replay = ReplayEngine(event)
             replay_result = replay._create_replay()
 
@@ -70,7 +75,7 @@ def CreateReplay(event, context):
                 }
 
             end_time = datetime.datetime.now()
-            print(f"------- replay metadata creation end run id {runId}----------------- {end_time}")
+            logger.info(f"------- replay metadata creation end run id {runId}----------------- {end_time}")
 
             # Notify EventBridge when Replay data has been determined and saved
             # Also check if Replay Video is being created, If yes .. do not Publish
@@ -89,7 +94,7 @@ def CreateReplay(event, context):
                     Entries=[
                         {
                             "Source": "awsmre",
-                            "DetailType": "Base Replay Data Exported",
+                            "DetailType": "Replay has been processed. Clip was not created as per the configuration.",
                             "Detail": json.dumps(detail),
                             "EventBusName": EB_EVENT_BUS_NAME
                         }
@@ -102,13 +107,13 @@ def CreateReplay(event, context):
             }
             
         else:
-            print(msg)
+            logger.info(msg)
             return {
                 "Status": "Replay Not Processed",
                 "Reason": msg
             }
     except Exception as e:
-        print(e)
+        logger.info(e)
         
         # Only when we are dealing with a Non Catch up replay, we update the Replay Status as Error
         if replay and not event['ReplayRequest']['Catchup']:
@@ -128,12 +133,12 @@ def skip_segment_when_optimizer_configured(event):
         # This is because, replays will get created when Segments are optimized.
         if 'Optimizer' in response:
             if len(response['Optimizer']) > 0:
-                print("Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED event.")
+                logger.info("Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED event.")
                 return True
 
     return False
 
-
+@logger.inject_lambda_context
 def GetEligibleReplays(event, context):
     """
        Gets all eligible Replay Requests to be processed
@@ -142,7 +147,7 @@ def GetEligibleReplays(event, context):
     # from MediaReplayEngineWorkflowHelper import ControlPlane
     # controlplane = ControlPlane()
     
-    print(f"Getting eligible replays event payload = {event}")
+    logger.info(f"Getting eligible replays event payload = {event}")
 
     # Only if the Event has Completed, then create a replay for the Event
     # Supports use case of Creating Replays for Past/Completed Events
@@ -201,7 +206,7 @@ def GetEligibleReplays(event, context):
         replays = replay._get_all_replays_for_opto_segment_end()
     
         if len(replays) == 0:
-            print('No Reply requests found for the Program/Event/AudioTrack/Status Combo')
+            logger.info('No Reply requests found for the Program/Event/AudioTrack/Status Combo')
 
         return {
                 "AllReplays": replays
@@ -214,7 +219,7 @@ def GetEligibleReplays(event, context):
         replays = controlplane.get_all_replays_for_segment_end(event_name, program_name)
     
         if len(replays) == 0:
-            print('No Reply requests found for the Program/Event/Status Combo')
+            logger.info('No Reply requests found for the Program/Event/Status Combo')
 
         return {
                 "AllReplays": replays
@@ -270,8 +275,8 @@ def should_replay_be_processed(event):
 
     return True, ""
 
+@logger.inject_lambda_context
 def mark_replay_complete(event, context):
-    print(event)
     
     if event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
         event_name = event['detail']['Event']['Name']
@@ -286,8 +291,10 @@ def mark_replay_complete(event, context):
 def mark_replay_error(replayId, event_name, program):
     controlplane.update_replay_request_status(program, event_name, replayId, "Error")
 
+@logger.inject_lambda_context
 def update_replay_with_mp4_location(event, context):
 
+    logger.append_keys(replay_id=str(event['ReplayRequest']['ReplayId']))
 
     event_name = event['ReplayRequest']['Event']
     program_name = event['ReplayRequest']['Program']
@@ -306,9 +313,9 @@ def update_replay_with_mp4_location(event, context):
         for jobdata in jobresult['JobMetadata']:
             s3_path = jobdata['OutputDestination'].split('/')
             keyprefix = f"{s3_path[3]}/{s3_path[4]}/{s3_path[5]}/"
-            print(f"keyprefix = {keyprefix}")
+            logger.info(f"keyprefix = {keyprefix}")
             filenames = get_output_filename(keyprefix, "mp4")
-            print(f"filenames = {filenames}")
+            logger.info(f"filenames = {filenames}")
             if len(filenames) > 0:
                 mp4_locs.append("s3://" + OUTPUT_BUCKET + "/" + filenames[0])
             else:
@@ -319,9 +326,9 @@ def update_replay_with_mp4_location(event, context):
             if resolution in jobdata.keys():
                 s3_path = jobdata[resolution].split('/')
                 keyprefix = f"{s3_path[3]}/{s3_path[4]}/{s3_path[5]}/{s3_path[6]}/"
-                print(f"keyprefix = {keyprefix}")
+                logger.info(f"keyprefix = {keyprefix}")
                 filenames = get_output_filename(keyprefix, "jpg")
-                print(f"filenames = {filenames}")
+                logger.info(f"filenames = {filenames}")
                 if len(filenames) > 0:
                     mp4_thumb_locs.append("s3://" + OUTPUT_BUCKET + "/" + filenames[0])
                 else:
@@ -346,22 +353,26 @@ def update_replay_with_mp4_location(event, context):
             "Event": event_name,
             "Program": program_name,
             "ReplayId": replay_request_id,
+            "ClipLocation": mp4_location,
+            "ClipThumbnailLocation": mp4_thumbnail_location,
             "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
         }
     }
-    eb_client.put_events(
+    res = eb_client.put_events(
         Entries=[
             {
                 "Source": "awsmre",
-                "DetailType": "Base Replay Data with replay clips Exported",
+                "DetailType": "MP4 Replay Clip Generated",
                 "Detail": json.dumps(detail),
                 "EventBusName": EB_EVENT_BUS_NAME
             }
         ]
     )
 
+    logger.info(f"PutEvents Result = {res}")
 
 
+@logger.inject_lambda_context
 def generate_master_playlist(event, context):
     '''
         Generates a master Playlist with various Quality levels representing different resolutions
@@ -458,14 +469,16 @@ def generate_master_playlist(event, context):
                 "Event": event_name,
                 "Program": program_name,
                 "ReplayId": replay_request_id,
+                "ClipLocation": playlist_location,
+                "ClipThumbnail": thumbnail_location,
                 "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
             }
         }
-        eb_client.put_events(
+        res = eb_client.put_events(
             Entries=[
                 {
                     "Source": "awsmre",
-                    "DetailType": "Base Replay Data with replay clips Exported",
+                    "DetailType": "HLS Replay Manifest generated",
                     "Detail": json.dumps(detail),
                     "EventBusName": EB_EVENT_BUS_NAME
                 }
@@ -479,7 +492,7 @@ def generate_master_playlist(event, context):
         
         if runId != 'NA':
             end_time = datetime.datetime.now()
-            print(f"------- Updated HLS Location - RunID - {runId} ----------------- {end_time}")
+            logger.info(f"------- Updated HLS Location - RunID - {runId} ----------------- {end_time}")
 
     return {
         "MasterPlaylist": 'No playlist was found. This may not always be an error.' if playlist_location == '' else playlist_location
@@ -532,7 +545,7 @@ def get_resolution_hls_desc(resolution):
     elif resolution.lower() == "360p":
         return "#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=640x360"
 
-
+@logger.inject_lambda_context
 def generate_hls_clips(event, context):
 
     #1. Get Replay Segments
@@ -542,6 +555,7 @@ def generate_hls_clips(event, context):
     hls_gen = HlsGenerator(event)
     return hls_gen.generate_hls()
 
+@logger.inject_lambda_context
 def generate_mp4_clips(event, context):
 
     #1. Get Replay Segments
@@ -551,6 +565,7 @@ def generate_mp4_clips(event, context):
     mp4_gen = Mp4Generator(event)
     return mp4_gen.generate_mp4()
 
+@logger.inject_lambda_context
 def check_mp4_job_status(event, context):
     dataplane = DataPlane({})
     all_jobs_complete = True
@@ -559,19 +574,20 @@ def check_mp4_job_status(event, context):
         for jobMetData in jobResult['JobMetadata']:
             job_id = jobMetData['JobsId']
             job_detail = dataplane.get_media_convert_job_detail(job_id)
-            print(f'Media Convert Job Detail = {job_detail} ')
+            logger.info(f'Media Convert Job Detail = {job_detail} ')
             if len(job_detail) > 0:
                 job_status = job_detail[0]["Status"]
                 if job_status == 'CREATED':
                     all_jobs_complete = False
                     break
             else:
-                print('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
+                logger.info('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
                 all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
 
     return { "Status": "Complete" } if all_jobs_complete else { "Status": "InComplete" }
 
 
+@logger.inject_lambda_context
 def check_Hls_job_status(event, context):
     dataplane = DataPlane({})
     all_jobs_complete = True
@@ -580,14 +596,14 @@ def check_Hls_job_status(event, context):
         for jobMetData in jobResult['JobMetadata']:
             job_id = jobMetData['JobsId']
             job_detail = dataplane.get_media_convert_job_detail(job_id)
-            print(f'Media Convert Job Detail = {job_detail} ')
+            logger.info(f'Media Convert Job Detail = {job_detail} ')
             if len(job_detail) > 0:
                 job_status = job_detail[0]["Status"]
                 if job_status == 'CREATED':
                     all_jobs_complete = False
                     break
             else:
-                print('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
+                logger.info('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
                 all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
 
     return { "Status": "Complete" } if all_jobs_complete else { "Status": "InComplete" }
@@ -605,7 +621,7 @@ def get_output_filename(keyPrefix, file_extn):
 
         return manifests
 
-
+@logger.inject_lambda_context
 def update_job_status(event, context):
     '''
         This Handler is Invoked by EventBridge when MediaConvert Job Status changes to either 'COMPLETE' or 'ERROR'

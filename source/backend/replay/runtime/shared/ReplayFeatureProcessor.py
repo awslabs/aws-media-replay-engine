@@ -15,13 +15,16 @@ from queue import Queue
 import datetime
 from time import sleep
 from pathlib import Path
+from aws_lambda_powertools import Logger
+logger = Logger()
 
 
 # This is the number of Segment Cache Files which will be scanned to find Features in
 # for CatchUp replays. This is required to avoid finding in ALL past segments. We search for features in these
-# X number of Latest segment cache files and get the remaining from the SegmentFeature mapping cache file which the past replay 
+# X number of Latest segment cache files and get the remaining from the SegmentFeature mapping cache file which the past replay
 # execution has created. This should reduce the overall latency for CatchUp replays
-CATCHUP_NUMBER_OF_LATEST_SEGMENTS_TO_FIND_FEATURES_IN = int(os.environ['CATCHUP_NUMBER_OF_LATEST_SEGMENTS_TO_FIND_FEATURES_IN'])
+CATCHUP_NUMBER_OF_LATEST_SEGMENTS_TO_FIND_FEATURES_IN = int(
+    os.environ['CATCHUP_NUMBER_OF_LATEST_SEGMENTS_TO_FIND_FEATURES_IN'])
 
 # Represents the Maximum number of Concurrent Threads that will Find Features in SegmentFeature cache files.
 MAX_NUMBER_OF_THREADS = int(os.environ['MAX_NUMBER_OF_THREADS'])
@@ -32,7 +35,7 @@ client = boto3.client('cloudwatch')
 
 
 class ReplayFeatureProcessor:
-    def __init__(self, features: list, is_catchup_replay: bool, segments_ignore_file_list: list, audioTrack: str, event, program, replay_id):
+    def __init__(self, features: list, is_catchup_replay: bool, segments_ignore_file_list: list, audioTrack: str, event, program, replay_id, dataplane, ignore_disliked_segments):
 
         self.__queue = Queue()
         self.__segment_mapping_file_names = []
@@ -44,6 +47,11 @@ class ReplayFeatureProcessor:
         self.event_name = event
         self.program_name = program
         self.replay_id = replay_id
+        self._dataplane = dataplane
+        # This is needed to Ignore segments which have been Disliked due to wrong segmentation or non important features
+        self._clip_preview_feedback = dataplane.get_all_clip_preview_feedback(program, event, str(audioTrack))
+        self._ignore_disliked_segments = ignore_disliked_segments
+            
 
     def __sort_cache_files(self, cache_files, asc=True):
         cache_dicts = []
@@ -53,14 +61,14 @@ class ReplayFeatureProcessor:
             cache_dict['StartTime'] = start_time
             cache_dict['FileName'] = ca
             cache_dicts.append(cache_dict)
-        
+
         if asc:
-            sorted_files = sorted(cache_dicts, key = lambda x: x['StartTime'])
+            sorted_files = sorted(cache_dicts, key=lambda x: x['StartTime'])
         else:
 
-            sorted_files = sorted(cache_dicts, key = lambda x: x['StartTime'], reverse=True)
+            sorted_files = sorted(
+                cache_dicts, key=lambda x: x['StartTime'], reverse=True)
         return [f['FileName'] for f in sorted_files]
-
 
     def __get_segment_mapping_file_names(self):
         '''
@@ -68,21 +76,23 @@ class ReplayFeatureProcessor:
             list of returned file names.
         '''
 
-        print('Getting a Subset of Segment Cache files ....')
-        print(f'Segments to be Ignored List = {self.segments_ignore_file_list}')
+        logger.info('Getting a Subset of Segment Cache files ....')
+        logger.info(
+            f'Segments to be Ignored List = {self.segments_ignore_file_list}')
 
         cached_files = os.listdir(f"/tmp/{self.replay_id}")
-        
+
         # For Non Catch up replay , we need to process every Cached file.
         final_cached_files = cached_files
-        print(f"After SYNC - /tmp/{self.replay_id} contents - {final_cached_files}")
+        logger.info(
+            f"After SYNC - /tmp/{self.replay_id} contents - {final_cached_files}")
 
         # For Catchup replays, we will pick the last 10 Cached files.
         if self.isCatchupReplay:
 
             '''
             reverse_cached_files = self.__sort_cache_files(final_cached_files, False)  # Sort file names in Desc order with the latest first
-            print(f"After SORTING /tmp/mre-cache contents in Desc Order to pick top X - {reverse_cached_files}")
+            logger.info(f"After SORTING /tmp/mre-cache contents in Desc Order to pick top X - {reverse_cached_files}")
 
             # Check if any Segments exist in the Segments Ignore list. Ignore them to ensure that the 
             # last few segments have at least one feature that the ReplayRequest is configured with.
@@ -118,34 +128,30 @@ class ReplayFeatureProcessor:
             for final_cached_file_name in final_cached_files:
                 if final_cached_file_name not in self.segments_ignore_file_list:
                     f_cached_files.append(final_cached_file_name)
-                
+
             if f_cached_files:
                 final_cached_files = f_cached_files
 
         self.__segment_mapping_file_names = final_cached_files
-        print(f"CatchUp - {str(self.isCatchupReplay)} Final Subset of Cache files which will be sent to the Multi-threaded process = {self.__segment_mapping_file_names}")
+        logger.info(f"CatchUp - {str(self.isCatchupReplay)} Final Subset of Cache files which will be sent to the Multi-threaded process = {self.__segment_mapping_file_names}")
 
     def __find_features_in_segments(self, file_name):
-        
+
         segment_feature_file = open(f"/tmp/{self.replay_id}/{file_name}")
         segment_mapping_as_json = json.load(segment_feature_file)
 
-        #TODO - Finalize this mapping with AR
-
         segmentinfo = {}
         segmentinfo['Start'] = segment_mapping_as_json['Start']
-        
+
         if 'OptoStart' in segment_mapping_as_json:
             segmentinfo['OptoStart'] = segment_mapping_as_json['OptoStart']
 
-        
         segmentinfo['End'] = segment_mapping_as_json['End']
 
         if 'OptoEnd' in segment_mapping_as_json:
             segmentinfo['OptoEnd'] = segment_mapping_as_json['OptoEnd']
 
         segmentinfo['Features'] = []
-
 
         # We need to check for features that are present in sections that are AudioTrack depended (ex. DetectVoice)
         # as well as section that are Video specific (ex. DetectSoccerScene)
@@ -213,11 +219,11 @@ class ReplayFeatureProcessor:
 
         unique_features = []
 
-         # Check if the ReplayRequest features are in any of the segments from the Cache and Map it out
-        for feature in self.features: # This is the list of Features from ReplayRequest
+        # Check if the ReplayRequest features are in any of the segments from the Cache and Map it out
+        for feature in self.features:  # This is the list of Features from ReplayRequest
             if 'FeaturesDataPoints' in segment_mapping_as_json:
                 if '0' in segment_mapping_as_json['FeaturesDataPoints']:
-                    # Check Video based Feature data 
+                    # Check Video based Feature data
                     for feature_data_point in segment_mapping_as_json['FeaturesDataPoints']["0"]:
                         if feature['AttribName'] not in unique_features:
                             if self.__match_feature(feature, feature_data_point, segmentinfo):
@@ -230,10 +236,10 @@ class ReplayFeatureProcessor:
                             if self.__match_feature(feature, feature_data_point, segmentinfo):
                                 unique_features.append(feature['AttribName'])
 
-
     def __configure_threads(self, cached_file_names):
         for file_name in cached_file_names:
-            self.threads.append(threading.Thread(target=self.__find_features_in_segments, args=(file_name,)))
+            self.threads.append(threading.Thread(
+                target=self.__find_features_in_segments, args=(file_name,)))
 
     def __start_threads(self):
         for thread in self.threads:
@@ -242,6 +248,19 @@ class ReplayFeatureProcessor:
     def __join_threads(self):
         for thread in self.threads:
             thread.join()
+
+    def is_segment_disliked(self, segment_start_time):
+        for clip_feedback in self._clip_preview_feedback:
+            if str(segment_start_time) == str(clip_feedback['Start']):
+                if 'OriginalFeedback' in clip_feedback:
+                    if 'Feedback' in clip_feedback['OriginalFeedback']:
+                        if clip_feedback['OriginalFeedback']['Feedback'].lower() == "dislike":
+                            return True
+                if 'OptimizedFeedback' in clip_feedback:
+                    if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                        if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "dislike":
+                            return True
+        return False
 
     def find_features_in_cached_files(self):
         segments_with_features = []
@@ -252,9 +271,11 @@ class ReplayFeatureProcessor:
         if not self.isCatchupReplay:
 
             # Create Groups of 10 Cached Object file names. We could have hundreds of Cache objects
-            cached_file_groups = [self.__segment_mapping_file_names[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.__segment_mapping_file_names), MAX_NUMBER_OF_THREADS)]
-            print(f"Cache File Groups for Non Catchup = {cached_file_groups}")
-            print(f"Cache File Groups Length for Non Catchup = {len(cached_file_groups)}")
+            cached_file_groups = [self.__segment_mapping_file_names[i:i + MAX_NUMBER_OF_THREADS]
+                                  for i in range(0, len(self.__segment_mapping_file_names), MAX_NUMBER_OF_THREADS)]
+            logger.info(f"Cache File Groups for Non Catchup = {cached_file_groups}")
+            logger.info(
+                f"Cache File Groups Length for Non Catchup = {len(cached_file_groups)}")
 
             start_time = datetime.datetime.now()
             # Process each group with multiple threads and add the result of every thread into a global list
@@ -264,15 +285,27 @@ class ReplayFeatureProcessor:
                 self.__join_threads()
 
                 while not self.__queue.empty():
-                    segments_with_features.append(self.__queue.get())
-                
+                    segment_in_queue = self.__queue.get()
+                    # First Check if this Replay needs to Ignore any Disliked Segments
+                    if self._ignore_disliked_segments:
+                        # Check if this Segment has been Disliked or marked for not to be Added to the Replay Clip
+                        if not self.is_segment_disliked(segment_in_queue['Start']):
+                            segments_with_features.append(segment_in_queue)
+                        else:
+                            logger.info(f"CLIP DISLIKED - Ignoring segment with StartTime {segment_in_queue['Start']}")
+                    else:
+                        segments_with_features.append(segment_in_queue)
+
                 # Reset the thread list for the next group of Cache file processing
                 self.threads = []
 
             end_time = datetime.datetime.now()
-            find_features_time_in_secs = (end_time - start_time).total_seconds()
-            print(f'ReplayFeatureProcessor-NonCatchup Replay-Find Features Duration: {find_features_time_in_secs} seconds')
-            self.__put_metric("NoCatchUpFindFeaturesTime", find_features_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayFeatureProcessor'}, {'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
+            find_features_time_in_secs = (
+                end_time - start_time).total_seconds()
+            logger.info(
+                f'ReplayFeatureProcessor-NonCatchup Replay-Find Features Duration: {find_features_time_in_secs} seconds')
+            self.__put_metric("NoCatchUpFindFeaturesTime", find_features_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayFeatureProcessor'}, {
+                              'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
 
         else:
 
@@ -284,29 +317,37 @@ class ReplayFeatureProcessor:
             self.__join_threads()
 
             while not self.__queue.empty():
-                segments_with_features.append(self.__queue.get())
+                segment_in_queue = self.__queue.get()
+                # Check if this Segment has been Disliked or marked for not to be Added to the Replay Clip
+                if not self.is_segment_disliked(segment_in_queue['Start']):
+                    segments_with_features.append(segment_in_queue)
+                else:
+                    logger.info(f"CLIP DISLIKED - Ignoring segment with StartTime {segment_in_queue['Start']}")
 
             end_time = datetime.datetime.now()
-            find_features_time_in_secs = (end_time - start_time).total_seconds()
-            print(f'ReplayFeatureProcessor-Catchup Replay-Find Features Duration: {find_features_time_in_secs} seconds')
-            self.__put_metric("CatchUpFindFeaturesTime", find_features_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayFeatureProcessor'}, {'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
+            find_features_time_in_secs = (
+                end_time - start_time).total_seconds()
+            logger.info(
+                f'ReplayFeatureProcessor-Catchup Replay-Find Features Duration: {find_features_time_in_secs} seconds')
+            self.__put_metric("CatchUpFindFeaturesTime", find_features_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayFeatureProcessor'}, {
+                              'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
 
         # Sort Segments in Asc order based on Start time
         #segments_with_features.sort(key=lambda x: x.Start)
- 
+
         return segments_with_features
-        
+
     def __put_metric(self, metric_name, metric_value, dimensions: list):
 
         if ENABLE_CUSTOM_METRICS.lower() in ['yes', 'y']:
             client.put_metric_data(
-            Namespace='MRE',
-            MetricData=[
-                {
-                    'MetricName': metric_name,
-                    'Dimensions': dimensions,
-                    'Value': metric_value * 1000,
-                    'Unit': 'Milliseconds'
-                },
-            ]
-    )
+                Namespace='MRE',
+                MetricData=[
+                    {
+                        'MetricName': metric_name,
+                        'Dimensions': dimensions,
+                        'Value': metric_value * 1000,
+                        'Unit': 'Milliseconds'
+                    },
+                ]
+            )

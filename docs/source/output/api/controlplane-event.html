@@ -291,6 +291,56 @@
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="list-events-by-program">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/by/{program}</span><a class="headerlink" href="#list-events-by-program" title="Permalink to this heading">¶</a></h2>
+<p>List all events in MRE for a Program. Supports pagination and filters.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s2">&quot;Items&quot;</span><span class="p">:</span>
+    <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Channel&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;FirstPts&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;FrameRate&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
+            <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup: string,</span>
+            <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+        <span class="p">},</span>
+        <span class="o">...</span>
+    <span class="p">]</span>
+<span class="s2">&quot;LastEvaluatedKey&quot;</span><span class="p">:</span>
+    <span class="p">{</span>
+        <span class="n">Obj</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="list-events-by-content-group">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-events-by-content-group" title="Permalink to this heading">¶</a></h2>
 <p>List all events filtered by content_group with pagination and more filters</p>
@@ -697,6 +747,7 @@
 <li><a class="reference internal" href="#create-event"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event</span></a></li>
 <li><a class="reference internal" href="#list-events-all"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all</span></a></li>
 <li><a class="reference internal" href="#list-events-external"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all/external</span></a></li>
+<li><a class="reference internal" href="#list-events-by-program"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/by/{program}</span></a></li>
 <li><a class="reference internal" href="#list-events-by-content-group"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span></a></li>
 <li><a class="reference internal" href="#list-future-events"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/future/all</span></a></li>
 <li><a class="reference internal" href="#store-audio-tracks"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/metadata/track/audio</span></a></li>

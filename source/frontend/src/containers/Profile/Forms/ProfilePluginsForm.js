@@ -11,9 +11,14 @@ import {
     Typography,
     Box,
     Button,
-    Tooltip
+    Tooltip,
+    Checkbox
 } from "@material-ui/core";
 import InfoIcon from '@material-ui/icons/Info';
+import FormControlLabel from "@material-ui/core/FormControlLabel";
+
+import IconButton from '@material-ui/core/IconButton';
+import DeleteIcon from '@material-ui/icons/Delete';
 
 import Grid from "@material-ui/core/Grid";
 
@@ -30,12 +35,36 @@ import {APIHandler} from "../../../common/APIHandler/APIHandler";
 
 
 export const ProfilePluginsForm = (props) => {
+        
         let isMultiple = props.isMultiple;
 
         const [selectedPlugin, setSelectedPlugin] = React.useState(props.values || {});
         const {query} = APIHandler();
         const [isLoading, setIsLoading] = React.useState(false);
         const [expanded, setExpanded] = React.useState(true);
+        
+        const [isPriorityForCatchup, setIsPriorityForCatchup] = React.useState(selectedPlugin.hasOwnProperty("IsPriorityForReplay") ? selectedPlugin.IsPriorityForReplay : _.isArray(selectedPlugin) ? 
+        selectedPlugin[props.index].hasOwnProperty("IsPriorityForReplay") ? selectedPlugin[props.index].IsPriorityForReplay : true : true);
+
+        console.log(selectedPlugin);
+
+
+        const handleChange = (event) => {
+            setIsPriorityForCatchup(event.target.checked);
+
+            if (_.isArray(selectedPlugin) === true) {
+                selectedPlugin[props.index].IsPriorityForReplay = event.target.checked;
+                setSelectedPlugin(selectedPlugin[props.index]);
+            }
+            else {
+                if (selectedPlugin.hasOwnProperty("IsPriorityForReplay")){
+                    selectedPlugin.IsPriorityForReplay = event.target.checked;
+                    setSelectedPlugin(selectedPlugin);
+                }
+            }
+
+            console.log(selectedPlugin);
+        };
 
         const fetchPluginDependencies = async (selectedPluginName) => {
             return await query('get', 'api', `plugin/${selectedPluginName}/dependentplugins/all`);
@@ -47,7 +76,6 @@ export const ProfilePluginsForm = (props) => {
 
         const handleMainPluginChange = async (pluginName) => {
             let modelEndpointOptions = getModelsWithVersions(pluginName);
-
             setIsLoading(true);
 
             try {
@@ -57,8 +85,13 @@ export const ProfilePluginsForm = (props) => {
                     Configuration: getPluginConfigurationByName(pluginName),
                     ModelEndpointOptions: modelEndpointOptions,
                     ModelEndpoint: modelEndpointOptions && modelEndpointOptions[0],
-                    DependentPlugins: pluginName && await getPluginDependenciesDataByName(pluginName)
+                    DependentPlugins: pluginName && await getPluginDependenciesDataByName(pluginName),
+                    //IsPriorityForReplay: isPriorityForCatchup
                 }
+
+                if (props.name === 'Featurers')
+                    pluginData.IsPriorityForReplay = isPriorityForCatchup
+
                 if (_.isArray(pluginData) === true) {
                     selectedPlugin[props.index] = pluginData;
                     setSelectedPlugin(pluginData[props.index]);
@@ -154,7 +187,8 @@ export const ProfilePluginsForm = (props) => {
             return (
                 <Grid container item direction="row" alignItems="flex-end" spacing={5}
                       key={`main-${currentSelectedPlugin.Name}-${props.index}`}>
-                    <Grid item sm={5}>
+                    <Grid item sm={4}>
+
                         <FormSelect
                             details={{
                                 label: "Plugin Name",
@@ -175,6 +209,25 @@ export const ProfilePluginsForm = (props) => {
                                 await handleMainPluginChange(e.target.value);
                             }}
                         />
+                        
+
+                    </Grid>
+                    <Grid item sm={3}>
+                        {
+                            props.name === 'Featurers' &&
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                    color="primary"
+                                    checked={isPriorityForCatchup}
+                                    onChange={handleChange}
+                                />
+                                }
+                                label="Priority for Replay"
+                                />
+                            
+                        }
+                    
                     </Grid>
                     <Grid item sm={4}>
                         {_.get(valuesPassed, `ModelEndpoint`) != null ?
@@ -201,10 +254,14 @@ export const ProfilePluginsForm = (props) => {
                     {
                         isMultiple &&
                         <Grid item>
-                            <Button color="primary" variant="outlined"
+                            {/* <Button color="primary" variant="outlined"
                                     onClick={() => props.handleRemoveFeaturer(props.index)}>
                                 Remove
-                            </Button>
+                            </Button> */}
+                        <IconButton aria-label="delete" color="primary" onClick={() => props.handleRemoveFeaturer(props.index)}>
+                            <DeleteIcon />
+                        </IconButton>
+
                         </Grid>
                     }
                 </Grid>
@@ -214,6 +271,7 @@ export const ProfilePluginsForm = (props) => {
         const getDependencyPluginRow = (props, dependentPlugin, dependentPluginIndex) => {
             let valuesPassed = isMultiple ? props.values[props.index] : props.values;
             valuesPassed = _.find(valuesPassed.DependentPlugins, {"Name": dependentPlugin.Name});
+
 
             let configurationUpdatePath = isMultiple ? `[${props.index}].DependentPlugins[${dependentPluginIndex}].Configuration` : `DependentPlugins[${dependentPluginIndex}].Configuration`
 

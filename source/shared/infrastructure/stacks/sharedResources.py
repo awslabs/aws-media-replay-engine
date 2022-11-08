@@ -1,3 +1,4 @@
+
 import os
 import sys
 from aws_cdk import (
@@ -21,11 +22,12 @@ from aws_cdk import (
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../')
-
 import shared.infrastructure.helpers.constants as constants
 
-LAYERS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), os.pardir, '../layers')
-
+LAYERS_DIR = os.path.join(os.path.dirname(
+    os.path.dirname(__file__)), os.pardir, '../layers')
+TRANSITION_PREVIEW_VIDEO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), os.pardir, '../frontend/src/assets/videos')
+TRANSITION_FADE_IN_OUT_IMAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), os.pardir, '../frontend/src/assets/TransitionsImg')
 
 class MreSharedResources(Stack):
 
@@ -34,6 +36,8 @@ class MreSharedResources(Stack):
 
         self.create_mre_event_bus()
         self.create_s3_buckets()
+        self.upload_mre_transition_sample_videos()
+        self.upload_mre_transition_fade_in_out_image()
         self.create_lambda_layers()
         self.create_media_convert_role()
         self.create_event_table()
@@ -50,9 +54,9 @@ class MreSharedResources(Stack):
 
     def create_cloudfront_distro(self):
         # Cloudfront Distro for Media Output
-        self.mre_media_output_distro = cloudfront.Distribution(
+        self.mre_media_output_distro=cloudfront.Distribution(
             self, "mre-media-output",
-            default_behavior=cloudfront.BehaviorOptions(
+            default_behavior = cloudfront.BehaviorOptions(
                 origin=origins.S3Origin(self.mre_media_output_bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy(
@@ -272,6 +276,7 @@ class MreSharedResources(Stack):
     def create_s3_buckets(self):
         ##### START: S3 BUCKETS #####
 
+        
         # MRE Access Log Bucket
         self.access_log_bucket = s3.Bucket(
             self,
@@ -296,6 +301,26 @@ class MreSharedResources(Stack):
             server_access_logs_bucket=self.access_log_bucket,
             server_access_logs_prefix='mre-mediasource-logs',
             encryption=s3.BucketEncryption.S3_MANAGED
+        )
+
+        # MRE Transitions Clip Bucket
+        self.mre_transition_clip_bucket = s3.Bucket(
+            self,
+            'MreTransitionsClipBucket',
+            enforce_ssl=True,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix='mre-transitions-clips-logs',
+            encryption=s3.BucketEncryption.S3_MANAGED
+        )
+
+        # Required for Updating the Content Security Policy for MRE Frontend
+        ssm.StringParameter(
+            self,
+            "MreTransitionsClipBucketName",
+            string_value=self.mre_transition_clip_bucket.bucket_name,
+            parameter_name="/MRE/ControlPlane/TransitionClipBucket",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the AWS MRE Transition Clip Bucket Name"
         )
 
         # Lambda Layer S3 bucket
@@ -349,6 +374,40 @@ class MreSharedResources(Stack):
         CfnOutput(self, "mre-segment-cache-bucket", value=self.mre_segment_cache_bucket.bucket_name,
                       description="Name of the S3 bucket used to cache segments and related features from MRE workflows",
                       export_name="mre-segment-cache-bucket-name")
+        CfnOutput(self, "mre-transition-clips-bucket", value=self.mre_transition_clip_bucket.bucket_name,
+                      description="Name of the S3 bucket used to store Transition clips when creating replays",
+                      export_name="mre-transition-clips-bucket-name")
+    
+
+    def upload_mre_transition_sample_videos(self):
+
+        self.layer_deploy = s3_deploy.BucketDeployment(
+            self,
+            "TransitionPreviewVideoDeploy",
+            destination_bucket=self.mre_transition_clip_bucket,
+            destination_key_prefix='FadeInFadeOut/preview',
+            sources=[
+                s3_deploy.Source.asset(
+                    path=TRANSITION_PREVIEW_VIDEO_DIR
+                )
+            ],
+            memory_limit=256
+        )
+
+    def upload_mre_transition_fade_in_out_image(self):
+
+        self.layer_deploy = s3_deploy.BucketDeployment(
+            self,
+            "TransitionFadeInOutImageDeploy",
+            destination_bucket=self.mre_transition_clip_bucket,
+            destination_key_prefix='FadeInFadeOut/transition_images',
+            sources=[
+                s3_deploy.Source.asset(
+                    path=TRANSITION_FADE_IN_OUT_IMAGE_DIR
+                )
+            ],
+            memory_limit=256
+        )
 
     def create_lambda_layers(self):
         ##### START: LAMBDA LAYERS #####
@@ -525,6 +584,8 @@ class MreSharedResources(Stack):
         CfnOutput(self, "mre-current-event-table-name", value=self.current_events_table.table_name,
                       description="Name of CurrentEvents table", export_name="mre-current-event-table-name")
 
+    
+
     def create_event_table(self):
         # Event Table
         self.event_table = ddb.Table(
@@ -557,6 +618,20 @@ class MreSharedResources(Stack):
             index_name=constants.EVENT_PROGRAMID_INDEX,
             partition_key=ddb.Attribute(
                 name="ProgramId",
+                type=ddb.AttributeType.STRING
+            ),
+            projection_type=ddb.ProjectionType.KEYS_ONLY
+        )
+
+        # Event Table: Program GSI
+        self.event_table.add_global_secondary_index(
+            index_name=constants.EVENT_PROGRAM_INDEX,
+            partition_key=ddb.Attribute(
+                name="Program",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="Start",
                 type=ddb.AttributeType.STRING
             ),
             projection_type=ddb.ProjectionType.KEYS_ONLY

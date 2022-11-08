@@ -46,9 +46,18 @@
             "$id": "#/properties/MaxSegmentLength",
             "type": "integer",
             "title": "The MaxSegmentLength Schema"
+        },
+        "LastEvaluatedKeys": {
+            "$id": "#/properties/LastEvaluatedKeys",
+            "type": "object",
+            "items": {
+                "type": "object"
+            },
+            "uniqueItems": true,
+            "title": "The LastEvaluatedKey Schema"
         }
     },
-    "additionalProperties": false,
+    "additionalProperties": true,
     "required": [
         "Program",
         "Event",

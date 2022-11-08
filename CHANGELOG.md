@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2022-11-04
+
+- Feature: Support for pagination in the dataplane workflow APIs:
+    - /workflow/segment/state
+    - /workflow/labeling/segment/state
+    - /workflow/optimization/segment/state
+    - /plugin/dependentplugins/output
+
+    > Pagination on the client-side is currently handled by the MediaReplayEnginePluginHelper Lambda layer such that this change is abstracted from the plugin developer.
+
+    > ⚠️ This is a breaking feature release for MRE plugins where the plugin Lambda needs to use the latest MediaReplayEnginePluginHelper layer created as a part of building and deploying MRE v2.5.0.
+- Feature: Support for clip transition effects during replay creation. By default, the Fade in/out transition option is provided with the ability to onboard new custom transition effects as MP4 videos.
+- Feature: Ability to skip low quality segments when creating replays with the help of clip review feedback.
+- Feature: Support for choosing one or more Feature detector plugins as priority for Replay when creating a Profile. This ensures that the Feature detector plugin completes its execution before the Segmentation plugin does in order to avoid missing clips in replay.
+
+- Fixed:
+    - Support for updating and deleting BYOB (Bring Your Own Bucket) based MRE Events.
+    - Creating an Event via API does not automatically add the passed program value to *Program* DynamoDB table.
+    - Creating a Model/Plugin/Profile via API does not automatically add the passed ContentGroup value to *ContentGroup* Dynamodb table.
+    - Inaccurate frame timecode calculation by ProbeVideo when a live event starts exactly at 00:00 UTC.
+
+- Rewrote BYOB (Bring Your Own Bucket) logic to create a unique S3 notfication per MRE Event.
+- Optimized Amazon DynamoDB queries in the dataplane to mitigate throttling and reduce latency by:
+    - Adding multiple Global Secondary Index (GSI) to the PluginResult table.
+    - Using a new configuration parameter in the dataplane API Handler Lambda function called *MAX_DETECTOR_QUERY_WINDOW_SECS*. More information on this parameter can be found in the [Optimizer Developer Guide](docs/guides/MRE-Developer-Guide-Optimizer.md).
+- Support for allowing Users to change their password in the MRE Frontend.
+- Support for Replay duration to be configured in seconds in lieu of minutes during Replay creation.
+    
+
 ## [2.4.0] - 2022-10-03
 
 - Feature: A new caching layer has been introduced. A Segment Caching Lambda Caches Segment and Feature data into S3. This Cache gets used when Creating Replays and there by decrease the overall latency in Replay creation.

@@ -19,3 +19,21 @@ By default, replay requests are calculated at the completion of the event. Howev
 The payload to the **replay** API takes a payload that is described here:
 
 [POST /replay](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-replay.html#add-replay)
+
+
+### Transitions
+
+MRE supports Transitions to be added when creating Replay clips. Currently, a Fade In Fade out
+transition option is made available during the Replay creation. Additional transitions can be onboarded using custom Transition clips in MP4 format. We recommend to use Transition clips which are 1 second in duration.
+
+To onboard new transition clips into MRE,
+
+- Upload the Transition clips to the S3 bucket. To find the bucket name, refer to the Cloudformation stack named **aws-mre-shared-resources**. In the output section, refer to the bucket name for the output key **mretransitionclipsbucket**.
+- Modify the values defined within **%%** in the file 
+**aws-media-replay-engine/source/backend/replay/PutTransitions.py**. Then run the command
+
+```python
+python3 PutTransitions.py
+```
+
+Login to the MRE frontend. You will see the new Transition option in the Transitions drop down when creating a new Replay.

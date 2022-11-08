@@ -30,19 +30,50 @@ To get a head start building automated video clipping pipelines using the MRE fr
     - Resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).  
     - Ensure the installed version of Python is 3.8 or newer.
 
-## Greenfield deployment
+## Greenfield Deployment
 
-Greenfield deployment of MRE is suitable for those customers who are looking at brand new installation.
+Greenfield deployment of MRE is suitable for customers who are looking to install from scratch.
+
 Run the following commands to build and deploy MRE. Be sure to define values for `REGION` and `VERSION` first.
 
 ```
-REGION=[specify the AWS region. For ex. us-east-1]
-VERSION=2.4.0
+REGION=[specify the AWS region. For example, us-east-1]
+VERSION=2.5.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
-./build-and-deploy.sh --version $VERSION --region $REGION [--profile <aws-profile>]
+./build-and-deploy.sh --enable-ssm-high-throughput --version $VERSION --region $REGION [--profile <aws-profile>]
 ```
+
+## Upgrading
+### MRE Backend
+
+In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
+```
+REGION=[specify the AWS region. For example, us-east-1]
+VERSION=2.5.0
+git clone https://github.com/awslabs/aws-media-replay-engine
+cd aws-media-replay-engine
+cd deployment
+./build-and-deploy.sh --disable-ui --version $VERSION --region $REGION [--profile <aws-profile>]
+```
+
+### MRE Frontend
+
+MRE uses AWS Amplify which offers a fully managed CI/CD and hosting service to deploy frontend apps on AWS by connecting to a Git repository such as AWS CodeCommit. As a part of MRE Greenfield deployment, a repository named **mre-frontend** is already created in AWS CodeCommit.
+
+To upgrade MRE Frontend to the latest version, follow the below steps. Be sure to define a value for `REGION` which is typically where MRE Frontend is already deployed.
+
+- After cloning the repo from GitHub, navigate to **aws-media-replay-engine/source/frontend/cdk** folder.  
+- Run the following command to update the Amplify Environment variables and/or Custom headers.
+	```python
+	python3 init-amplify.py $REGION Update [$AWS_PROFILE]
+	```
+- Clone the existing **mre-frontend** repository from AWS CodeCommit.
+- Copy all the files and subfolders (except **node_modules/** and **cdk/** subfolders) from **aws-media-replay-engine/source/frontend** folder to the **mre-frontend** folder.
+- Commit and push the changes in **mre-frontend** folder to AWS CodeCommit.
+
+AWS Amplify CI/CD pipeline automatically builds and deploys the updated MRE Frontend.
 
 ## Outputs
 
@@ -50,28 +81,7 @@ If you choose to interact with the MRE framework using the REST APIs directly, y
 
 * **EndpointURL** is the endpoint for accessing the APIs to create, read, update, delete (CRUD) Plugins, Models, Profiles, and schedule Events, Replays for processing.
 
-## Upgrading the MRE backend
 
-In order to upgrade the MRE backend (Step Functions, Lambda, API, EventBridge Rules etc.), run the following command
-```
-REGION=[specify the AWS region. For ex. us-east-1]
-VERSION=2.4.0
-cd aws-media-replay-engine
-cd deployment
-./build-and-deploy.sh --disable-ui --region $REGION --version $VERSION  [--profile <aws-profile>]
-```
-
-## Upgrading the MRE frontend
-
-MRE uses AWS Amplify which offers a fully managed CI/CD and hosting service to deploy frontend apps on AWS by connecting to Git repository such as AWS CodeCommit. As a part of MRE Greenfield deployment, a repository is already created within CodeCommit.
-
-To upgrade the MRE frontend to the latest version, follow these steps.
-
-- Clone the **mre-frontend** repo from AWS CodeCommit
-- Replace the contents of the **mre-frontend** folder with the contents of the folder **source/frontend** found in this repo.
-- Commit and push the code into CodeCommit
-
-AWS Amplify CI/CD pipeline automatically builds and deploys the new MRE frontend.
 # Architecture Overview
 
 ![MRE_Architecture](docs/assets/images/MRE_Architecture.png)

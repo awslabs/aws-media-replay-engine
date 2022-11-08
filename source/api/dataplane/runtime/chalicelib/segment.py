@@ -25,6 +25,8 @@ PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 CLIP_PREVIEW_FEEDBACK_TABLE_NAME = os.environ['CLIP_PREVIEW_FEEDBACK_TABLE_NAME']
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = os.environ[
     'CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX']
+CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX = os.environ['CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX']
+PROGRAM_EVENT_PLUGIN_INDEX=os.environ["PROGRAM_EVENT_PLUGIN_INDEX"]
 
 authorizer = IAMAuthorizer()
 
@@ -177,15 +179,17 @@ def get_event_segments_for_edl(name, program, classifier, tracknumber):
     # From the PluginResult Table, get the Clips Info
     plugin_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
     response = plugin_table.query(
-        KeyConditionExpression=Key("PK").eq(f"{program}#{name}#{classifier}"),
+        IndexName=PROGRAM_EVENT_PLUGIN_INDEX,
+        KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{name}#{classifier}"),
         ScanIndexForward=True
     )
     plugin_response = response['Items']
 
     while "LastEvaluatedKey" in response:
         response = plugin_table.query(
+            IndexName=PROGRAM_EVENT_PLUGIN_INDEX,
             ExclusiveStartKey=response["LastEvaluatedKey"],
-            KeyConditionExpression=Key("PK").eq(f"{program}#{name}#{classifier}"),
+            KeyConditionExpression=Key("ProgramEventPluginName").eq(f"{program}#{name}#{classifier}"),
             ScanIndexForward=True
         )
         plugin_response.extend(response['Items'])
@@ -356,8 +360,9 @@ def record_clip_preview_feedback():
         clip_preview_table = ddb_resource.Table(CLIP_PREVIEW_FEEDBACK_TABLE_NAME)
 
         feedback = {}
-        feedback["PK"] = f"{program}#{event}#{classifier}#{start_time}#{audio_track}#{reviewer}"
-        feedback["ProgramEventTrack"] = f"{program}#{event}#{classifier}#{start_time}#{audio_track}"
+        #feedback["PK"] = f"{program}#{event}#{classifier}#{start_time}#{audio_track}#{reviewer}"
+        feedback["PK"] = f"{program}#{event}#{classifier}#{start_time}#{audio_track}"
+        feedback["ProgramEventTrack"] = f"{program}#{event}#{audio_track}"
         feedback["ProgramEventClassifierStart"] = f"{program}#{event}#{classifier}#{start_time}"
         feedback["Program"] = program
         feedback["Event"] = event
@@ -384,11 +389,12 @@ def record_clip_preview_feedback():
         return {}
 
 
-@segment_api.route('/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/reviewer/{reviewer}/feedback',
+
+@segment_api.route('/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/feedback',
     cors=True, methods=['GET'], authorizer=authorizer)
-def get_clip_preview_feedback(program, event, classifier, start_time, audio_track, reviewer):
+def get_clip_preview_feedback(program, event, classifier, start_time, audio_track):
     """
-    Gets the feedback provided by a user for a Segment's clip
+    Gets the Clip feedback provided by a user for a Segment's clip
 
     Returns:
 
@@ -404,7 +410,7 @@ def get_clip_preview_feedback(program, event, classifier, start_time, audio_trac
 
     response = clip_preview_table.query(
         KeyConditionExpression=Key("PK").eq(
-            f"{program}#{event}#{classifier}#{str(start_time)}#{str(tracknumber)}#{reviewer}")
+            f"{program}#{event}#{classifier}#{str(start_time)}#{str(tracknumber)}")
     )
 
     if "Items" not in response or len(response["Items"]) == 0:
@@ -412,6 +418,32 @@ def get_clip_preview_feedback(program, event, classifier, start_time, audio_trac
 
     return response["Items"][0]
 
+@segment_api.route('/clip/preview/program/{program}/event/{event}/track/{audio_track}/feedback',
+    cors=True, methods=['GET'], authorizer=authorizer)
+def get_all_clip_preview_feedback(program, event, audio_track):
+    """
+    Gets all the Clip feedback provided for a given event
+
+    Returns:
+
+        Feedback if present. Empty Dictionary of no feedback exists.
+    """
+    event = urllib.parse.unquote(event)
+    program = urllib.parse.unquote(program)
+    tracknumber = urllib.parse.unquote(audio_track)
+
+    clip_preview_table = ddb_resource.Table(CLIP_PREVIEW_FEEDBACK_TABLE_NAME)
+
+    response = clip_preview_table.query(
+        IndexName=CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX,
+        KeyConditionExpression=Key("ProgramEventTrack").eq(
+            f"{program}#{event}#{str(tracknumber)}")
+    )
+
+    if "Items" not in response or len(response["Items"]) == 0:
+        return []
+
+    return response["Items"]
 
 
 @segment_api.route('/event/program/export/all/segments', cors=True, methods=['PUT'], authorizer=authorizer)

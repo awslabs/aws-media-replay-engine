@@ -19,6 +19,7 @@ PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 PROGRAM_EVENT_INDEX = os.environ['PROGRAM_EVENT_INDEX']
 PROGRAM_EVENT_PLUGIN_INDEX = os.environ['PROGRAM_EVENT_PLUGIN_INDEX']
+PARTITION_KEY_CHUNK_NUMBER_INDEX = os.environ['PARTITION_KEY_CHUNK_NUMBER_INDEX']
 
 authorizer = IAMAuthorizer()
 ddb_resource = boto3.resource("dynamodb")
@@ -148,7 +149,8 @@ def store_plugin_result():
                             "PK": f"{program}#{event}#{classifier}",
                             "Start": item["Start"]
                         },
-                        UpdateExpression="SET " + ", ".join(update_expression),
+                        ## TODO: Modify Update Expression to remove 'NonOptChunkNumber' when it's been optimized
+                        UpdateExpression="REMOVE NonOptoChunkNumber SET " + ", ".join(update_expression),
                         ExpressionAttributeNames=expression_attribute_names,
                         ExpressionAttributeValues=expression_attribute_values
                     )
@@ -209,6 +211,11 @@ def store_plugin_result():
                     pk = f"{program}#{event}#{plugin_name}"
 
                 for item in results:
+                    
+                    item["PK"] = pk
+                    item["Start"] = round(item["Start"], 3)
+                    item["End"] = round(item["End"], 3) if "End" in item else item["Start"]
+
                     if plugin_class == "Classifier":
                         if "OptoStartCode" not in item:
                             item["OptoStartCode"] = "Not Attempted"
@@ -223,10 +230,12 @@ def store_plugin_result():
                             item["OptoEnd"] = {}
                             item["LabelCode"] = "Not Attempted"
                             item["Label"] = ""
+                        
+                        ## TODO: Add new attribute of NonOptChunkNumber if Start and End are not equal (complete segments)
+                        if item["End"] != item["Start"]:
+                            item["NonOptoChunkNumber"] = result["ChunkNumber"]
+                        ## TODO: Add new attribute of NonOptChunkNumber
 
-                    item["PK"] = pk
-                    item["Start"] = round(item["Start"], 3)
-                    item["End"] = round(item["End"], 3) if "End" in item else item["Start"]
                     item["ProgramEvent"] = f"{program}#{event}"
                     item["ProgramEventPluginName"] = f"{program}#{event}#{plugin_name}"
                     item["Program"] = program
@@ -311,12 +320,17 @@ def get_dependent_plugins_output():
         chunk_number = request["ChunkNumber"]
         dependent_plugins = request["DependentPlugins"]
         audio_track = str(request["AudioTrack"]) if "AudioTrack" in request else None
+        last_evaluated_keys = request['LastEvaluatedKeys'] if 'LastEvaluatedKeys' in request else {}
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
         output = {}
 
         for d_plugin in dependent_plugins:
+
+            if last_evaluated_keys and d_plugin not in last_evaluated_keys:
+                continue
+
             d_plugin_name = d_plugin["Name"]
             d_plugin_media_type = d_plugin["SupportedMediaType"]
 
@@ -332,23 +346,21 @@ def get_dependent_plugins_output():
             else:
                 pk = f"{program}#{event}#{d_plugin_name}"
 
-            response = plugin_result_table.query(
-                KeyConditionExpression=Key("PK").eq(pk),
-                FilterExpression=Attr("ChunkNumber").eq(chunk_number),
-                ConsistentRead=True
-            )
+            query_params ={
+                "IndexName":PARTITION_KEY_CHUNK_NUMBER_INDEX,
+                "KeyConditionExpression": Key("PK").eq(pk) & Key("ChunkNumber").eq(chunk_number),
+            }
 
-            output[d_plugin_name] = response["Items"]
+            if d_plugin in last_evaluated_keys:
+                print(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin]}'")
+                query_params["ExclusiveStartKey"]=last_evaluated_keys[d_plugin]
 
-            while "LastEvaluatedKey" in response:
-                response = plugin_result_table.query(
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                    KeyConditionExpression=Key("PK").eq(pk),
-                    FilterExpression=Attr("ChunkNumber").eq(chunk_number),
-                    ConsistentRead=True
-                )
+            response = plugin_result_table.query(**query_params)
 
-                output[d_plugin_name].extend(response["Items"])
+            output[d_plugin_name] = {'Items': response["Items"]}
+
+            if "LastEvaluatedKey" in response and response["LastEvaluatedKey"]:
+                output[d_plugin_name]['LastEvaluatedKey'] = response["LastEvaluatedKey"]
 
     except BadRequestError as e:
         print(f"Got chalice BadRequestError: {str(e)}")

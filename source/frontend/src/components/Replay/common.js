@@ -19,6 +19,9 @@ export const parseReplayDetails = (replayDetails, row) => {
     parsedReplayDetails["CreateHls"] = _.get(replayDetails, "CreateHls") ? "Yes" : "No";
     parsedReplayDetails["CreateMp4"] = _.get(replayDetails, "CreateMp4") ? "Yes" : "No";
     parsedReplayDetails["OutputResolutions"] = _.get(replayDetails, "Resolutions");
+    parsedReplayDetails["TransitionName"] = _.get(replayDetails, "TransitionName");
+    parsedReplayDetails["IgnoreDislikedSegments"] = _.get(replayDetails, "IgnoreDislikedSegments") ? "Yes" : "No";
+    parsedReplayDetails["TransitionOverride"] = _.get(replayDetails, "TransitionOverride");
     parsedReplayDetails["MediaTailorProgram"] = _.has(replayDetails, "MediaTailorChannel") ? "Yes" : "No";
     parsedReplayDetails["MediaTailorChannel"] = _.get(replayDetails, 'MediaTailorChannel.ChannelName') || "N/A";
     parsedReplayDetails["MediaTailorAD"] = _.has(replayDetails, 'MediaTailorChannel.AdInsertionConfig') || "N/A";

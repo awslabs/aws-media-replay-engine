@@ -33,6 +33,7 @@ sfn_client = boto3.client("stepfunctions")
 ddb_resource = boto3.resource("dynamodb")
 
 SFN_ROLE_ARN = os.environ['SFN_ROLE_ARN']
+CONTENT_GROUP_TABLE_NAME = os.environ['CONTENT_GROUP_TABLE_NAME']
 PROFILE_TABLE_NAME = os.environ['PROFILE_TABLE_NAME']
 
 
@@ -242,8 +243,15 @@ def create_profile():
         profile["StateMachineArn"] = response["stateMachineArn"]
 
         # === Enrich profile by adding the latest version number of all the plugins provided in the profile ===
-        # Classifier and its DependentPlugins
         profile_creation_helper.enrich_profile(profile,plugin_definitions)
+
+        print("Adding all the Content Group values passed in the request to the 'ContentGroup' DynamoDB table")
+
+        ddb_resource.batch_write_item(
+            RequestItems={
+                CONTENT_GROUP_TABLE_NAME: [{"PutRequest": {"Item": {"Name": content_group}}} for content_group in profile["ContentGroups"]]
+            }
+        )
 
         profile_table = ddb_resource.Table(PROFILE_TABLE_NAME)
 
@@ -1060,6 +1068,15 @@ def update_profile(name):
             stateMachineArn=state_machine_arn,
             definition=state_definition
         )
+
+        if "ContentGroups" in profile and profile["ContentGroups"]:
+            print("Adding all the Content Group values passed in the request to the 'ContentGroup' DynamoDB table")
+
+            ddb_resource.batch_write_item(
+                RequestItems={
+                    CONTENT_GROUP_TABLE_NAME: [{"PutRequest": {"Item": {"Name": content_group}}} for content_group in profile["ContentGroups"]]
+                }
+            )
 
         profile_table.update_item(
             Key={

@@ -23,6 +23,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export const ProfilePluginsFormWrapper = (props) => {
+
     const classes = useStyles();
     const [featurerPluginCount, setFeaturerPluginCount] = React.useState(1);
     const [isFeatureLoading, setIsFeatureLoading] = React.useState(undefined);
@@ -34,14 +35,17 @@ export const ProfilePluginsFormWrapper = (props) => {
             Name: "",
             ModelEndpoint: {},
             Configuration: {},
-            DependentPlugins: []
+            DependentPlugins: [],
+            IsPriorityForReplay: true
         }
 
         let featurerCopy = _.cloneDeep(props.values);
         featurerCopy.push(newPluginInitialValues);
+        
         props.handleInputValue(featurerCopy, ``, props.name);
         await setFeaturerPluginCount(featurerPluginCount + 1);
 
+        console.log(props);
         setIsFeatureLoading(false);
     };
 

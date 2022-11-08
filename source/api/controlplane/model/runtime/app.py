@@ -26,6 +26,7 @@ serializer = TypeSerializer()
 ddb_resource = boto3.resource("dynamodb")
 ddb_client = boto3.client("dynamodb")
 
+CONTENT_GROUP_TABLE_NAME = os.environ['CONTENT_GROUP_TABLE_NAME']
 MODEL_TABLE_NAME = os.environ['MODEL_TABLE_NAME']
 MODEL_VERSION_INDEX = os.environ['MODEL_VERSION_INDEX']
 MODEL_NAME_INDEX = os.environ['MODEL_NAME_INDEX']
@@ -79,6 +80,14 @@ def register_model():
         validate(instance=model, schema=API_SCHEMA["register_model"])
 
         print("Got a valid model schema")
+
+        print("Adding all the Content Group values passed in the request to the 'ContentGroup' DynamoDB table")
+
+        ddb_resource.batch_write_item(
+            RequestItems={
+                CONTENT_GROUP_TABLE_NAME: [{"PutRequest": {"Item": {"Name": content_group}}} for content_group in model["ContentGroups"]]
+            }
+        )
 
         name = model["Name"]
 

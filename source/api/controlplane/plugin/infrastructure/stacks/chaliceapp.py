@@ -24,6 +24,8 @@ class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
+        self.content_group_table_arn = Fn.import_value("mre-content-group-table-arn")
+        self.content_group_table_name = Fn.import_value("mre-content-group-table-name")
         self.model_table_arn = Fn.import_value("mre-model-table-arn")
         self.model_table_name = Fn.import_value("mre-model-table-name")
         self.plugin_table_name = Fn.import_value("mre-plugin-table-name")
@@ -78,6 +80,7 @@ class ChaliceApp(Stack):
                     "dynamodb:DeleteItem"
                 ],
                 resources=[
+                    self.content_group_table_arn,
                     self.model_table_arn,
                     f"{self.model_table_arn}/index/*",
                     self.plugin_table_arn,
@@ -92,6 +95,7 @@ class ChaliceApp(Stack):
             source_dir=RUNTIME_SOURCE_DIR,
             stage_config={
                 "environment_variables": {
+                    "CONTENT_GROUP_TABLE_NAME": self.content_group_table_name,
                     "MODEL_TABLE_NAME": self.model_table_name,
                     "PLUGIN_TABLE_NAME": self.plugin_table_name,
                     "FRAMEWORK_VERSION": constants.FRAMEWORK_VERSION,

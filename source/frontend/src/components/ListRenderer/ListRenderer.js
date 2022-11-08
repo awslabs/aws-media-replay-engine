@@ -119,7 +119,6 @@ export const ListRenderer = (props) => {
         if (!props.backendPagination) {
             res = await fetchTableData();
             let tableData = res.data;
-
             tableData = _.filter(tableData, row => {
                 return _.has(row, "Enabled") !== true || row.Enabled !== false;
             });

@@ -11,6 +11,9 @@ import subprocess
 from queue import Queue
 import threading
 from subprocess import Popen
+from aws_lambda_powertools import Logger
+logger = Logger()
+
 
 # Represents the number of Latest S3 Key Prefix names whose Objects will be Synced to the /tmp folder in this Lambda
 # We limit it to 2 for CatchUp since the objects with older S3 Key Prefixes would be synched and processed already
@@ -64,10 +67,10 @@ class CacheSyncManager:
             # Group the number of Key Prefixes into lists of 10
             groups_of_key_prefixes = [self.__cache_s3_key_prefixes[x:x+NUMBER_OF_LOOKUP_PARTITIONS_FOR_NON_CATCHUP] for x in range(0, len(self.__cache_s3_key_prefixes), NUMBER_OF_LOOKUP_PARTITIONS_FOR_NON_CATCHUP)]
             
-            print('Synching Cache files for CatchUp replay ...')
-            print(f"CacheSyncManagerCatchup Replay {self.replay_id}. Number of ALL Cache S3 Key Prefixes = {len(self.__cache_s3_key_prefixes)}")
-            print(f"CacheSyncManager-Catchup - Length of 10 group items in groups_of_key_prefixes = {len(groups_of_key_prefixes)}")
-            print(f'CacheSyncManager-Catchup Replay. groups_of_key_prefixes = {groups_of_key_prefixes}')
+            logger.info('Synching Cache files for CatchUp replay ...')
+            logger.info(f"CacheSyncManagerCatchup Replay {self.replay_id}. Number of ALL Cache S3 Key Prefixes = {len(self.__cache_s3_key_prefixes)}")
+            logger.info(f"CacheSyncManager-Catchup - Length of 10 group items in groups_of_key_prefixes = {len(groups_of_key_prefixes)}")
+            logger.info(f'CacheSyncManager-Catchup Replay. groups_of_key_prefixes = {groups_of_key_prefixes}')
             
             start_time = datetime.datetime.now()
             for key_prefix_group in groups_of_key_prefixes:
@@ -76,31 +79,31 @@ class CacheSyncManager:
                 for key_prefix in key_prefix_group:
                     final_s3_key_prefixes_to_sync.append(key_prefix)
 
-                print(f'CacheSyncManager-Catchup Replay. Selected S3 Key Prefixes = {final_s3_key_prefixes_to_sync}')
+                logger.info(f'CacheSyncManager-Catchup Replay. Selected S3 Key Prefixes = {final_s3_key_prefixes_to_sync}')
                 self.__start_subprocess(final_s3_key_prefixes_to_sync)
             
             end_time = datetime.datetime.now()
             cache_sync_time_in_secs = (end_time - start_time).total_seconds()
-            print(f'CacheSyncManager-Catchup Replay-S3 Cache All partitions Sync Duration: {cache_sync_time_in_secs} seconds')
+            logger.info(f'CacheSyncManager-Catchup Replay-S3 Cache All partitions Sync Duration: {cache_sync_time_in_secs} seconds')
             self.__put_metric("CatchUpCacheSyncTime", cache_sync_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayCacheSyncManager'}, {'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
 
             
-            """ print('Synching Cache files for CatchUp replay ...')
+            """ logger.info('Synching Cache files for CatchUp replay ...')
             # If there are more than 2 s3 key prefixes, we pick the last 2 partitions
             if len(self.__cache_s3_key_prefixes) >= NUMBER_OF_LOOKUP_PARTITIONS_FOR_CATCHUP:
                 final_s3_key_prefixes_to_sync.append(self.__cache_s3_key_prefixes[-1])
                 final_s3_key_prefixes_to_sync.append(self.__cache_s3_key_prefixes[-2])
 
-                print(f'CacheSyncManager-Catchup Replay. More than 2 Key Prefixes found. Selecting last 2 S3 Key Prefixes = {final_s3_key_prefixes_to_sync}')
+                logger.info(f'CacheSyncManager-Catchup Replay. More than 2 Key Prefixes found. Selecting last 2 S3 Key Prefixes = {final_s3_key_prefixes_to_sync}')
             elif len(self.__cache_s3_key_prefixes) < NUMBER_OF_LOOKUP_PARTITIONS_FOR_CATCHUP:
                 final_s3_key_prefixes_to_sync.extend(self.__cache_s3_key_prefixes)
-                print(f'CacheSyncManager-Catchup Replay. One Prefix found. Selecting ONE S3 Key Prefix = {final_s3_key_prefixes_to_sync}')
+                logger.info(f'CacheSyncManager-Catchup Replay. One Prefix found. Selecting ONE S3 Key Prefix = {final_s3_key_prefixes_to_sync}')
 
             start_time = datetime.datetime.now()
             self.__start_subprocess(final_s3_key_prefixes_to_sync)
             end_time = datetime.datetime.now()
             cache_sync_time_in_secs = (end_time - start_time).total_seconds()
-            print(f'CacheSyncManager-Catchup Replay-S3 Cache Sync Duration: {cache_sync_time_in_secs} seconds')
+            logger.info(f'CacheSyncManager-Catchup Replay-S3 Cache Sync Duration: {cache_sync_time_in_secs} seconds')
             self.__put_metric("CatchUpCacheSyncTime", cache_sync_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayCacheSyncManager'}, {'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}]) """
 
         else:
@@ -109,10 +112,10 @@ class CacheSyncManager:
             # Group the number of Key Prefixes into lists of 10
             groups_of_key_prefixes = [self.__cache_s3_key_prefixes[x:x+NUMBER_OF_LOOKUP_PARTITIONS_FOR_NON_CATCHUP] for x in range(0, len(self.__cache_s3_key_prefixes), NUMBER_OF_LOOKUP_PARTITIONS_FOR_NON_CATCHUP)]
             
-            print('Synching Cache files for NON CatchUp replay ...')
-            print(f"CacheSyncManager-Non Catchup Replay {self.replay_id}. Number of ALL Cache S3 Key Prefixes = {len(self.__cache_s3_key_prefixes)}")
-            print(f"Length of 10 group items in groups_of_key_prefixes = {len(groups_of_key_prefixes)}")
-            print(f'CacheSyncManager-Non Catchup Replay. groups_of_key_prefixes = {groups_of_key_prefixes}')
+            logger.info('Synching Cache files for NON CatchUp replay ...')
+            logger.info(f"CacheSyncManager-Non Catchup Replay {self.replay_id}. Number of ALL Cache S3 Key Prefixes = {len(self.__cache_s3_key_prefixes)}")
+            logger.info(f"Length of 10 group items in groups_of_key_prefixes = {len(groups_of_key_prefixes)}")
+            logger.info(f'CacheSyncManager-Non Catchup Replay. groups_of_key_prefixes = {groups_of_key_prefixes}')
             
             start_time = datetime.datetime.now()
             for key_prefix_group in groups_of_key_prefixes:
@@ -121,17 +124,17 @@ class CacheSyncManager:
                 for key_prefix in key_prefix_group:
                     final_s3_key_prefixes_to_sync.append(key_prefix)
 
-                print(f'CacheSyncManager-NONCatchup Replay. Selected S3 Key Prefixes = {final_s3_key_prefixes_to_sync}')
+                logger.info(f'CacheSyncManager-NONCatchup Replay. Selected S3 Key Prefixes = {final_s3_key_prefixes_to_sync}')
                 self.__start_subprocess(final_s3_key_prefixes_to_sync)
             
             end_time = datetime.datetime.now()
             cache_sync_time_in_secs = (end_time - start_time).total_seconds()
-            print(f'CacheSyncManager-NonCatchup Replay-S3 Cache All partitions Sync Duration: {cache_sync_time_in_secs} seconds')
+            logger.info(f'CacheSyncManager-NonCatchup Replay-S3 Cache All partitions Sync Duration: {cache_sync_time_in_secs} seconds')
             self.__put_metric("NoCatchUpCacheSyncTime", cache_sync_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayCacheSyncManager'}, {'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
 
         cached_files = os.listdir(f"/tmp/{self.replay_id}")
-        print(f"=====Number of cached files Synced into tmp/{self.replay_id} = {len(cached_files)}==========")
-        print(f"=====All cached files from tmp/{self.replay_id} = {cached_files}==========")
+        logger.info(f"=====Number of cached files Synced into tmp/{self.replay_id} = {len(cached_files)}==========")
+        logger.info(f"=====All cached files from tmp/{self.replay_id} = {cached_files}==========")
 
 
     def __start_subprocess(self, final_s3_key_prefixes_to_sync: list):

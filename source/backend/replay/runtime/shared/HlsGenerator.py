@@ -15,6 +15,11 @@ from boto3.dynamodb.conditions import Key, Attr
 from botocore.config import Config
 from MediaReplayEngineWorkflowHelper import ControlPlane
 from MediaReplayEnginePluginHelper import DataPlane
+from timecode import Timecode
+import copy
+from aws_lambda_powertools import Logger
+logger = Logger()
+
 
 MAX_INPUTS_PER_JOB = int(os.environ['MediaConvertMaxInputJobs']) 
 ACCELERATION_MEDIA_CONVERT_QUEUE = os.environ['MediaConvertAcceleratorQueueArn']
@@ -35,7 +40,7 @@ class HlsGenerator:
         self.__program = tmpEvent['Event']['Program']
         self.__profile = tmpEvent['Profile']['Name']
         self.__framerate = tmpEvent['Profile']['ProcessingFrameRate']
-
+        self.__video_framerate = float(tmpEvent['Event']['FrameRate'])
         
         self._dataplane = DataPlane(tmpEvent)
 
@@ -55,7 +60,8 @@ class HlsGenerator:
         final_event = {
             "Event": {
                 "Program": program,
-                "Name": event
+                "Name": event,
+                "FrameRate": event_details['FrameRate']
             },
             "Profile": {
                 "Name": profile_name,
@@ -68,23 +74,172 @@ class HlsGenerator:
 
         return final_event
 
+
+    def is_transition_video_based(self):
+        if self.transition_config:
+            if 'MediaType' in self.transition_config:
+                if self.transition_config['MediaType'].lower() == 'video':
+                    return True
+        return False
+
+    def is_transition_image_based(self):
+        if self.transition_config:
+            if 'MediaType' in self.transition_config:
+                if self.transition_config['MediaType'].lower() == 'image':
+                    return True
+        return False
+
+    def insert_transition_clip_between_segments(self, input_job_settings) -> None:
+        mutated_input_job_settings = []
+        # Check if the Replay Request has been Configured to use a Video Transition
+        if self.transition_config:
+            if 'MediaType' in self.transition_config:
+                if self.transition_config['MediaType'].lower() == 'video':
+                    if 'TransitionClipLocation' in self.transition_config:
+                        video_transition_clip_setting = {
+                            "InputClippings": [],
+                            "VideoSelector": {},
+                            "TimecodeSource": "ZEROBASED",
+                            "FileInput": self.transition_config['TransitionClipLocation']
+                        }
+                        i = 1
+                        for input_job_setting in input_job_settings:
+                            mutated_input_job_settings.append(
+                                input_job_setting)
+                            # Dont add the Transition after the last Segment's Input Setting.
+                            if i < len(input_job_settings):
+                                i += 1
+
+                                # We should add the Transition Clip setting only if the
+                                # current Input setting has a EndTimecode set (Last part of the segment)
+                                # Segment 1 (StartTimeCode) - Segment 2 - Segment 3 (EndTimecode) ->>>> TransitionClip <<<< Segment 1 (StartTimeCode) - Segment (EndTimecode)
+                                if 'InputClippings' in input_job_setting:
+                                    if input_job_setting['InputClippings']:
+                                        # CHUNKS in between will not have any Input Clippings
+                                        # Make sure we have at least 1 Input Clipping. Which can be EndTimeCode or StartTimeCode
+                                        # Since we want to identify the end Chunk, we check for EndTimeCode 
+                                        if len(input_job_setting['InputClippings']) > 0:
+                                            if 'EndTimecode' in input_job_setting['InputClippings'][0]:
+                                                mutated_input_job_settings.append(
+                                                    video_transition_clip_setting)
+
+        return mutated_input_job_settings
+    
+    def get_overlay_start_timecode_for_last_chunk_in_segment(self, end_time_code, fade_in_duration):
+        # We need to walk back X frames from the EndTimecode of this Last Chunk
+        # To find the No. of Frames to go back, we use the formula
+        # frames = ( __video_framerate / 1000 ) * fade_in_duration (ms)
+        no_of_frames =  math.ceil((self.__video_framerate / 1000) * fade_in_duration)
+        try:
+            tc = Timecode(self.__video_framerate, end_time_code)
+            tc.sub_frames(no_of_frames)
+            logger.info(f"{self.__video_framerate} fps, Endtime = {end_time_code} -> OverlayStartTime = {tc}")
+        except ValueError as e:
+            # Timecode.frames should be a positive integer bigger than zero, not -17
+            return "00:00:00:00"
+        return str(tc)
         
+    def insert_transition_overlay_fade_in_fade_out_setting(self, input_job_settings) -> None:
+        mutated_input_job_settings = []
+
+        ImageInserter = {
+          "InsertableImages": [
+            {
+              "ImageX": 0,
+              "ImageY": 0,
+              "Duration": 0,
+              "Layer": 1,
+              "ImageInserterInput": self.transition_config['ImageLocation'],
+              "StartTime": "",
+              "Opacity": 100
+            }
+          ]
+        }
+        logger.info('in insert_transition_overlay_fade_in_fade_out_setting')
+        i = 1
+        for input_job_setting in input_job_settings:
+            if 'InputClippings' in input_job_setting:
+                if input_job_setting['InputClippings']:
+                    # CHUNKS in between will not have any Input Clippings
+                    # Make sure we have at least 1 Input Clipping. Which can be EndTimeCode or StartTimeCode
+                    # For Settings which do not have InputClipping, just add them into the List
+                    if len(input_job_setting['InputClippings']) > 0:
+                        if 'StartTimecode' in input_job_setting['InputClippings'][0]:
+                            # DO NOT Modify the First Chunk of the Replay
+                            # For the rest, we will set an Overlay at the beginning of the Chunk
+                            if i == 1:
+                                mutated_input_job_settings.append(input_job_setting)
+                            else: 
+                                # We need to Overlay at the Beginning of the Chunk TimeCode. Lets go back by 1 frame and add transition
+                                # If "00:00:05:08" is the StartTimeCode, we change it to "00:00:05:07"
+                                start_time_code = input_job_setting['InputClippings'][0]['StartTimecode']
+                                try:
+                                    tc = Timecode(self.__video_framerate, start_time_code)
+                                    tc.sub_frames(1)
+                                    final_start_time_code = str(tc)
+                                except ValueError as e:
+                                    # Timecode.frames should be a positive integer bigger than zero, not -17
+                                    # This happens when StartTimeCode is already at 00:00:00:00
+                                    final_start_time_code = "00:00:00:00"
+                                
+                                image_inserter = copy.deepcopy(ImageInserter)
+                                # Override Duration, StartTime, FadeOut
+                                image_inserter['InsertableImages'][0]['Duration'] = self.replay_request['TransitionOverride']['FadeOutMs']
+                                image_inserter['InsertableImages'][0]['FadeOut'] = self.replay_request['TransitionOverride']['FadeOutMs']
+                                image_inserter['InsertableImages'][0]['StartTime'] = final_start_time_code
+                                input_job_setting['ImageInserter'] = image_inserter
+                                mutated_input_job_settings.append(input_job_setting)
+                        
+                        if 'EndTimecode' in input_job_setting['InputClippings'][0]:
+                            # Make sure not to add a Transition at the end of the Last Chunk of the Last segment
+                            if i != len(input_job_settings):
+                                overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(
+                                                        input_job_setting['InputClippings'][0]['EndTimecode'], self.replay_request['TransitionOverride']['FadeInMs'])
+
+                                image_inserter = copy.deepcopy(ImageInserter)
+                                # Override Duration, StartTime, FadeIn
+                                image_inserter['InsertableImages'][0]['Duration'] = self.replay_request['TransitionOverride']['FadeInMs']
+                                image_inserter['InsertableImages'][0]['FadeIn'] = self.replay_request['TransitionOverride']['FadeInMs']
+                                image_inserter['InsertableImages'][0]['StartTime'] = overlay_start_time_code
+                                input_job_setting['ImageInserter'] = image_inserter
+                                mutated_input_job_settings.append(input_job_setting)
+
+                if len(input_job_setting['InputClippings']) == 0:
+                    mutated_input_job_settings.append(input_job_setting)
+
+            i+=1            
+
+        return mutated_input_job_settings
+
     def generate_hls(self):
         #program = self.__event['ReplayRequest']['Program']
         #event = self.__event['ReplayRequest']['Event']
         replay_id = self.__event['ReplayRequest']['ReplayId']
         audio_track = self.__event['ReplayRequest']['AudioTrack']
 
+        logger.append_keys(replay_id=str(self.__event['ReplayRequest']['ReplayId']))
+
+
+        # We need this to get the Transition Configuration
+        self.replay_request = self._controlPlane.get_replay_request(
+            self.__eventName, self.__program, replay_id)
+
+        self.transition_config = None
+        if 'TransitionName' in self.replay_request:
+            if self.replay_request['TransitionName'].lower() != 'none':
+                self.transition_config = self._controlPlane.get_transitions_config(
+                    self.replay_request['TransitionName'])
+
         event_details = self._controlPlane.get_event(self.__eventName, self.__program)
         profile_name = event_details['Profile']
 
         output_resolutions = self.__event['ReplayRequest']['Resolutions']
         
-        # Segments that have beeb created for the current Replay
+        # Segments that have been created for the current Replay
         replay_segments = self._dataplane.get_all_segments_for_replay(self.__program, self.__eventName, replay_id)
 
-        print('---------------- get_all_segments_for_replay -----------------------')
-        print(replay_segments)
+        logger.info('---------------- get_all_segments_for_replay -----------------------')
+        logger.info(replay_segments)
         #batch_id = f"{str(self.__eventName).lower()}-{str(self.__program).lower()}-{replay_id}"
         batch_id = f"{str(uuid.uuid4())}"
 
@@ -98,10 +253,26 @@ class HlsGenerator:
             
 
             input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
-            print('---------------- __build_hls_input -----------------------')
-            print(input_settings)
+            logger.info('---------------- __build_hls_input -----------------------')
+            logger.info(input_settings)
             input_job_settings.extend(input_settings)
         
+        logger.info(f'---------------- HLS BEFORE Mutation input_job_settings = {json.dumps(input_job_settings)}')
+        
+        # Should the Final Clip have Transitions ?
+        # If the Transition type is a Video with No Overlays, we need to append an Input Setting between every Segment's Input Setting
+        # If the Transition type is an Image, its an Overlay and will be handled within Mp4JobInitializer
+        if self.transition_config:
+            if self.is_transition_video_based():
+                new_input_job_settings = self.insert_transition_clip_between_segments(input_job_settings)
+            elif self.is_transition_image_based():
+                new_input_job_settings = self.insert_transition_overlay_fade_in_fade_out_setting(input_job_settings)
+            
+            if new_input_job_settings:
+                input_job_settings = new_input_job_settings
+        
+        logger.info(f'---------------- HLS AFTER Mutation input_job_settings = {json.dumps(input_job_settings)}')
+
         job_metadata = []
         resolution_thumbnail_mapping = []
         # For each Resolution in the Replay Request, create Media Convert Jobs
@@ -118,18 +289,18 @@ class HlsGenerator:
             index = 1
             res = resolution.split(' ')[0]
 
-            print('---------------- groups_of_input_settings -----------------------')
-            print(groups_of_input_settings)
+            logger.info('---------------- groups_of_input_settings -----------------------')
+            logger.info(groups_of_input_settings)
 
             for inputsettings in groups_of_input_settings:
                 # Each Input setting will have the relevant AudioTrack embedded.
-                print('---------------- inputsettings -----------------------')
-                print(inputsettings)
+                logger.info('---------------- inputsettings -----------------------')
+                logger.info(inputsettings)
                 
                 job, job_output_destination = self.__create_HLS_clips(inputsettings, index, batch_id, res.strip(), resolution_thumbnail_mapping)
 
-                print('---------------- after __create_HLS_clips -----------------------')
-                print(job)
+                logger.info('---------------- after __create_HLS_clips -----------------------')
+                logger.info(job)
 
                 if job != None:
                     all_hls_clip_job_metadata.append({
@@ -152,7 +323,7 @@ class HlsGenerator:
         # and mitigate throttling. Jobs are recorded with a status of CREATED.
         # When MediaConvert emits a change in Status to Event Bridge, we update the Status 
         # of the Job in DDB
-        print(f'JobMetadata = {job_metadata}')
+        logger.info(f'JobMetadata = {job_metadata}')
         for jdata in job_metadata:
             if 'JobMetadata' in jdata:
                 for job_meta in jdata['JobMetadata']:

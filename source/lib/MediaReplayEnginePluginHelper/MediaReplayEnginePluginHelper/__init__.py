@@ -19,19 +19,14 @@ import math
 from time import sleep
 from functools import wraps
 from datetime import date, datetime, time, timedelta
-import botocore
+
 import boto3
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from requests_aws4auth import AWS4Auth
-import threading
-from queue import Queue
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-MAX_NUMBER_OF_THREADS = 50
-
 
  ## Init dict for caching params
 _PARAM_CACHE = {}
@@ -761,6 +756,7 @@ class DataPlane:
         
         return api_response.json()
 
+
     def get_segment_state(self):
         """
         Method to retrieve the state of the segment identified in prior chunks (HLS .ts files) from 
@@ -785,9 +781,25 @@ class DataPlane:
             "MaxSegmentLength": self.max_segment_length
         }
 
-        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
-        
-        return api_response.json()
+        api_response =  self.__segment_state_transformation(path,method,headers,body)
+        return api_response
+
+    
+    # This is to prevent a breaking change for the addition of pagination
+    def __segment_state_transformation(self,path,method,headers,body):
+        api_response = [None, {}, {}]
+        results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body)).json()
+        if 'State' in results:
+            api_response[0] = results['State']
+        if 'PriorSegment' in results:
+            api_response[1] = results['PriorSegment']
+        if 'DependentPluginResults' in results:
+            new_body, last_eval_keys = process_dependent_plugin_segments(results,api_response,body)
+            while last_eval_keys:
+                results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(new_body)).json()
+                if 'DependentPluginResults' in results:
+                   new_body, last_eval_keys = process_dependent_plugin_segments(results,api_response,body)
+        return api_response
 
     def get_segment_state_for_labeling(self):
         """
@@ -811,107 +823,45 @@ class DataPlane:
             "ChunkNumber": self.get_chunk_number(self.filename)
         }
 
-        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
-        
-        return api_response.json()
-
-    def get_segments_for_optimization(self, queue):
-        """
-        Retrieve one or more non-optimized segments identified in the current/prior chunks
-
-        :return: Non-optimized segments identified in the current/prior chunks
-        """
-        path = "/workflow/optimization/segments/all"
-        method = "POST"
-        headers = {
-            "Content-Type": "application/json"
-        }
-
-        
-        body = {
-            "Program": self.program,
-            "Event": self.event,
-            "ChunkNumber": self.get_chunk_number(self.filename),
-            "Classifier": self.classifier["Name"]
-        }
-
-        
-        if self.audio_track:
-            body["AudioTrack"] = self.audio_track
-
-        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
-        queue.put(api_response.json())
-        return api_response.json()
+        api_response = self.__segment_state_for_labeling_transformation(path,method,headers,body)
+        return api_response
     
-    
+    # This is to prevent a breaking change for the addition of pagination
+    def __segment_state_for_labeling_transformation(self,path,method,headers,body):
+        api_response = []
+        last_eval_keys = {}
+        results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body)).json()
+        print(results)
+        if results and 'Segment' in results:
+            segment = results['Segment']['Item']
+            if 'LastEvaluatedKey' in results['Segment']:
+                last_eval_keys = {self.classifier["Name"]:results['Segment']['LastEvaluatedKey']}
+            dependent_plugin_output = {}
+            process_label_plugin_output(results,last_eval_keys,dependent_plugin_output)
+            new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+            while len(last_eval_keys) > 1:
+                results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(new_body)).json()
+                process_label_plugin_output(results,last_eval_keys,dependent_plugin_output)
+                new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+            api_response.append({'Segment':segment,'DependentPluginsOutput': dependent_plugin_output})
+            while 'Segment' in results and 'LastEvaluatedKey' in results['Segment']:
+                results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(new_body)).json()
+                if results and 'Segment' in results:
+                    segment = results['Segment']['Item']
+                    if 'LastEvaluatedKey' in results['Segment']:
+                        last_eval_keys = {self.classifier["Name"]:results['Segment']['LastEvaluatedKey']}
+                    dependent_plugin_output = {}
+                    process_label_plugin_output(results,last_eval_keys,dependent_plugin_output)
+                    new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+                    while len(last_eval_keys) > 1:
+                        results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(new_body)).json()
+                        process_label_plugin_output(results,last_eval_keys,dependent_plugin_output)
+                        new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+                    api_response.append({'Segment':segment,'DependentPluginsOutput': dependent_plugin_output})
+        return api_response
 
 
     def get_segment_state_for_optimization(self, search_window_sec=0):
-        seg_queue = Queue()
-        detector_queue = Queue()
-        threads = []
-        segments = []
-
-        threads.append(threading.Thread(target=self.get_segments_for_optimization, args=(seg_queue,)))
-
-        print(f"get_segments_for_optimization={segments}")
-        print(f"length of get_segments_for_optimization={len(segments)}")
-        
-        detectors = []
-        if "DependentPlugins" in self.optimizer:
-            for d_plugin in self.optimizer["DependentPlugins"]:
-                if d_plugin["Name"] in self.dependent_plugins:
-                    detectors.append(
-                        {
-                            "Name": d_plugin["Name"],
-                            "SupportedMediaType": d_plugin["SupportedMediaType"]
-                        }
-                    )
-
-        detectors_content_from_plugin_results = []
-        for detector in detectors:
-            if detector['SupportedMediaType'] == 'Audio':
-                threads.append(threading.Thread(target=self.get_dependent_detectors_results_for_optimization, args=(detector_queue, self.event, self.program, detector['Name'], self.audio_track,)))
-            else:
-                threads.append(threading.Thread(target=self.get_dependent_detectors_results_for_optimization, args=(detector_queue, self.event, self.program, detector['Name'], None,)))
-
-        for thread in threads:
-            thread.start()
-        
-        for thread in threads:
-            thread.join()
-
-        while not seg_queue.empty():
-            segments = seg_queue.get()
-        
-        while not detector_queue.empty():
-            detectors_content_from_plugin_results.append(detector_queue.get())
-
-        # Lets use multiple threads and map out the Segment with their relevant detector Output
-        # Final structure looks like
-        """
-            {
-                "Segment": segment,
-                "DependentDetectorsOutput": detectors_output
-            }
-        """
-        detectors_output_processor = DetectorsProcessor(segments, search_window_sec, detectors_content_from_plugin_results)
-        return detectors_output_processor.get_detector_output()
-
-    def get_dependent_detectors_results_for_optimization(self, queue, event, program, plugin_name, audio_track):
-        path = f"/workflow/dependent/detectors/{event}/{program}/{audio_track}/{plugin_name}"
-        method = "GET"
-        api_response = self.invoke_dataplane_api(path, method)
-
-        queue.put(
-        {
-            "Name": plugin_name,
-            "DetectorOutput": api_response.json() # this is a list of output for the Audio based Detector Plugin
-        })
-
-        return api_response.json()
-
-    def get_segment_state_for_optimization_old(self, search_window_sec=0):
         """
         Method to retrieve one or more non-optimized segments identified in the current/prior chunks and all the 
         dependent detectors output around the segments for optimization from the Data plane.
@@ -951,9 +901,36 @@ class DataPlane:
         if self.audio_track:
             body["AudioTrack"] = self.audio_track
 
-        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
+        # api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
+        api_response = self.__segment_state_for_optimization_transformation(path,method,headers,body)
         
-        return api_response.json()
+        return api_response
+    
+    # This is to prevent a breaking change for the addition of pagination
+    def __segment_state_for_optimization_transformation(self,path,method,headers,body):
+        api_response = []
+        last_eval_keys = {}
+        results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body)).json()
+        if results and 'Segment' in results:
+            segment = results['Segment']['Item']
+            if 'LastEvaluatedKey' in results['Segment']:
+                last_eval_keys = {self.classifier["Name"]:results['Segment']['LastEvaluatedKey']}
+            dependent_detector_output = []
+            process_dependent_detector_output(results,dependent_detector_output)
+            new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+            api_response.append({'Segment':segment,'DependentDetectorsOutput': dependent_detector_output})
+            while 'Segment' in results and 'LastEvaluatedKey' in results['Segment']:
+                # Add keys to request to add
+                results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(new_body)).json()
+                if results and 'Segment' in results:
+                    segment = results['Segment']['Item']
+                    if 'LastEvaluatedKey' in results['Segment']:
+                        last_eval_keys = {self.classifier["Name"]:results['Segment']['LastEvaluatedKey']}
+                    dependent_detector_output = []
+                    process_dependent_detector_output(results,dependent_detector_output)
+                    new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+                    api_response.append({'Segment':segment,'DependentDetectorsOutput': dependent_detector_output})
+        return api_response
 
     def get_segments_for_clip_generation(self):
         """
@@ -1110,10 +1087,31 @@ class DataPlane:
             "AudioTrack": self.audio_track if self.audio_track else int(audio_track)
         }
 
-        api_response = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body))
-        
-        return api_response.json()
-    
+        return self.__dependent_plugin_output_transformation(path,method,headers,body)
+
+    def __dependent_plugin_output_transformation(self,path,method,headers,body):
+        api_response = {}
+        results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(body)).json()
+        last_eval_keys ={}
+        if results:
+            for d_plugin_name, d_plugin_value in results.items():
+                if 'Items' in d_plugin_value:
+                    api_response[d_plugin_name] = d_plugin_value['Items']
+                if 'LastEvaluatedKey' in d_plugin_value:
+                    last_eval_keys[d_plugin_name] = d_plugin_value['LastEvaluatedKey']
+            new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+            while last_eval_keys:
+                results = self.invoke_dataplane_api(path, method, headers=headers, body=json.dumps(new_body)).json()
+                last_eval_keys ={}
+                if results:
+                    for d_plugin_name, d_plugin_value in results.items():
+                        if 'Items' in d_plugin_value:
+                            api_response[d_plugin_name] = d_plugin_value['Items']
+                        if 'LastEvaluatedKey' in d_plugin_value:
+                            last_eval_keys[d_plugin_name] = d_plugin_value['LastEvaluatedKey']
+                    new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+        return api_response
+
 
     def _is_features_found_in_segment(self, program, event, starttime, pluginname, attrname, attrvalue, endtime):
         """
@@ -1188,6 +1186,35 @@ class DataPlane:
         """
 
         path = f"/event/{event}/program/{program}/replay/{replay_id}/segments"
+        method = "GET"
+
+        api_response = self.invoke_dataplane_api(path, method)
+
+        return api_response.json()
+
+    
+    def get_clip_preview_feedback(self, program, event, classifier, start_time, audio_track):
+        """
+        Returns Feedback information for a given Segment Clip
+
+        :return: Feedback information for a Segment clip
+        """
+
+        path = f'/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/feedback'
+        method = "GET"
+
+        api_response = self.invoke_dataplane_api(path, method)
+
+        return api_response.json()
+
+    def get_all_clip_preview_feedback(self, program, event, audio_track):
+        """
+        Returns all Feedback information for any Segment Clip in an event
+
+        :return: Feedback information for segment clips
+        """
+
+        path = f'/clip/preview/program/{program}/event/{event}/track/{audio_track}/feedback'
         method = "GET"
 
         api_response = self.invoke_dataplane_api(path, method)
@@ -1295,118 +1322,137 @@ class DataPlane:
 
         return api_response.json()
 
-class DetectorsProcessor:
-    def __init__(self, segments, search_window_sec, detectors_content_from_plugin_results):
-        self.__queue = Queue()
-        self.threads = []
-        self.__segments = segments
-        self.__search_window_sec = search_window_sec
-        self.__detectors_content_from_plugin_results = detectors_content_from_plugin_results
 
-        
-    def __configure_threads(self, segments):
-        for segment in segments:
-            self.threads.append(threading.Thread(target=self.__get_detector_output_in_segment, args=(segment,)))
+def process_dependent_plugin_segments(results,api_response,body):
+    last_eval_keys = {}
+    for plugin_name, dependent_segment in results['DependentPluginResults'].items():
+        if 'Items' in dependent_segment:
+            if plugin_name in api_response[2]:
+                api_response[2][plugin_name].extend(dependent_segment['Items'])
+            else:
+                api_response[2][plugin_name] = dependent_segment['Items']
+        if 'LastEvaluatedKey' in dependent_segment:
+            last_eval_keys[plugin_name] = dependent_segment['LastEvaluatedKey']
+    new_body = {**{'LastEvaluatedKeys':last_eval_keys}, **body}
+    return new_body, last_eval_keys
 
-    def __start_threads(self):
-        for thread in self.threads:
-            thread.start()
+def process_label_plugin_output(results,last_eval_keys,dependent_plugin_output):
+    if 'DependentPluginsOutput' in results:
+# For each depedent plugin object is [{Segment: xxx, DependentPluginsOutput: {DependentPlugin: [items], DependentPlugin2: [items]}]
+        for plugin_name, dependent_segment in results['DependentPluginsOutput'].items():
+            if 'Items' in dependent_segment:
+                dependent_plugin_output[plugin_name] = dependent_segment['Items']
+            
+            # Deal with the last eval keys    
+            if 'LastEvaluatedKey' in dependent_segment:
+                last_eval_keys[plugin_name] = dependent_segment['LastEvaluatedKey']
+            else:
+                last_eval_keys.pop(plugin_name,'n/a')
 
-    def __join_threads(self):
-        for thread in self.threads:
-            thread.join()
-
-    def get_detector_output(self):
-        detectors_output = []
-
-        segments_to_be_processed = [self.__segments[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.__segments), MAX_NUMBER_OF_THREADS)]
-        print(f"segments_to_be_processed={segments_to_be_processed}")
-        print(f"length of segments_to_be_processed={len(segments_to_be_processed)}")
-
-        for segments in segments_to_be_processed:
-            self.__configure_threads(segments)
-            self.__start_threads()
-            self.__join_threads()
-
-            while not self.__queue.empty():
-                detectors_output.append(self.__queue.get())
-
-            self.threads = []
-
-        print(f'output from get_detector_output = {json.dumps(detectors_output)}')
-        return detectors_output
-
-    def __get_detector_output_in_segment(self, segment):
-        detectors_output = []
-
-        segment_start = segment["Start"]
-        segment_end = segment["End"] if "End" in segment else None
-
-        detectors_output = self.__get_detectors_output_for_segment(start=segment_start)
-
-        # Get dependent detectors output for optimizing the segment End if segment End is present
-        if segment_end is not None and segment_start != segment_end:
-            print(
-                f"Getting all the dependent detectors output around segment End '{segment_end}'")
-
-            detectors_output.extend(
-                self.__get_detectors_output_for_segment(end=segment_end))
-                                                    
-        # This is the Threads output. Dump it into the Queue
-        if detectors_output:
-            self.__queue.put(
-                    {
-                        "Segment": segment,
-                        "DependentDetectorsOutput": detectors_output
-                    })
-        
-
-    def __get_detectors_output_for_segment(self, start=None, end=None) -> list:
-        
-        detectors_output = []
-
-        """
-            Detector here has the following structure
-            [
-                "Name": detector["Name"],
-                "DetectorOutput": list of dependent_detectors_result
-            ]
-        """
-        for detector in self.__detectors_content_from_plugin_results:
-            mapping_detectors_data_points = []
-
-            detector_name = detector["Name"]
-
-            detector_obj = {
-                "DependentDetector": detector_name
-            }
-
-            if start:
-                if 'DetectorOutput' in detector:
-                    for detector_output in detector['DetectorOutput']:
-                        if detector_output['Start'] <= start and detector_output['End'] >= start:
-                            mapping_detectors_data_points.append(detector_output)
-
-                    if not mapping_detectors_data_points:
-                        for detector_output in detector['DetectorOutput']:
-                            if detector_output['End'] >= (start - self.__search_window_sec) and detector_output['End'] <= start:
-                                mapping_detectors_data_points.append(detector_output)
-                        
-                    detector_obj["Start"] = mapping_detectors_data_points
-
-            if end:
-                if 'DetectorOutput' in detector:
-                    for detector_output in detector['DetectorOutput']:
-                        if detector_output['Start'] <= end and detector_output['End'] >= end:
-                            mapping_detectors_data_points.append(detector_output)
-
-                    if not mapping_detectors_data_points:
-                        for detector_output in detector['DetectorOutput']:
-                            if detector_output['Start'] >= end and detector_output['Start'] <= (end + self.__search_window_sec) :
-                                mapping_detectors_data_points.append(detector_output)
-
-                    detector_obj["End"] = mapping_detectors_data_points
+def process_dependent_detector_output(results,dependent_detector_output):
+    if 'DependentDetectorsOutput' in results:
+# For each depedent plugin object is [{Segment: xxx, DependentPluginsOutput: {DependentPlugin: [items], DependentPlugin2: [items]}]
+        for dependent_detector in results['DependentDetectorsOutput']:
+            dependent_detector_output.append(dependent_detector)
 
 
-            detectors_output.append(detector_obj)
-        return detectors_output
+if __name__ == "__main__":
+    event = {
+  "Plugin": {
+    "Name": "OptimizeSegment",
+    "Class": "Optimizer",
+    "ExecutionType": "Sync",
+    "DependentPlugins": [
+      "DetectVoice"
+    ],
+    "Configuration": {
+      "optimization_search_window_sec": "5"
+    },
+    "OutputAttributes": {}
+  },
+  "Profile": {
+    "Name": "StevenNoLabeler",
+    "ChunkSize": 20,
+    "MaxSegmentLengthSeconds": 15,
+    "ProcessingFrameRate": 12,
+    "Classifier": {
+      "Name": "SegmentBySceneAndSR",
+      "Configuration": {
+        "min_segment_length_seconds": "5",
+        "end_seq": "[{'offset':2, 'pattern':[['Logo_View','Near_View'],['Logo_View','Far_View']] }, {'offset':1,'pattern':[['Far_View','Near_View']]}]",
+        "max_ir_segment_length_seconds": "45",
+        "sr_detector": "DetectEventsFromSR",
+        "start_seq": "[{'offset':2, 'pattern':[['Near_View','Logo_View'],['Far_View','Logo_View']] }, {'offset':1,'pattern':[['Near_View','Far_View']]}]",
+        "goal_stretch_seconds": "6",
+        "booked_foul_stretch_seconds": "3",
+        "padding_seconds": "0",
+        "logo_removal_offset": "0.5",
+        "scene_classifier": "DetectSoccerScene",
+        "int_detector": "DetectIntensity"
+      },
+      "DependentPlugins": [
+        {
+          "Name": "DetectSoccerScene",
+          "Configuration": {
+            "minimum_confidence": "50"
+          },
+          "SupportedMediaType": "Video"
+        },
+        {
+          "Name": "DetectEventsFromSR",
+          "Configuration": {
+            "lookup_ddb_index": "game_id-wall_clock-index",
+            "lookup_ddb_table": "SportRadarData",
+            "game_id": "sr:sport_event:32325023"
+          },
+          "SupportedMediaType": "Video"
+        }
+      ]
+    },
+    "Optimizer": {
+      "Name": "OptimizeSegment",
+      "Configuration": {
+        "optimization_search_window_sec": "5"
+      },
+      "DependentPlugins": [
+        {
+          "Name": "DetectVoice",
+          "Configuration": {
+            "silence_duration_sec": "1",
+            "bias": "unsafe range"
+          },
+          "SupportedMediaType": "Audio"
+        }
+      ]
+    }
+  },
+  "Input": {
+    "ExecutionId": "eea575be-4411-4eff-be9c-4495840b0a3d",
+    "Media": {
+      "S3Bucket": "aws-mre-shared-resources-mremediasourcebucketcd0d-72xzfuysc66e",
+      "S3Key": "1126411/DemoProgram/StevenNoLabeler/StevenNoLabeler/DemoProgram_StevenNoLabeler_1_00427.ts"
+    },
+    "Metadata": {
+      "HLSSegment": {
+        "StartTime": 8528.52,
+        "StartTimeUtc": "02:22:08.520",
+        "StartPtsTime": 8530.82,
+        "StartPtsTimeUtc": "02:22:10.820",
+        "Duration": 14.014,
+        "FrameRate": 60
+      }
+    }
+  },
+  "Event": {
+    "Name": "MREWorkaroundEvent1",
+    "Program": "DemoProgram",
+    "AudioTracks": [
+      1
+    ],
+    "Start": "2022-03-09T00:50:05Z"
+  },
+  "TrackNumber": 1
+}
+    dataplane = DataPlane(event=event)
+    seg_state = dataplane.get_segment_state_for_labeling()
+    print(seg_state)

@@ -194,7 +194,13 @@
     <span class="s2">&quot;Catchup&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;Resolutions&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="s2">&quot;CreateHls&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
-    <span class="s2">&quot;CreateMp4&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+    <span class="s2">&quot;CreateMp4&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TransitionName&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;TransitionOverride&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;FadeInMs&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+        <span class="s2">&quot;FadeOutMs&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;IgnoreDislikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -206,13 +212,16 @@
 <li><p>AudioTrack: AudioTrack number which helps MRE support regional audience needs</p></li>
 <li><p>Description: Description of the Replay being created</p></li>
 <li><p>Requester: Requester of the Replay</p></li>
-<li><p>DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created</p></li>
+<li><p>DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs.</p></li>
 <li><p>Priorities: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay</p></li>
 <li><p>ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.</p></li>
 <li><p>Catchup: True if a CatchUp replay is to be created, False otherwise.</p></li>
 <li><p>CreateHls: True if HLS replay output is to be created</p></li>
 <li><p>Resolutions: List of replay Resolutions to be created. Supported values [“4K (3840 x 2160)”,”2K (2560 x 1440)”,”16:9 (1920 x 1080)”,”16:9 (1920 x 1080)”,”16:9 (1920 x 1080)”,”1:1 (1080 x 1080)”,”4:5 (864 x 1080)”,”9:16 (608 x 1080)”,”720p (1280 x 720)”,”480p (854 x 480)”,”360p (640 x 360)”]</p></li>
 <li><p>CreateMp4:True if MP4 replay output is to be created</p></li>
+<li><p>TransitionName: Optional. Name of the Transition to be used when Creating Replay clips.</p></li>
+<li><p>TransitionOverride: Optional. Objects represents additional Transition configuration that can be overwritten during Replay creation.</p></li>
+<li><p>IgnoreDislikedSegments: Optional. Ignores segments which have been disliked when reviewing the Segment clip. Default False.</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>
@@ -433,6 +442,88 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-transitions-config">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/transition/{transition_name}</span><a class="headerlink" href="#get-transitions-config" title="Permalink to this heading">¶</a></h2>
+<p>Get a Clip Transition Configuration</p>
+<dl>
+<dt>Returns:</dt><dd><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;ImageLocations&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;1080p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;2k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;720p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;4k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+    <span class="p">}</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;PreviewVideoLocation&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;IsDefault&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+    <span class="s2">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;FadeOutMs&quot;</span><span class="p">:</span> <span class="p">,</span>
+    <span class="s2">&quot;FadeInMs&quot;</span><span class="p">:</span> <span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;VideoLocations&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;1080p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;2k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;720p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;4k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+    <span class="p">}</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;MediaType&quot;</span><span class="p">:</span> <span class="s2">&quot;Video/Image&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-all-transitions-config">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/transitions/all</span><a class="headerlink" href="#list-all-transitions-config" title="Permalink to this heading">¶</a></h2>
+<p>List all Clip Transitions Configurations</p>
+<dl>
+<dt>Returns:</dt><dd><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s2">&quot;Items&quot;</span><span class="p">:</span>
+    <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;ImageLocations&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;1080p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;2k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;720p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;4k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+            <span class="p">}</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;PreviewVideoLocation&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;IsDefault&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+            <span class="s2">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;FadeOutMs&quot;</span><span class="p">:</span> <span class="p">,</span>
+            <span class="s2">&quot;FadeInMs&quot;</span><span class="p">:</span> <span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;VideoLocations&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;1080p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;2k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;720p&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;4k&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+            <span class="p">}</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;MediaType&quot;</span><span class="p">:</span> <span class="s2">&quot;Video/Image&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+        <span class="p">},,</span>
+        <span class="o">...</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="update-hls-for-replay-request">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/update/hls/manifest</span><a class="headerlink" href="#update-hls-for-replay-request" title="Permalink to this heading">¶</a></h2>
 <p>Updates HLS S3 manifest file location with the Replay Request</p>
@@ -494,6 +585,8 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 <li><a class="reference internal" href="#get-all-replays-for-segment-end"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/event/{event}/segmentend</span></a></li>
 <li><a class="reference internal" href="#get-replay-hls-locations"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/program/{program}/gameid/{event}/hls/stream/locations</span></a></li>
 <li><a class="reference internal" href="#get-all-replay-requests-for-event-optosegment-end"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/track/{audioTrack}/program/{program}/event/{event}</span></a></li>
+<li><a class="reference internal" href="#get-transitions-config"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/transition/{transition_name}</span></a></li>
+<li><a class="reference internal" href="#list-all-transitions-config"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/transitions/all</span></a></li>
 <li><a class="reference internal" href="#update-hls-for-replay-request"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/update/hls/manifest</span></a></li>
 <li><a class="reference internal" href="#update-segments-to-be-ignored"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/update/ignore/segment/cache</span></a></li>
 </ul>

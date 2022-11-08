@@ -518,7 +518,8 @@ export const ClipPreview = () => {
 
             const audioTrack = track === undefined ? selectedAudioTrack : track
 
-            let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/reviewer/${authenticatedUserName}/feedback`,
+            //let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/reviewer/${authenticatedUserName}/feedback`,
+            let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/feedback`,
                 {disableLoader: true});
             response = response.data;
 

@@ -5,6 +5,7 @@ import os
 import sys
 
 from aws_cdk import (
+    CustomResource,
     RemovalPolicy,
     Stack,
     Duration,
@@ -13,16 +14,22 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_lambda_event_sources as _lambda_es,
     aws_sqs as sqs,
-    aws_ssm as ssm
+    aws_ssm as ssm,
+    custom_resources as cr
 )
 from chalice.cdk import Chalice
 
 CHUNK_STARTPTS_INDEX = "StartPts-index"
 PROGRAM_EVENT_INDEX  = "ProgramEvent_Start-index"
 PROGRAM_EVENT_PLUGIN_INDEX = "ProgramEventPluginName_Start-index"
+PARTITION_KEY_END_INDEX = "PK_End-index"
+PARTITION_KEY_CHUNK_NUMBER_INDEX = "PK_ChunkNumber-index"
 FRAME_PROGRAM_EVENT_INDEX = "ProgramEvent-index"
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX  = "ProgramEventTrack-index"
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = "ProgramEventClassifierStart-index"
+PROGRAM_EVENT_LABEL_INDEX = "ProgramEvent_Label-index"
+NON_OPT_SEG_INDEX = "NonOptoSegments-index"
+
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../')
@@ -146,6 +153,256 @@ class ChaliceApp(Stack):
                 type=ddb.AttributeType.NUMBER
             )
         )
+
+        # DynamoDB GSI Handler Lambda IAM Role
+        self.gsi_handler_lambda_role = iam.Role(
+            self,
+            "DynamoGSIHandlerLambdaRole",
+            assumed_by=iam.ServicePrincipal(service="lambda.amazonaws.com"),
+            description="Role used by the MRE DynamoDB GSI Handler Lambda function"
+        )
+
+        # DynamoDB GSI Handler Lambda IAM Role: DynamoDB permissions
+        self.gsi_handler_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "dynamodb:DescribeTable",
+                    "dynamodb:UpdateTable"
+                ],
+                resources=[
+                    self.plugin_result_table.table_arn
+                ]
+            )
+        )
+
+        # DynamoDB GSI Handler Lambda IAM Role: CloudWatch Logs permissions
+        self.gsi_handler_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                resources=[
+                    "arn:*:logs:*:*:*"
+                ]
+            )
+        )
+
+        # Lambda function: DynamoDB GSI Handler
+        self.gsi_handler_lambda = _lambda.Function(
+            self,
+            "DynamoGSIHandler",
+            description="Create or Delete GSI from a MRE managed DynamoDB table",
+            code=_lambda.Code.from_asset("lambda/DynamoGSIHandler"),
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="lambda_function.on_event",
+            role=self.gsi_handler_lambda_role,
+            memory_size=128,
+            timeout=Duration.minutes(5)
+        )
+
+        # GSI Custom Resource IsComplete Handler Lambda IAM Role
+        self.gsi_is_complete_handler_lambda_role = iam.Role(
+            self,
+            "CRIsCompleteHandlerLambdaRole",
+            assumed_by=iam.ServicePrincipal(service="lambda.amazonaws.com"),
+            description="Role used by the MRE Custom Resource IsComplete Handler Lambda function"
+        )
+
+        # GSI Custom Resource IsComplete Handler Lambda IAM Role: DynamoDB permissions
+        self.gsi_is_complete_handler_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "dynamodb:DescribeTable"
+                ],
+                resources=[
+                    self.plugin_result_table.table_arn
+                ]
+            )
+        )
+
+        # GSI Custom Resource IsComplete Handler Lambda IAM Role: CloudWatch Logs permissions
+        self.gsi_is_complete_handler_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                resources=[
+                    "arn:*:logs:*:*:*"
+                ]
+            )
+        )
+
+        # Lambda function: GSI Custom Resource IsComplete Handler
+        self.gsi_is_complete_handler_lambda = _lambda.Function(
+            self,
+            "CRIsCompleteHandler",
+            description="Check the current status of the DynamoDB GSI created via a Custom Resource",
+            code=_lambda.Code.from_asset("lambda/DynamoIsCompleteHandler"),
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="lambda_function.is_complete",
+            role=self.gsi_is_complete_handler_lambda_role,
+            memory_size=128,
+            timeout=Duration.minutes(5)
+        )
+
+        # GSI Custom Resource Provider
+        self.gsi_cr_provider = cr.Provider(
+            self,
+            "GSI_CR_Provider",
+            on_event_handler=self.gsi_handler_lambda,
+            is_complete_handler=self.gsi_is_complete_handler_lambda,
+            query_interval=Duration.minutes(1)
+        )
+
+        # PluginResults Table: ProgramEvent_Label GSI via Custom Resource
+        self.programevent_label_gsi_cr = CustomResource(
+            self,
+            "ProgramEvent_Label_GSI_CR",
+            service_token=self.gsi_cr_provider.service_token,
+            removal_policy=RemovalPolicy.DESTROY,
+            properties={
+                "table_name": self.plugin_result_table.table_name,
+                "index_name": PROGRAM_EVENT_LABEL_INDEX,
+                "partition_key": {
+                    "Name": "PK",
+                    "Type": "S"
+                },
+                "sort_key": {
+                    "Name": "LabelCode",
+                    "Type": "S"
+                }
+            }
+        )
+
+        self.programevent_label_gsi_cr.node.add_dependency(self.plugin_result_table)
+
+        # PluginResults Table: NonOptoSegments GSI via Custom Resource
+        self.non_opto_segments_gsi_cr = CustomResource(
+            self,
+            "NonOptoSegments_GSI_CR",
+            service_token=self.gsi_cr_provider.service_token,
+            removal_policy=RemovalPolicy.DESTROY,
+            properties={
+                "table_name": self.plugin_result_table.table_name,
+                "index_name": NON_OPT_SEG_INDEX,
+                "partition_key": {
+                    "Name": "PK",
+                    "Type": "S"
+                },
+                "sort_key": {
+                    "Name": "NonOptoChunkNumber",
+                    "Type": "N"
+                }
+            }
+        )
+
+        self.non_opto_segments_gsi_cr.node.add_dependency(self.programevent_label_gsi_cr)
+
+        # PluginResults Table: PK_End GSI via Custom Resource
+        self.pk_end_gsi_cr = CustomResource(
+            self,
+            "PK_End_GSI_CR",
+            service_token=self.gsi_cr_provider.service_token,
+            removal_policy=RemovalPolicy.DESTROY,
+            properties={
+                "table_name": self.plugin_result_table.table_name,
+                "index_name": PARTITION_KEY_END_INDEX,
+                "partition_key": {
+                    "Name": "PK",
+                    "Type": "S"
+                },
+                "sort_key": {
+                    "Name": "End",
+                    "Type": "N"
+                }
+            }
+        )
+
+        self.pk_end_gsi_cr.node.add_dependency(self.non_opto_segments_gsi_cr)
+
+        # PluginResults Table: PK_ChunkNumber GSI via Custom Resource
+        self.pk_chunknumber_gsi_cr = CustomResource(
+            self,
+            "PK_ChunkNumber_GSI_CR",
+            service_token=self.gsi_cr_provider.service_token,
+            removal_policy=RemovalPolicy.DESTROY,
+            properties={
+                "table_name": self.plugin_result_table.table_name,
+                "index_name": PARTITION_KEY_CHUNK_NUMBER_INDEX,
+                "partition_key": {
+                    "Name": "PK",
+                    "Type": "S"
+                },
+                "sort_key": {
+                    "Name": "ChunkNumber",
+                    "Type": "N"
+                }
+            }
+        )
+
+        self.pk_chunknumber_gsi_cr.node.add_dependency(self.pk_end_gsi_cr)
+
+        '''
+        # PluginResults Table: ProgramEvent_Label GSI
+        self.plugin_result_table.add_global_secondary_index(
+            index_name=PROGRAM_EVENT_LABEL_INDEX,
+            partition_key=ddb.Attribute(
+                name="PK",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="LabelCode",
+                type=ddb.AttributeType.STRING
+            )
+        )
+        
+        # PluginResults Table: NonOptoSegments GSI
+        self.plugin_result_table.add_global_secondary_index(
+            index_name=NON_OPT_SEG_INDEX,
+            partition_key=ddb.Attribute(
+                name="PK",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="NonOptoChunkNumber",
+                type=ddb.AttributeType.NUMBER
+            )
+        )
+
+        # PluginResult Table: PK_End GSI
+        self.plugin_result_table.add_global_secondary_index(
+            index_name=PARTITION_KEY_END_INDEX,
+            partition_key=ddb.Attribute(
+                name="PK",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="End",
+                type=ddb.AttributeType.NUMBER
+            )
+        )
+
+        # PluginResult Table: PK_ChunkNumber GSI
+        self.plugin_result_table.add_global_secondary_index(
+            index_name=PARTITION_KEY_CHUNK_NUMBER_INDEX,
+            partition_key=ddb.Attribute(
+                name="PK",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="ChunkNumber",
+                type=ddb.AttributeType.NUMBER
+            )
+        )
+        '''
 
         # ClipPreviewFeedback Table
         self.clip_preview_feedback_table = ddb.Table(
@@ -411,9 +668,14 @@ class ChaliceApp(Stack):
                     "REPLAY_RESULT_TABLE_NAME": self.replay_results_table.table_name,
                     "PROGRAM_EVENT_INDEX": PROGRAM_EVENT_INDEX,
                     "PROGRAM_EVENT_PLUGIN_INDEX": PROGRAM_EVENT_PLUGIN_INDEX,
+                    "PARTITION_KEY_END_INDEX": PARTITION_KEY_END_INDEX,
                     "CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX": CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX,
                     "CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX": CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX,
-                    "JOB_TRACKER_TABLE_NAME": self.job_tracking_table.table_name
+                    "PROGRAM_EVENT_LABEL_INDEX": PROGRAM_EVENT_LABEL_INDEX,
+                    "JOB_TRACKER_TABLE_NAME": self.job_tracking_table.table_name,
+                    "NON_OPTO_SEGMENTS_INDEX": NON_OPT_SEG_INDEX,
+                    "PARTITION_KEY_CHUNK_NUMBER_INDEX":PARTITION_KEY_CHUNK_NUMBER_INDEX,
+                    "MAX_DETECTOR_QUERY_WINDOW_SECS": "60"
                 },
                 "tags": {
                     "Project": "MRE"

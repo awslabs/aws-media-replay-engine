@@ -11,6 +11,7 @@ from aws_cdk import (
     aws_dynamodb as ddb,
     aws_iam as iam,
     aws_secretsmanager as secret_mgr,
+    aws_ssm as ssm,
 )
 from chalice.cdk import Chalice
 
@@ -42,7 +43,39 @@ class ChaliceApp(Stack):
 
         self.create_cloudfront_secrets()
         self.create_replay_dynamodb_table()
+        self.create_transitions_config_table()
         self.create_chalice_role()
+        
+
+    def create_transitions_config_table(self):
+        # Transitions Config Table
+        self.transitions_config_table = ddb.Table(
+            self,
+            "TransitionsConfig",
+            partition_key=ddb.Attribute(
+                name="Name",
+                type=ddb.AttributeType.STRING
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+
+        CfnOutput(self, "mre-transitions-config-table-arn", value=self.transitions_config_table.table_arn,
+                      description="Arn of Transitions Config table", export_name="mre-transitions-config-table-arn")
+        CfnOutput(self, "mre-transitions-config-table-name", value=self.transitions_config_table.table_name,
+                      description="Name of Transitions Config table", export_name="mre-transitions-config-table-name")
+
+
+        # Required for Hydrating the table with default Replay Transition data
+        # Data is pushed from init-amplify.py
+        ssm.StringParameter(
+            self,
+            "MRETransitionConfigTable",
+            string_value=self.transitions_config_table.table_name,
+            parameter_name="/MRE/ControlPlane/TransitionConfigTableName",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the AWS MRE Transition Config Table Name"
+        )
 
     def create_replay_dynamodb_table(self):
         # ReplayRequest Table
@@ -101,6 +134,7 @@ class ChaliceApp(Stack):
                 ],
                 resources=[
                     self.replayrequest_table.table_arn,
+                    self.transitions_config_table.table_arn,
                     self.plugin_table_arn,
                     f"{self.plugin_table_arn}/index/*",
                     self.profile_table_arn,
@@ -200,8 +234,9 @@ class ChaliceApp(Stack):
                     "HLS_HS256_API_AUTH_SECRET_KEY_NAME": "mre_hsa_api_auth_secret",
                     "CLOUDFRONT_COOKIE_PRIVATE_KEY_NAME": "mre_cloudfront_cookie_private_key",
                     "CLOUDFRONT_COOKIE_KEY_PAIR_ID_NAME": "mre_cloudfront_key_pair_id",
-                    "HLS_STREAM_CLOUDFRONT_DISTRO": self.media_output_domain_name
-
+                    "HLS_STREAM_CLOUDFRONT_DISTRO": self.media_output_domain_name,
+                    "TRANSITION_CLIP_S3_BUCKET": Fn.import_value("mre-transition-clips-bucket-name"),
+                    "TRANSITIONS_CONFIG_TABLE_NAME": self.transitions_config_table.table_name
                 },
                 "tags": {
                     "Project": "MRE"

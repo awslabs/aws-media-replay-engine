@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2022-11-14
+- Feature: Support for Replay duration tolerance - With the tolerance value set, you can set a maximum Replay duration when the segments duration exceed the replay duration.
+
+- Fixed:
+    - Increased the total timeout of the CDK CustomResource Provider from the default 30 minutes to 2 hours to avoid stack timeouts during DynamoDB GSI creation.
+    - Improved BYOB (Bring Your Own Bucket) S3 event notification - The new implementation configures one event notification trigger per bucket to avoid hard limit of 100 event notifications per S3 bucket (https://docs.aws.amazon.com/general/latest/gr/s3.html#limits_s3).
+
+
 ## [2.5.0] - 2022-11-04
 
 - Feature: Support for pagination in the dataplane workflow APIs:

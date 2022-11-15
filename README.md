@@ -38,7 +38,7 @@ Run the following commands to build and deploy MRE. Be sure to define values for
 
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.5.0
+VERSION=2.5.1
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -51,7 +51,7 @@ cd deployment
 In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.5.0
+VERSION=2.5.1
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -189,7 +189,11 @@ These cost estimates are for a video clipping and replay (highlight) generation 
 
 # Limitations
 
-While MRE deploys all the relevant AWS resources to facilitate automated video clipping and replay generation pipelines, you are still responsible for managing the service limits of those AWS resources via either [AWS Service Quotas](https://console.aws.amazon.com/servicequotas/home) or [AWS Support Center](https://console.aws.amazon.com/support/home).
+- While MRE deploys all the relevant AWS resources to facilitate automated video clipping and replay generation pipelines, you are still responsible for managing the service limits of those AWS resources via either [AWS Service Quotas](https://console.aws.amazon.com/servicequotas/home) or [AWS Support Center](https://console.aws.amazon.com/support/home).
+
+- MRE currently uses a custom resource provider (based on Lambda) to work around a known AWS CDK limitation (https://github.com/aws/aws-cdk/issues/12246) by creating the DynamoDB GSIs programmatically and polling them periodically to know when they become active. As of today, the custom resource provider in CDK has a maximum timeout limit of 2 hours and in some cases where the PluginResult table has more data (>20 GB), it could cause the Dataplane stack deployment to fail (especially when upgrading MRE to v2.5.1 or later). If this happens to you, please try one of the following workarounds:
+	- Delete old and unwanted Events via the MRE Frontend or `DELETE /event/{name}/program/{program}` Controlplane API.
+	- Backup existing PluginResult table, purge it, rerun the MRE installer, and then restore the data from backup.
 
 
 # Uninstall

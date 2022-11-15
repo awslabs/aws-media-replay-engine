@@ -7,7 +7,7 @@ import React from 'react';
 import _ from 'lodash';
 import {useHistory} from "react-router-dom";
 import {Backdrop, CircularProgress} from "@material-ui/core";
-import {makeStyles} from "@material-ui/core/styles";
+import {duration, makeStyles} from "@material-ui/core/styles";
 import Grid from "@material-ui/core/Grid";
 import Link from "@material-ui/core/Link";
 import {ProgramDropdown} from "../../components/Programs/ProgramDropdown";
@@ -40,6 +40,7 @@ import PlayCircleFilledIcon from "@material-ui/icons/PlayCircleFilled";
 import Tooltip from '@material-ui/core/Tooltip';
 import {TransitionClipPreview} from './TransitionClipPreview';
 import InfoIcon from '@material-ui/icons/Info';
+import Slider from '@material-ui/core/Slider';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -111,6 +112,8 @@ export const ReplayCreate = () => {
     const [previewOpen, setPreviewOpen] = React.useState(false);
     const [fadeInMs, setFadeInMs] = React.useState(0);
     const [fadeOutMs, setFadeOutMs] = React.useState(0);
+    const [durationFromToleranceValue, setDurationFromToleranceValue] = React.useState(30);
+    
 
 
     let featuresM = new Map()
@@ -152,7 +155,8 @@ export const ReplayCreate = () => {
             formValues['DurationbasedSummarization'] = {
                 "Duration": parseInt(replayDuration),
                 "FillToExact": checkBoxState.checkedFillToExact,
-                "EqualDistribution": checkBoxState.checkedEqualDistro
+                "EqualDistribution": checkBoxState.checkedEqualDistro,
+                "ToleranceMaxLimitInSecs": parseFloat(durationFromToleranceValue)
             }
         }
 
@@ -206,11 +210,9 @@ export const ReplayCreate = () => {
                 "FadeOutMs": parseFloat(fadeOutMs)
             }
         }
-        
 
         
         return formValues
-
     }
 
 
@@ -249,6 +251,7 @@ export const ReplayCreate = () => {
         }
         else if (e.target.id === 'duration') {
             setDuration(e.target.value)
+            
         }
         else if (e.target.id === 'adInsertDuration') {
             setAdInsertDuration(e.target.value)
@@ -374,6 +377,7 @@ export const ReplayCreate = () => {
 
     const handleReplayDurationChange = (e) => {
         setReplayDuration(e.target.value);
+        
     }
 
     const handleFadeInChange = (e) => {
@@ -577,6 +581,24 @@ export const ReplayCreate = () => {
         setResolutionValues(tmpFilterValues)
     }
 
+    
+    const getFromDurationTolerance = (value) =>{
+        setDurationFromToleranceValue(parseFloat(value))
+    }
+    
+    const marks = [
+        {
+            value: 0,
+            label: 0
+        },
+        
+        {
+            value: 60,
+            label: 60
+        }
+    ];
+
+    
     return (
         <div>
             {
@@ -681,7 +703,7 @@ export const ReplayCreate = () => {
                                             </Tooltip>
                                             
                                         </Grid>
-                                        <Grid item sm={10} style={{padding: "0px"}}>
+                                        <Grid item sm={11} style={{padding: "0px"}}>
                                             <FormControl component="fieldset" style={{width: "100%"}}>
                                                 <RadioGroup aria-label="replayMode" name="replayMode" value={replayMode}
                                                             onChange={handleReplayModeChange}>
@@ -689,20 +711,21 @@ export const ReplayCreate = () => {
                                                                     className={classes.expandableTableContainer}
                                                                     style={{padding: "0px", width: "100%"}}>
                                                         <Table aria-label="inner table" size="small"
-                                                               style={{width: "80%"}}>
+                                                               style={{width: "100%"}}>
                                                             <TableBody>
-                                                                <TableRow className={classes.root}>
+                                                                <TableRow style={{height: "150px"}}>
                                                                 
-                                                                    <TableCell align="left" style={{borderBlock: "none", width: "30%"}}>
+                                                                    <TableCell align="left" style={{borderBlock: "none", width: "20%"}}>
                                                                         <FormControlLabel value="Duration"
                                                                                         control={<Radio size="small"
                                                                                                         color="primary"/>}
                                                                                         label="Duration based (Secs)"/>
                                                                     </TableCell>
-                                                                        <TableCell align="left" style={{borderBlock: "none", width: "20%"}}>
-                                                                        {
-                                                                            replayMode === "Duration" &&            
-                                                                            <TextField
+                                                                    <TableCell align="left" style={{borderBlock: "none", width: "25%", verticalAlign:"bottom"}}>
+                                                                    {
+                                                                        replayMode === "Duration" &&           
+                                                                        <> 
+                                                                            <TextField 
                                                                                 className={classes.field}
                                                                                 id="desc"
                                                                                 size="small"
@@ -712,11 +735,93 @@ export const ReplayCreate = () => {
                                                                                 onChange={handleReplayDurationChange}
                                                                                 type={"number"}
                                                                             />
+                                                                            <FormControlLabel 
+                                                                                        control={
+                                                                                            <>
+                                                                                            <Typography id="non-linear-slider" gutterBottom style={{paddingTop:"10px"}}>
+                                                                                                Target reel duration (Secs) : 
+                                                                                            </Typography>
+                                                                                            <Tooltip title="Segment clips vary in size. MRE will make best effort to include eligible segments within the target reel duration range.">
+                                                                                                    <InfoIcon 
+                                                                                                        style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", paddingBottom: "1px", paddingLeft: "0px"}}
+                                                                                                    />
+                                                                                            </Tooltip>
+                                                                                            
+                                                                                            </>
+                                                                                    }
+                                                                                        style={{ paddingLeft: "10px", width: "100%" }}
+                                                                                />
+                                                                            
+                                                                            {
+                                                                                parseFloat(durationFromToleranceValue) > 0 ?
+                                                                                <Typography id="non-linear-slider" gutterBottom style={{paddingTop:"5px"}}>
+                                                                                                {parseFloat(replayDuration)} - {parseFloat(replayDuration) + parseFloat(durationFromToleranceValue)}
+                                                                                            </Typography>
+                                                                                    :
+                                                                                    <Typography id="non-linear-slider" gutterBottom style={{paddingTop:"5px"}}>
+                                                                                    {parseFloat(replayDuration) + parseFloat(durationFromToleranceValue)} - {parseFloat(replayDuration)}
+                                                                                </Typography>
+
+                                                                            }
+                                                                            
+                                                                                
+                                                                            </>
                                                                         }
+                                                                        </TableCell>
+                                                                        <TableCell align="left" style={{borderBlock: "none", width: "35%"}}>
+                                                                        {
+                                                                            replayMode === "Duration" &&  
+                                                                            <>
+                                                                            <FormControlLabel 
+                                                                                            control={
+                                                                                            <>
+                                                                                                <Typography
+                                                                                                    className={classes.title}
+                                                                                                    variant="body2"
+                                                                                                    id="tableTitle"
+                                                                                                    component="div">
+                                                                                                    Tolerance (Secs)
+                                                                                                </Typography>
+                                                                                                <Tooltip title="Tolerance can be used to control the maximum duration of the hightlights reel. ">
+                                                                                                    <InfoIcon 
+                                                                                                        style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", paddingBottom: "1px", paddingLeft: "2px"}}
+                                                                                                    />
+                                                                                                </Tooltip> 
+                                                                                            </>
+                                                                                        }
+                                                                                        style={{paddingLeft: "10px", paddingBottom: "5px"}}/>
+                                                                            <Box style={{
+                                                                                borderStyle: "solid",
+                                                                                borderColor: "gray",
+                                                                                paddingLeft: 40,
+                                                                                paddingRight: 40,
+                                                                                paddingTop: 50,
+                                                                                borderWidth: 1
+                                                                            }}>
+                                                                            {
+                                                                                replayMode === "Duration" &&       
+                                                                                <>
+                                                                                    
+                                                                                    <Slider
+                                                                                        getAriaValueText={getFromDurationTolerance}
+                                                                                        valueLabelDisplay="on"
+                                                                                        defaultValue={30}
+                                                                                        step={1}
+                                                                                        min={0}
+                                                                                        max={60}
+                                                                                        marks={marks}
+                                                                                    />
+                                                                                </>     
+                                                                                
+                                                                            }
+                                                                            
+                                                                            </Box>
+                                                                            </>    
+                                                                            }
                                                                         </TableCell>
                                                                     
                                                                     <TableCell align="left"
-                                                                               style={{borderBlock: "none", width: "30%"}}>
+                                                                               style={{borderBlock: "none", width: "20%"}}>
                                                                         {
                                                                             replayMode === "Duration" &&  
                                                                             <FormControlLabel control={
@@ -727,7 +832,7 @@ export const ReplayCreate = () => {
                                                                                     name="checkedEqualDistro"
                                                                                     inputProps={{'aria-label': 'primary checkbox'}}
                                                                                 />
-                                                                            } label="Equal distribution across event?"/>
+                                                                            } label="Equal distribution ?"/>
                                                                         }
                                                                     </TableCell>
                                                                 </TableRow>

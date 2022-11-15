@@ -663,6 +663,20 @@ class MreSharedResources(Stack):
             )
         )
 
+        ## Allow us to query the events for cases where a 
+        self.event_table.add_global_secondary_index(
+            index_name=constants.EVENT_BYOB_NAME_INDEX,
+            partition_key=ddb.Attribute(
+                name="SourceVideoBucket",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="Name",
+                type=ddb.AttributeType.STRING
+            ),
+            projection_type=ddb.ProjectionType.KEYS_ONLY
+        )
+
         CfnOutput(self, "mre-event-table-name", value=self.event_table.table_name, description="Event table name",
                       export_name="mre-event-table-name")
         CfnOutput(self, "mre-event-table-arn", value=self.event_table.table_arn, description="Event table Arn",

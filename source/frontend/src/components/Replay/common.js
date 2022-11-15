@@ -13,6 +13,8 @@ export const parseReplayDetails = (replayDetails, row) => {
     parsedReplayDetails["Event"] = row.Event;
     parsedReplayDetails["AudioTrack"] = _.get(replayDetails, "AudioTrack");
     parsedReplayDetails["Duration"] = _.get(replayDetails, "DurationbasedSummarization.Duration");
+    parsedReplayDetails["DurationTolerance"] = _.get(replayDetails, "DurationbasedSummarization.ToleranceMaxLimitInSecs");
+    parsedReplayDetails["EqualDistribution"] = _.get(replayDetails, "DurationbasedSummarization.EqualDistribution") ? "Yes" : "No"; 
     parsedReplayDetails["Description"] = _.get(replayDetails, "Description");
     parsedReplayDetails["Requester"] = _.get(replayDetails, "Requester");
     parsedReplayDetails["Catchup"] = _.get(replayDetails, "Catchup") ? "Yes" : "No";

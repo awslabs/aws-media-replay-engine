@@ -259,7 +259,8 @@ class ChaliceApp(Stack):
             "GSI_CR_Provider",
             on_event_handler=self.gsi_handler_lambda,
             is_complete_handler=self.gsi_is_complete_handler_lambda,
-            query_interval=Duration.minutes(1)
+            query_interval=Duration.minutes(1),
+            total_timeout=Duration.hours(2)
         )
 
         # PluginResults Table: ProgramEvent_Label GSI via Custom Resource

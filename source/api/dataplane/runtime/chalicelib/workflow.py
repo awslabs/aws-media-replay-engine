@@ -88,8 +88,7 @@ def get_segment_state():
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
         response = plugin_result_table.query(
-            IndexName=PARTITION_KEY_CHUNK_NUMBER_INDEX,
-            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{plugin_name}") & Key("ChunkNumber").lt(chunk_number),
+            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{plugin_name}") & Key("Start").lt(chunk_start),
             ScanIndexForward=False,
             Limit=1
         )

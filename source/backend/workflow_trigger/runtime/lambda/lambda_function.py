@@ -33,9 +33,9 @@ def lambda_handler(event, context):
     s3_key = urllib.parse.unquote_plus(s3_key)
     
     # Get the program, event and profile from the S3 Key
-    program = s3_key.split("/")[1]
-    p_event = s3_key.split("/")[2]
-    profile = s3_key.split("/")[3]
+    program = s3_key.split("/")[-4]
+    p_event = s3_key.split("/")[-3]
+    profile = s3_key.split("/")[-2]
     
     try:
         print(f"Getting the Event details and StepFunction ARN from the Control plane")

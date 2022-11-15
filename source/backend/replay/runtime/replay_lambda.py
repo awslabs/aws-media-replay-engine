@@ -143,7 +143,6 @@ def GetEligibleReplays(event, context):
     """
        Gets all eligible Replay Requests to be processed
     """
-
     # from MediaReplayEngineWorkflowHelper import ControlPlane
     # controlplane = ControlPlane()
     
@@ -358,6 +357,8 @@ def update_replay_with_mp4_location(event, context):
             "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
         }
     }
+    logger.info(f"MP4 LOCATION EB PAYLOAD = {json.dumps(detail)}")
+
     res = eb_client.put_events(
         Entries=[
             {
@@ -368,7 +369,6 @@ def update_replay_with_mp4_location(event, context):
             }
         ]
     )
-
     logger.info(f"PutEvents Result = {res}")
 
 
@@ -461,6 +461,9 @@ def generate_master_playlist(event, context):
 
         # Update the Event that a replay has been created for the Event
         controlplane.update_event_has_replays(event_name, program_name)
+
+        logger.append_keys(replay_id=str(replay_request_id))
+        logger.info(f"HLS LOCATION EB PAYLOAD = {json.dumps(payload)}")
 
         # Notify EventBridge
         detail = {

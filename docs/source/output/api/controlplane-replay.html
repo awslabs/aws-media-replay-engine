@@ -175,7 +175,8 @@
     <span class="s2">&quot;DurationbasedSummarization&quot;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s2">&quot;Duration&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
         <span class="s2">&quot;FillToExact&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
-        <span class="s2">&quot;EqualDistribution&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+        <span class="s2">&quot;EqualDistribution&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+        <span class="s2">&quot;ToleranceMaxLimitInSecs&quot;</span><span class="p">:</span> <span class="n">number</span>
     <span class="p">},</span>
     <span class="s2">&quot;Priorities&quot;</span><span class="p">:{</span>
         <span class="s2">&quot;Clips&quot;</span><span class="p">:</span> <span class="p">[</span>
@@ -212,7 +213,7 @@
 <li><p>AudioTrack: AudioTrack number which helps MRE support regional audience needs</p></li>
 <li><p>Description: Description of the Replay being created</p></li>
 <li><p>Requester: Requester of the Replay</p></li>
-<li><p>DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs.</p></li>
+<li><p>DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs. ToleranceMaxLimitInSecs is defaulted to 30 Secs if not specified.</p></li>
 <li><p>Priorities: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay</p></li>
 <li><p>ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.</p></li>
 <li><p>Catchup: True if a CatchUp replay is to be created, False otherwise.</p></li>

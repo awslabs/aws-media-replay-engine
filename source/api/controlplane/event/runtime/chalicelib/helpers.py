@@ -6,11 +6,14 @@ import json
 import uuid
 import boto3
 from chalice import BadRequestError, NotFoundError
+from boto3.dynamodb.conditions import Key, Attr
 
 PROFILE_TABLE_NAME = os.environ['PROFILE_TABLE_NAME']
 MEDIASOURCE_S3_BUCKET = os.environ['MEDIASOURCE_S3_BUCKET']
 SQS_QUEUE_URL = os.environ['SQS_QUEUE_URL']
 TRIGGER_LAMBDA_ARN = os.environ['TRIGGER_LAMBDA_ARN']
+EVENT_TABLE_NAME = os.environ['EVENT_TABLE_NAME']
+EVENT_BYOB_NAME_INDEX = os.environ['EVENT_BYOB_NAME_INDEX']
 
 NOTIFICATION_ID = "mre-workflow-trigger"
 
@@ -431,19 +434,19 @@ def get_s3_bucket_triggers(bucket_name: str) -> bool:
         print(e)
         raise Exception(f"Unable to check S3 triggers on {bucket_name}'")
 
-def s3_bucket_trigger_exists(notifiction_config: dict, upload_path: str) -> bool:
+def s3_bucket_trigger_exists(notifiction_config: dict) -> bool:
     try:
         if notifiction_config and 'LambdaFunctionConfigurations' in notifiction_config:
             for trigger in notifiction_config['LambdaFunctionConfigurations']:
-                ## We're checking if it exists based on the Id schema (using the upload path)
-                if trigger['Id'] == f'{NOTIFICATION_ID}#{upload_path}':
+                ## We're checking if it exists based on the function ARN
+                if trigger['LambdaFunctionArn'] == f'{TRIGGER_LAMBDA_ARN}':
                     return True
         return False
     except Exception as e:
         print(e)
         raise Exception(f"Unable to check S3 triggers'")
 
-def merge_config(notification_config: dict, upload_path: str) -> dict:
+def merge_config(notification_config: dict) -> dict:
     """Merge Notification Configuration
 
     Args:
@@ -453,19 +456,9 @@ def merge_config(notification_config: dict, upload_path: str) -> dict:
         dict: Updated Notification Configuration
     """
     byob_notification = {
-                "Id": f'{NOTIFICATION_ID}#{upload_path}',
+                "Id": f'{NOTIFICATION_ID}',
                 "LambdaFunctionArn": TRIGGER_LAMBDA_ARN,
-                "Events": ["s3:ObjectCreated:*"],
-                "Filter":{
-                    'Key': {
-                        'FilterRules': [
-                            {
-                                'Name': 'prefix',
-                                'Value': f'{upload_path}'
-                            },
-                        ]
-                    }
-                }
+                "Events": ["s3:ObjectCreated:*"]
             }
     if 'LambdaFunctionConfigurations' in notification_config:
         notification_config['LambdaFunctionConfigurations'].append(byob_notification)
@@ -473,7 +466,7 @@ def merge_config(notification_config: dict, upload_path: str) -> dict:
         notification_config['LambdaFunctionConfigurations'] = [byob_notification]
     return notification_config
 
-def delete_config(notification_config: dict, upload_path: str) -> dict:
+def delete_config(notification_config: dict) -> dict:
     """Merge Notification Configuration
 
     Args:
@@ -485,20 +478,32 @@ def delete_config(notification_config: dict, upload_path: str) -> dict:
     try:
         if notification_config and 'LambdaFunctionConfigurations' in notification_config:
             for index, trigger in enumerate(notification_config['LambdaFunctionConfigurations']):
-                if 'Id' in trigger and trigger['Id'] == f'{NOTIFICATION_ID}#{upload_path}':
+                if 'LambdaFunctionArn' in trigger and trigger['LambdaFunctionArn'] == f'{TRIGGER_LAMBDA_ARN}':
                     del notification_config['LambdaFunctionConfigurations'][index]
         return notification_config
     except Exception as e:
         print(e)
         raise Exception(f"Unable to check S3 triggers'")
 
+def trigger_in_use(bucket_name: str) -> bool:
+    event_index = ddb_resource.Table(EVENT_TABLE_NAME)
+    resp = event_index.query(
+        IndexName=EVENT_BYOB_NAME_INDEX,
+        Select='COUNT',
+        KeyConditionExpression=Key("SourceVideoBucket").eq(f"{bucket_name}"))
+    print(resp)
+    if resp and 'Count' in resp:
+        ## Check if the count of objects is greater than 1
+        return resp['Count'] > 1
+    ## Default to trigger in use
+    return True 
 
-def create_s3_bucket_trigger(bucket_name: str, upload_path: str) -> None:
+def create_s3_bucket_trigger(bucket_name: str) -> None:
     try:
         # Make sure bucket trigger for Lambda function doesn't already exist
         s3_triggers = get_s3_bucket_triggers(bucket_name)
-        if not s3_bucket_trigger_exists(s3_triggers, upload_path):
-            notification_config = merge_config(s3_triggers,upload_path)
+        if not s3_bucket_trigger_exists(s3_triggers):
+            notification_config = merge_config(s3_triggers)
             s3_client.put_bucket_notification_configuration(
                 Bucket=bucket_name,
                 NotificationConfiguration=notification_config)
@@ -506,14 +511,16 @@ def create_s3_bucket_trigger(bucket_name: str, upload_path: str) -> None:
         print(e)
         raise Exception(f"Unable to create Lambda trigger on '{bucket_name}'. Refer to README to ensure proper permissions.")
 
-def delete_s3_bucket_trigger(bucket_name: str, upload_path: str) -> None:
+def delete_s3_bucket_trigger(bucket_name: str) -> None:
     try:
         # Make sure bucket trigger for Lambda function doesn't already exist
-        s3_triggers = get_s3_bucket_triggers(bucket_name)
-        notification_config = delete_config(s3_triggers, upload_path)
-        s3_client.put_bucket_notification_configuration(
-            Bucket=bucket_name,
-            NotificationConfiguration=notification_config)
+        # Check to see if multiple events use the same bucket
+        if not trigger_in_use(bucket_name):
+            s3_triggers = get_s3_bucket_triggers(bucket_name)
+            notification_config = delete_config(s3_triggers)
+            s3_client.put_bucket_notification_configuration(
+                Bucket=bucket_name,
+                NotificationConfiguration=notification_config)
     except Exception as e:
         print(e)
         raise Exception(f"Unable to delete Lambda trigger on '{bucket_name}'. Refer to README to ensure proper permissions.")

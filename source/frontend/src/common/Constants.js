@@ -181,7 +181,17 @@ export const REPLAY_SUMMARY_FORM = {
     },
     Duration: {
         name: "Duration",
-        label: "Request Duration (Secs)",
+        label: "Requested Replay Duration (Secs)",
+        type: "textField",
+    },
+    DurationTolerance: {
+        name: "DurationTolerance",
+        label: "Duration Tolerance (Secs)",
+        type: "textField",
+    },
+    EqualDistribution: {
+        name: "EqualDistribution",
+        label: "Equal Distribution",
         type: "textField",
     },
     Description: {

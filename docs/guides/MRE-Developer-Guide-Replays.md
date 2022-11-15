@@ -9,7 +9,8 @@ A **replay** in MRE is how you generate a filtered set of segments (clips) for a
 - Clips that feature a specific player
 
 At this time, MRE supports the following options to configure a replay request:
-- Duration (seconds)
+- Duration (seconds) - This enforces a soft limit for the Replay duration. If MRE finds a segment which results in the duration being exceeded, it will include it. This may result in the total Replay duration to be much higher than the value specified. For example, if the duration specified is 60 secs and if including a new segment results in a total duration of 110 secs, the segment will get included.
+- Tolerance (Default 30 secs) - This enforces a hard upper limit on the Replay duration. If the duration specified is 60 secs with a tolerance of 10 secs, the total Replay duration will be less or equal to 70 secs.
 - Weightings (0 to 100) for each featurer plugin output attribute value
 
 Featurer plugins should designed and selected in a profile to generate the types of data that need to be leveraged in a replay request.

@@ -204,7 +204,8 @@ class ReplayFeatureProcessor:
             self.__queue.put(segmentinfo)
 
     def __match_feature(self, feature, feature_data_point, segmentinfo):
-        if feature['AttribName'] in feature_data_point:
+        # Make sure that The Feature is Available in Cache and that the Weight is more than ZERO
+        if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
             # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
             # Ex. SegmentBySceneAndSR | score_change | true
             # Ex. DetectSentiment | Sentiment | false

@@ -25,7 +25,7 @@ class CacheDiscovery:
         if 'CommonPrefixes' in result:
 
             # Get all Key Prefixes by Ignoring a key prefix in the name of the Profile.
-            key_prefixes = [x['Prefix'] for x in result["CommonPrefixes"] if self.profile_name not in x['Prefix']]
+            key_prefixes = [x['Prefix'] for x in result["CommonPrefixes"] if self.profile_name !=  x['Prefix'].split('/')[-2]]
             return key_prefixes
             
         return []

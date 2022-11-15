@@ -200,6 +200,7 @@ class ChaliceApp(Stack):
                     "EVENT_PROGRAMID_INDEX": constants.EVENT_PROGRAMID_INDEX,
                     "EVENT_PROGRAM_INDEX": constants.EVENT_PROGRAM_INDEX,
                     "EVENT_CHANNEL_INDEX": constants.EVENT_CHANNEL_INDEX,
+                    "EVENT_BYOB_NAME_INDEX": constants.EVENT_BYOB_NAME_INDEX,
                     "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
                     "CURRENT_EVENTS_TABLE_NAME": Fn.import_value("mre-current-event-table-name"),
                     "PROFILE_TABLE_NAME": Fn.import_value("mre-profile-table-name"),

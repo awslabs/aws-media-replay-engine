@@ -77,8 +77,14 @@ class ReplayEngine:
                 logger.append_keys(program_name=str(self._program))
 
         # CatchUp Replays will have Segment Dict coming in
-        self.current_segment = event['detail']['Segment'] if self._is_catch_up_enabled() else {
-        }
+        self.current_segment = event['detail']['Segment'] if self._is_catch_up_enabled() else {}
+
+        #Segments which have been persisted so far
+        self.previous_replay_segments = []
+        if self._replay_to_be_processed:
+            if 'ReplayId' in self._replay_to_be_processed:
+                self.previous_replay_segments = self._dataplane.get_replay_segments(self._event, self._program, self._replay_to_be_processed['ReplayId']) 
+        
 
     def __does_current_segment_have_any_replay_feature(self, current_segment_cache_file_name):
         '''
@@ -272,8 +278,7 @@ class ReplayEngine:
             self._replay_to_be_processed['Priorities']['Clips'],
             self._is_catch_up_enabled(),
             # list of Segment cache filenames,
-            self._replay_to_be_processed['SegmentsToBeIgnored'] if 'SegmentsToBeIgnored' in self._replay_to_be_processed else [
-            ],
+            self._replay_to_be_processed['SegmentsToBeIgnored'] if 'SegmentsToBeIgnored' in self._replay_to_be_processed else [],
             self._audio_track,
             self._event,
             self._program,
@@ -410,7 +415,31 @@ class ReplayEngine:
 
         return s3_key_prefixes
 
+    def are_segments_different(self, new_replay_segments):
+
+        logger.info(f"Comparing New and Prev Segments - Prev Segments = {json.dumps(self.previous_replay_segments)}, New Segments = {json.dumps(new_replay_segments)}")
+
+        # If there are same number of segments, lets start comparing the Start time of each Segment
+        # When we have an exact match between them, we conclude that the new Segments Identified are no different than 
+        # the previous segments identified.
+        # Both Segment lists should already be Sorted based on Start time
+        try:
+            if len(self.previous_replay_segments) == len(new_replay_segments):
+                for index in range(len(self.previous_replay_segments)):
+                    prev_segment = self.previous_replay_segments[index]
+                    new_segment = new_replay_segments[index]
+                    if prev_segment['Start'] != new_segment['Start']:
+                        return True
+
+                return False
+            return True
+        except Exception as e:
+            logger.info(f'Prev and New segments processing error - {e}')
+            return True
+    
     def _create_replay(self):
+
+        
 
         # Only when a Replay is in Queued State, do we want to Update the Replay as In Progress
         if 'Status' in self._replay_to_be_processed:
@@ -444,22 +473,22 @@ class ReplayEngine:
             logger.info('Duration based, calculating total duration of chosen Segments')
             debuginfo = []
 
-            # replay_request_duration = self.__event['ReplayRequest']['DurationbasedSummarization']['Duration'] * 60 # In Secs
-            # Secs
+            
             replay_request_duration = self.__event['ReplayRequest']['DurationbasedSummarization']['Duration']
+
+            # Set the replay_request_duration including the Tolerance value
+            if 'ToleranceMaxLimitInSecs' in self.__event['ReplayRequest']['DurationbasedSummarization']:
+                replay_request_duration = replay_request_duration + self.__event['ReplayRequest']['DurationbasedSummarization']['ToleranceMaxLimitInSecs']
+                logger.info(f"Total Replay duration set to {replay_request_duration} secs based on Tolerance value.")
 
             # For Duration based, we need to check if the Sum of Segment Clip Duration is more than the Duration asked for in the
             # Reply Request. If yes, we calculate scores and pick the best segments. If no, we simply push the segments into DDB
-            duration_result, duration = self._does_total_duration_of_all_segments_exceed_configured()
+            duration_result, duration = self._does_total_duration_of_all_segments_exceed_configured(replay_request_duration)
             if not duration_result:
-                logger.info(
-                    f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
-                logger.info(
-                    f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
-                replay_res = self._persist_replay_metadata(
-                    self._all_segments_with_features, debuginfo)
-                logger.info(
-                    f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
+                logger.info(f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
+                logger.info(f"CHECK 1 - FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
+                replay_res = self._persist_replay_metadata(self._all_segments_with_features, debuginfo)
+                logger.info(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
 
                 # Looks like replay results were not persisted. Race condition perhaps
                 if not replay_res:
@@ -467,13 +496,15 @@ class ReplayEngine:
 
             else:
 
+                
+
                 # If no Equal Distribution is sought, pick segments based on High Scores, duration
                 if not self.__event['ReplayRequest']['DurationbasedSummarization']['EqualDistribution']:
+                    logger.append_keys(equal_distribution="N")
 
-                    logger.info(
-                        f'Calculate Scores based on Weights .. total duration was {duration}')
-                    self._calculate_segment_scores_basedon_weights(
-                        self._all_segments_with_features)
+                    logger.info(f'Calculate Scores based on Weights .. total duration was {duration}')
+                    self._calculate_segment_scores_basedon_weights(self._all_segments_with_features)
+                        
 
                     '''
                     After Scoring, new structure includes "Score" attrib. For ex.
@@ -508,16 +539,12 @@ class ReplayEngine:
                     ]
                     '''
 
-                    #logger.info("---- AFTER SORT - AllSegmentsWithFeatures ----")
-                    # logger.info(self._all_segments_with_features)
-
+                    
                     # After each Segment has been scored, sort them in Desc based on Score
-                    sorted_segments = sorted(
-                        self._all_segments_with_features, key=lambda x: x['Score'], reverse=True)
+                    sorted_segments = sorted(self._all_segments_with_features, key=lambda x: x['Score'], reverse=True)
+                        
 
-                    logger.info(
-                        "---- AFTER DESC SORT Before Filtering based on Duration and Score - AllSegmentsWithFeatures ----")
-                    logger.info(sorted_segments)
+                    logger.info(f"---- AFTER DESC SORT Before Filtering based on Duration and Score - AllSegmentsWithFeatures ----{json.dumps(sorted_segments)}")
 
                     # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
                     #total_duration_all = 0
@@ -527,45 +554,45 @@ class ReplayEngine:
                     # Event if the last segment time makes the overall time to beyond the Duration limit,
                     # lets add that segment. The rest of the segments will be ignored since the Duration limit
                     # will be crossed.
-                    last_segment_crossed_duration_limit = False
+                    #last_segment_crossed_duration_limit = False
                     for segment in sorted_segments:
 
                         # This conditions is met when the Replay Duration has been exceeded. So stop processing all segments
-                        if last_segment_crossed_duration_limit:
-                            break
+                        #if last_segment_crossed_duration_limit:
+                        #    break
 
-                        segment_duration = self._get_segment_duration_in_secs(
-                            segment)
+                        segment_duration = self._get_segment_duration_in_secs(segment)
                         #total_duration_all += segment_duration
 
                         if (total_duration + segment_duration) <= replay_request_duration:
                             final_segments.append(segment)
                             total_duration += segment_duration
+                            logger.info(f"SEGMENT ADDED - Segment Choosen = {segment}, total_duration = {total_duration}")
                         else:
-                            if not last_segment_crossed_duration_limit:
-                                last_segment_crossed_duration_limit = True
-                                final_segments.append(segment)
-                                total_duration += segment_duration
-                            else:
-                                logger.info(
-                                    f"Ignoring segment - StartTime {segment['Start']}, EndTime {segment['End']} Segment Duration {segment_duration} secs - to avoid exceeding the replay duration limit of {replay_request_duration} secs.")
-
-                    logger.info(
-                        f"Duration if all segments considered would be {total_duration} secs")
+                            logger.info(f"SEGMENT NOT ADDED - Segment not Choosen = {segment}, total_duration if chosen = {total_duration + segment_duration}")
+                        
+                    logger.info(f"Duration of all selected segments is {total_duration} secs")
+                        
 
                     # Finally Sort the Segments based on the Start time in Asc Order
-                    sorted_final_segments = sorted(
-                        final_segments, key=lambda x: x['Start'], reverse=False)
-                    logger.info(
-                        f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(sorted_final_segments)}")
-                    replay_res = self._persist_replay_metadata(
-                        sorted_final_segments, debuginfo)
+                    sorted_final_segments = sorted(final_segments, key=lambda x: x['Start'], reverse=False)
+
+                    #Now that we have the segments that are within the replay, lets compare to see if 
+                    #these segments are any different than the segments which have already been persisted for the replay request
+                    if not self.are_segments_different(sorted_final_segments):
+                        logger.info(f"PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(sorted_final_segments)}")
+                        return False
+                        
+                    logger.info(f"CHECK 2 - FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(sorted_final_segments)}")
+                    replay_res = self._persist_replay_metadata(sorted_final_segments, debuginfo)
+                        
 
                     # Looks like replay results were not persisted. Race condition perhaps
                     if not replay_res:
                         return False
 
                 else:
+                    logger.append_keys(equal_distribution="Y")
 
                     # Because Equal Distribution is being asked for,
                     # We will distribute the total segment duration into Multiple TimeGroups and Group segments within them based on Segment Start time.
@@ -610,8 +637,8 @@ class ReplayEngine:
                     logger.info(f"timegroup_time_in_secs = {timegroup_time_in_secs}")
 
                     # This represents the absolute time that should be added up for all TimeGroups
-                    time_frame_in_time_group = round(
-                        total_segment_duration_in_secs / no_of_time_groups, 2)
+                    time_frame_in_time_group = round(total_segment_duration_in_secs / no_of_time_groups, 2)
+                        
 
                     # Create a Dict of time groups with a Start and End time
                     # We will find segments which fall in them next
@@ -635,61 +662,95 @@ class ReplayEngine:
                     logger.info(time_groups)
 
                     final_segments_across_timegroups = []
+
+                    # Counter to Track the Segment Index within each Time Group
+                    segment_index = 0
+
                     # TimeGroups will be Asc Order by Default based on how its Constructed above
-                    for timegroup in time_groups:
-                        segments_within_timegroup = self._get_segments_with_features_within_timegroup(
-                            timegroup)
+                    '''
+                    Time groups with segments sorted by Score Desc
+                    |   TimeGroup 1 | |   TimeGroup 2 | |   TimeGroup 3 | |   TimeGroup 4 | |   TimeGroup 5 | 
+                    |        13             34                56                                    100         ----> 1st Pass - All Segment with highest scores in each TimeGroup are processed
+                    |        9                                48                                    80          ----> 2nd Pass (only if Duration is not met in previous pass)
+                    |                                         30                                                ----> 3rd pass (only if Duration is not met in previous pass)
+                    '''
+                    total_duration = 0
+                    final_segments = []
+                    time_groups_with_no_segments_available_or_duration_met = []
+                    while True:
+                        segments_per_pass = []
+                        logger.info(f"Processing Index {segment_index} from each Timegroup segment list")
+                        for timegroup in time_groups:
 
-                        logger.info(f'Calculate Scores based on Weights .. ')
-                        self._calculate_segment_scores_basedon_weights(
-                            segments_within_timegroup)
+                            if str(timegroup['TimeGroupStartInSecs']) in time_groups_with_no_segments_available_or_duration_met:
+                                continue
 
-                        # After each Segment has been scored, sort them in Desc based on Score
-                        sorted_segments = sorted(
-                            segments_within_timegroup, key=lambda x: x['Score'], reverse=True)
+                            segments_within_timegroup = self._get_segments_with_features_within_timegroup(timegroup)
 
-                        # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
-                        #total_duration_all = 0
-                        total_duration = 0
-                        final_segments = []
+                            self._calculate_segment_scores_basedon_weights(segments_within_timegroup)
 
-                        # Event if the last segment time makes the overall time to beyond the Duration limit,
-                        # lets add that segment. The rest of the segments will be ignored since the Duration limit
-                        # will be crossed.
-                        last_segment_crossed_duration_limit = False
-                        for segment in sorted_segments:
-                            # This conditions is met when the Replay Duration has been exceeded. So stop processing all segments
-                            if last_segment_crossed_duration_limit:
-                                break
+                            # After each Segment has been scored, sort them in Desc based on Score
+                            sorted_segments = sorted(segments_within_timegroup, key=lambda x: x['Score'], reverse=True)
+                                
 
-                            segment_duration = self._get_segment_duration_in_secs(
-                                segment)
-                            #total_duration_all += segment_duration
-
-                            if (total_duration + segment_duration) <= timegroup_time_in_secs:
-                                final_segments.append(segment)
-                                total_duration += segment_duration
+                            # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
+                            #total_duration_all = 0
+                            if len(sorted_segments) > 0:
+                                try:
+                                    segment = sorted_segments[segment_index]
+                                    segments_per_pass.append({
+                                        "TimeGroupStartInSecs": str(timegroup['TimeGroupStartInSecs']),
+                                        "Segment": segment
+                                    })
+                                except Exception as e:
+                                    logger.info(f"Exception - Segment with specific Index not found in a Timegroup.  Index = {segment_index}, TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']}. This is expected as each Timegroup has variable number of segments.")
+                                    time_groups_with_no_segments_available_or_duration_met.append(str(timegroup['TimeGroupStartInSecs']))
                             else:
-                                if not last_segment_crossed_duration_limit:
-                                    last_segment_crossed_duration_limit = True
-                                    final_segments.append(segment)
-                                    total_duration += segment_duration
-                                else:
-                                    logger.info(
-                                        f"Ignoring the segment - StartTime {segment['Start']}, EndTime {segment['End']} - to avoid exceeding the timegroup duration limit {timegroup_time_in_secs} secs")
+                                logger.info(f"No segments available in this TimeGroup.  Index = {segment_index}, TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']}")
+                                time_groups_with_no_segments_available_or_duration_met.append(str(timegroup['TimeGroupStartInSecs']))
 
-                        # Finally Sort the Segments based on the Start time in Asc Order
-                        sorted_final_segments = sorted(
-                            final_segments, key=lambda x: x['Start'], reverse=False)
-                        final_segments_across_timegroups.extend(
-                            sorted_final_segments)
+                        sorted_segments_per_pass = sorted(segments_per_pass, key=lambda x: x['Segment']['Score'], reverse=True)
+                        for seg in sorted_segments_per_pass:
+                            segment_duration = self._get_segment_duration_in_secs(seg['Segment'])
+                            if (total_duration + segment_duration) <= replay_request_duration: 
+                                final_segments.append(seg['Segment'])
+                                total_duration += segment_duration
+                                logger.info(f"SEGMENT ADDED - Processing Index = {segment_index}, TimeGroupStartInSecs = {seg['TimeGroupStartInSecs']}, Segment Choosen = {seg['Segment']}, total_duration = {total_duration}")
+                            else:
+                                logger.info(f"SEGMENT NOT ADDED - Processing Index = {segment_index}, TimeGroupStartInSecs = {seg['TimeGroupStartInSecs']}, Segment not Choosen = {seg['Segment']}, total_duration if chosen = {total_duration + segment_duration}")
+                            #    time_groups_with_no_segments_available_or_duration_met.append(str(seg['TimeGroupStartInSecs']))    
 
-                    logger.info(
-                        f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(final_segments_across_timegroups)}")
+
+                        segment_index += 1
+
+                        if not final_segments:
+                            logger.info(f"HOW DID THIS OCCUR? - We should have got at east one segment in one of the time groups")
+                            break
+
+                        # After going through all time groups we find that the Segments in a Time Group can never make it within the duration specified and/or some Timegroups have no segments available. 
+                        if len(time_groups_with_no_segments_available_or_duration_met) >= len(time_groups):
+                            break
+
+                    logger.info(f"Duration of all selected segments is {total_duration} secs. Segments selected so far = {json.dumps(final_segments)}")
+
+                    # Finally Sort the Segments based on the Start time in Asc Order
+                    sorted_final_segments = sorted(final_segments, key=lambda x: x['Start'], reverse=False)
+                        
+                    final_segments_across_timegroups.extend(sorted_final_segments)
+
+                    #Now that we have the segments that are within the replay, lets compare to see if 
+                    #these segments are any different than the segments which have already been persisted for the replay request
+                    if not self.are_segments_different(final_segments_across_timegroups):
+                        logger.info(f"PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(final_segments_across_timegroups)}")
+                        return False
+                            
+
+                    logger.info(f"CHECK 3 - FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(final_segments_across_timegroups)}")
+                        
 
                     # Persist all segment+features across all timegroups
-                    replay_res = self._persist_replay_metadata(
-                        final_segments_across_timegroups, debuginfo)
+                    replay_res = self._persist_replay_metadata(final_segments_across_timegroups, debuginfo)
+                        
                     # Looks like replay results were not persisted. Race condition perhaps
                     if not replay_res:
                         return False
@@ -760,14 +821,13 @@ class ReplayEngine:
         startTime, endTime = self._get_segment_start_and_end_times(segment)
         return endTime - startTime
 
-    def _does_total_duration_of_all_segments_exceed_configured(self):
+    def _does_total_duration_of_all_segments_exceed_configured(self, replay_request_duration):
         duration = 0
         for segment_feature in self._all_segments_with_features:
             # Total Duration of Segment in Secs
             duration += self._get_segment_duration_in_secs(segment_feature)
-
-        # return (True, duration) if duration > Decimal(str(self.__event['ReplayRequest']['DurationbasedSummarization']['Duration'])) * 60 else (False, duration)
-        return (True, duration) if duration > Decimal(str(self.__event['ReplayRequest']['DurationbasedSummarization']['Duration'])) else (False, duration)
+            
+        return (True, duration) if duration > replay_request_duration else (False, duration)
 
     def _persist_replay_metadata(self, segmentInfo, additionalInfo=None):
         '''

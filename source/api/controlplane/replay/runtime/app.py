@@ -66,7 +66,8 @@ def add_replay():
             "DurationbasedSummarization": {
                 "Duration": number,
                 "FillToExact": boolean,
-                "EqualDistribution": boolean
+                "EqualDistribution": boolean,
+                "ToleranceMaxLimitInSecs": number
             },
             "Priorities":{
                 "Clips": [
@@ -101,7 +102,7 @@ def add_replay():
         - AudioTrack: AudioTrack number which helps MRE support regional audience needs
         - Description: Description of the Replay being created
         - Requester: Requester of the Replay
-        - DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs.
+        - DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs. ToleranceMaxLimitInSecs is defaulted to 30 Secs if not specified.
         - Priorities: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay
         - ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.
         - Catchup: True if a CatchUp replay is to be created, False otherwise.
@@ -154,6 +155,10 @@ def add_replay():
         model["TransitionName"] = "None" if 'TransitionName' not in model else model['TransitionName']
         model["IgnoreDislikedSegments"] = False if 'IgnoreDislikedSegments' not in model else model['IgnoreDislikedSegments']
         
+        # Default ToleranceMaxLimitInSecs to 30 Secs if its not a part of Payload
+        if 'DurationbasedSummarization' in model:
+            if 'ToleranceMaxLimitInSecs' not in model['DurationbasedSummarization']:
+                model['DurationbasedSummarization']['ToleranceMaxLimitInSecs'] = 30
 
         print(
             f"Adding the Replay Request '{model['Program']}#{model['Event']}'")

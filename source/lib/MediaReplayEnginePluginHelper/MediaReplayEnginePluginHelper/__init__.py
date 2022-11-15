@@ -1322,6 +1322,21 @@ class DataPlane:
 
         return api_response.json()
 
+    def get_replay_segments(self, name, program, replayId):
+        """
+        Gets Replay selected Segments
+
+        :param name: Event name
+        :param program: Program Name
+        :param replayId: Replay Id
+        
+        :return: Replay Segments
+        """
+        path = f"/event/{name}/program/{program}/replay/{replayId}/segments"
+        method = "GET"
+        api_response = self.invoke_dataplane_api(path, method)
+        return api_response.json()
+
 
 def process_dependent_plugin_segments(results,api_response,body):
     last_eval_keys = {}

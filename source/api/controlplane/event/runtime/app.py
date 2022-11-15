@@ -183,8 +183,7 @@ def create_event():
 
         # S3 bucket source
         if "SourceVideoBucket" in event and event["SourceVideoBucket"]:
-            uploadPath = f'{event["Program"]}/{event["Name"]}/{event["Profile"]}'
-            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"],uploadPath)
+            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"])
 
         print(f"Creating the event '{name}' in program '{program}'")
 
@@ -808,13 +807,10 @@ def update_event(name, program):
             if "SourceVideoBucket" in response["Item"]:
                 existing_bucket = response["Item"]["SourceVideoBucket"]
                 ## Get current path of the prefix for BYOB
-                existing_upload_path = f'{response["Item"]["Program"]}/{response["Item"]["Name"]}/{response["Item"]["Profile"]}'
-                ## Remove trigger from bucket
-                helpers.delete_s3_bucket_trigger(existing_bucket,existing_upload_path)
+                ## Remove trigger from bucket (if not used by other events)
+                helpers.delete_s3_bucket_trigger(existing_bucket)
             ## Add trigger to updated bucket
-            ## We can reuse Program and Name because they won't change; profile *may* change
-            new_upload_path = f'{response["Item"]["Program"]}/{response["Item"]["Name"]}/{event["Profile"] if "Profile" in event else response["Item"]["Profile"]}'
-            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"],new_upload_path)
+            helpers.create_s3_bucket_trigger(event["SourceVideoBucket"])
 
         update_expression = "SET #Description = :Description, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive, #GenerateOrigClips = :GenerateOrigClips, #GenerateOptoClips = :GenerateOptoClips, #TimecodeSource = :TimecodeSource"
 
@@ -996,9 +992,8 @@ def delete_event(name, program):
                 )
 
         if source_bucket:
-            existing_upload_path = f'{response["Item"]["Program"]}/{response["Item"]["Name"]}/{response["Item"]["Profile"]}'
             ## Remove trigger from bucket
-            helpers.delete_s3_bucket_trigger(source_bucket,existing_upload_path)
+            helpers.delete_s3_bucket_trigger(source_bucket)
 
         print(f"Deleting the Event '{name}' in Program '{program}'")
 

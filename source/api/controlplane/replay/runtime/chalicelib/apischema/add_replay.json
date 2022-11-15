@@ -54,6 +54,11 @@
           "$id": "#/properties/DurationbasedSummarization/EqualDistribution",
           "type": "boolean",
           "title": "The EqualDistribution Schema"
+        },
+        "ToleranceMaxLimitInSecs": {
+          "$id": "#/properties/DurationbasedSummarization/ToleranceMaxLimitInSecs",
+          "type": "number",
+          "title": "The ToleranceMaxLimitInSecs Schema"
         }
       },
       "additionalProperties": false,

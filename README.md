@@ -129,8 +129,8 @@ The data plane is an API Gateway endpoint that includes APIs using which the Plu
 | source/backend/clipgeneration/runtime/ | ClipGeneration related Lambda functions|
 | source/backend/data_export/infrastructure/ | Data Export CDK application|
 | source/backend/data_export/runtime/ | Data Export related Lambda functions|
-| source/backend/event_completion_handler/infrastructure/ | Event completion CDK application|
-| source/backend/event_completion_handler/runtime/ | Event completion related Lambda functions|
+| source/backend/event-life-cycle/infrastructure/ | Event life cycle CDK application|
+| source/backend/event-life-cycle/runtime/ | Event life cycle related Lambda functions|
 | source/backend/replay/infrastructure/ | Replay CDK application|
 | source/backend/replay/runtime/ | Replay related Lambda functions|
 | source/backend/workflow_trigger/infrastructure/ | Workflow Trigger CDK application|
@@ -246,8 +246,7 @@ cdk destroy [--profile <aws-profile>]
 cd aws-media-replay-engine/source/backend/replay/infrastructure
 cdk destroy [--profile <aws-profile>]
 
-
-cd aws-media-replay-engine/source/backend/event_completion_handler/infrastructure
+cd aws-media-replay-engine/source/backend/event-life-cycle/infrastructure
 cdk destroy [--profile <aws-profile>]
 
 cd aws-media-replay-engine/source/backend/data_export/infrastructure

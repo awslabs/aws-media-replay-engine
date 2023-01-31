@@ -53,3 +53,18 @@ def create_event(event_payload):
     }
     return invoke_api(path, method,headers=event_headers, body=json.dumps(event_payload))
 ```
+
+## Subscribing to Event life cycle events in MRE
+
+
+MRE emits Event Life Cycle events to Amazon EventBridge to enable external process to Start delivering source video chunks to a S3 bucket and to end the external process when an event is complete. When scheduling an Event in MRE, ensure that the  BootstrapTimeInMinutes, DurationMinutes and Start time attributes are set appropriately when invoking the Event API.
+
+- MRE emits VOD_EVENT_START / LIVE_EVENT_START events to EventBridge for an event to start. 
+
+    - For VOD events, MRE sends the VOD_EVENT_START  event to EventBridge as soon as an Event is Created within MRE.
+    - For LIVE events, MRE sends the LIVE_EVENT_START event to EventBridge at a future time ( EventStartTime (Start attribute) - BootstrapTimeInMinutes ).
+
+- MRE emits VOD_EVENT_END / LIVE_EVENT_END events to EventBridge when an Event ends. 
+
+    - For VOD events, MRE sends the VOD_EVENT_END event to EventBridge at a future time ( EventStartTime (Start attribute) + BootstrapTimeInMinutes + DurationMinutes).
+    - For LIVE events, MRE sends the LIVE_EVENT_END event to EventBridge at a future time ( EventStartTime (Start attribute) + DurationMinutes).

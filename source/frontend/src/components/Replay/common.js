@@ -23,9 +23,11 @@ export const parseReplayDetails = (replayDetails, row) => {
     parsedReplayDetails["OutputResolutions"] = _.get(replayDetails, "Resolutions");
     parsedReplayDetails["TransitionName"] = _.get(replayDetails, "TransitionName");
     parsedReplayDetails["IgnoreDislikedSegments"] = _.get(replayDetails, "IgnoreDislikedSegments") ? "Yes" : "No";
+    parsedReplayDetails["IncludeLikedSegments"] = _.get(replayDetails, "IncludeLikedSegments") ? "Yes" : "No";
     parsedReplayDetails["TransitionOverride"] = _.get(replayDetails, "TransitionOverride");
     parsedReplayDetails["MediaTailorProgram"] = _.has(replayDetails, "MediaTailorChannel") ? "Yes" : "No";
     parsedReplayDetails["MediaTailorChannel"] = _.get(replayDetails, 'MediaTailorChannel.ChannelName') || "N/A";
+    parsedReplayDetails["UxLabel"] = _.get(replayDetails, 'UxLabel') || "N/A";
     parsedReplayDetails["MediaTailorAD"] = _.has(replayDetails, 'MediaTailorChannel.AdInsertionConfig') || "N/A";
     parsedReplayDetails["InsertAdds"] = _.has(replayDetails, 'MediaTailorChannel.ScheduleDimensionInMins') ? `${replayDetails.MediaTailorChannel.ScheduleDimensionInMins} Minutes` : "N/A";
     parsedReplayDetails["PriorityList"] = {Priorities: replayDetails.Priorities, replayDetails: replayDetails.ClipfeaturebasedSummarization}

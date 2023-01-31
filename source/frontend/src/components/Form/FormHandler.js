@@ -9,6 +9,7 @@ import {Typography} from "@material-ui/core";
 import moment from "moment";
 import _ from "lodash";
 
+
 const ERROR_MSGS = {
     required: "This field is required."
 }
@@ -120,7 +121,7 @@ export const FormHandler = (postForm, initialFormValues, inputFieldsMap) => {
                 valuesFiltered[key] = value.Id;
             }
             if (_.isDate(value)) {
-                valuesFiltered[key] = moment(value).format("YYYY-MM-DDTHH:mm:ss") + "Z";
+                valuesFiltered[key] = moment(value).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z";
             }
             if (_.isString(value)) {
                 valuesFiltered[key] = value.trim();

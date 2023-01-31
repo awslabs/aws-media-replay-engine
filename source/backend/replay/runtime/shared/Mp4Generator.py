@@ -20,9 +20,16 @@ from timecode import Timecode
 import copy
 from queue import Queue
 import threading
+from collections import namedtuple
 
 from aws_lambda_powertools import Logger
 logger = Logger()
+
+OutputResTuple = namedtuple(
+                                "OutputResTuple",
+                                ['ResWidth', 'ResHeight', 'QVBR', 'MaxBitRate']                
+                            )
+
 
 
 MAX_INPUTS_PER_JOB = int(os.environ['MediaConvertMaxInputJobs'])
@@ -144,7 +151,16 @@ class Mp4Generator:
                     # Make sure we have at least 1 Input Clipping. Which can be EndTimeCode or StartTimeCode
                     # For Settings which do not have InputClipping, just add them into the List
                     if len(input_job_setting['InputClippings']) > 0:
-                        if 'StartTimecode' in input_job_setting['InputClippings'][0]:
+
+                        '''
+                        We have to Create Overlays based on the Start and EndTimeCode for each segment
+
+                        |    Segment 1                   |       Segment 2                  |
+                        |   Chunk1  | Chunk 2 | Chunk 3  |   Chunk1  | Chunk 2 | Chunk 3    |    
+                        | START_TIME|         | END TIME | START_TIME|         | END TIME   | 
+                        '''
+
+                        if 'StartTimecode' in input_job_setting['InputClippings'][0] and 'EndTimecode' not in input_job_setting['InputClippings'][0]:
                             # DO NOT Modify the First Chunk of the Replay
                             # For the rest, we will set an Overlay at the beginning of the Chunk
                             if i == 1:
@@ -170,7 +186,7 @@ class Mp4Generator:
                                 input_job_setting['ImageInserter'] = image_inserter
                                 mutated_input_job_settings.append(input_job_setting)
                         
-                        if 'EndTimecode' in input_job_setting['InputClippings'][0]:
+                        if 'EndTimecode' in input_job_setting['InputClippings'][0] and 'StartTimecode' not in input_job_setting['InputClippings'][0]:
                             # Make sure not to add a Transition at the end of the Last Chunk of the Last segment
                             if i != len(input_job_settings):
                                 overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(
@@ -181,7 +197,87 @@ class Mp4Generator:
                                 image_inserter['InsertableImages'][0]['Duration'] = self.replay_request['TransitionOverride']['FadeInMs']
                                 image_inserter['InsertableImages'][0]['FadeIn'] = self.replay_request['TransitionOverride']['FadeInMs']
                                 image_inserter['InsertableImages'][0]['StartTime'] = overlay_start_time_code
-                                input_job_setting['ImageInserter'] = image_inserter
+                                input_job_setting['ImageInserter'] = image_inserter 
+                            
+                            # Make sure to add the Job setting here. Otherwise this causes Clips to be Truncated
+                            mutated_input_job_settings.append(input_job_setting)
+
+                        '''
+                            Here we create Overlays based on the Start and EndTimeCode for a segment which has only one Chunk
+
+                            |    Segment 1                   |       Segment 2                  |
+                            |             Chunk 1            |              Chunk 1             |    
+                            | START_TIME|         | END TIME | START_TIME|         | END TIME   | 
+                        '''
+
+                        if 'StartTimecode' in input_job_setting['InputClippings'][0] and 'EndTimecode' in input_job_setting['InputClippings'][0]:
+                            # This segment has only one chunk and so Add an overlay at the end
+                            if i == 1:
+
+                                overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(
+                                                        input_job_setting['InputClippings'][0]['EndTimecode'], self.replay_request['TransitionOverride']['FadeInMs'])
+
+                                image_inserter = copy.deepcopy(ImageInserter)
+                                # Override Duration, StartTime, FadeIn
+                                image_inserter['InsertableImages'][0]['Duration'] = self.replay_request['TransitionOverride']['FadeInMs']
+                                image_inserter['InsertableImages'][0]['FadeIn'] = self.replay_request['TransitionOverride']['FadeInMs']
+                                image_inserter['InsertableImages'][0]['StartTime'] = overlay_start_time_code
+                                input_job_setting['ImageInserter'] = image_inserter 
+                                mutated_input_job_settings.append(input_job_setting)
+                            else: 
+
+                                # Handle StartTimeCode here
+
+                                # We need to Overlay at the Beginning of the Chunk TimeCode. Lets go back by 1 frame and add transition
+                                # If "00:00:05:08" is the StartTimeCode, we change it to "00:00:05:07"
+                                start_time_code = input_job_setting['InputClippings'][0]['StartTimecode']
+                                try:
+                                    tc = Timecode(self.__video_framerate, start_time_code)
+                                    tc.sub_frames(1)
+                                    final_start_time_code = str(tc)
+                                except ValueError as e:
+                                    # Timecode.frames should be a positive integer bigger than zero, not -17
+                                    # This happens when StartTimeCode is already at 00:00:00:00
+                                    final_start_time_code = "00:00:00:00"
+                                
+                                image_inserter_for_start_time = {
+                                                                "ImageX": 0,
+                                                                "ImageY": 0,
+                                                                "Duration": self.replay_request['TransitionOverride']['FadeOutMs'],
+                                                                "Layer": 1,
+                                                                "ImageInserterInput": self.transition_config['ImageLocation'],
+                                                                "StartTime": final_start_time_code,
+                                                                "Opacity": 100,
+                                                                "FadeOut": self.replay_request['TransitionOverride']['FadeOutMs']
+                                                                }
+                                
+                                # Handle EndTimeCode here
+                                # If this is the Last Segment and the Last Chunk do not add a Overlay at the end
+                                if i != len(input_job_settings):
+                                    overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(input_job_setting['InputClippings'][0]['EndTimecode'], self.replay_request['TransitionOverride']['FadeInMs'])
+                                                            
+                                    
+                                    image_inserter_for_end_time = {
+                                                                "ImageX": 0,
+                                                                "ImageY": 0,
+                                                                "Duration": self.replay_request['TransitionOverride']['FadeInMs'],
+                                                                "Layer": 1,
+                                                                "ImageInserterInput": self.transition_config['ImageLocation'],
+                                                                "StartTime": overlay_start_time_code,
+                                                                "Opacity": 100,
+                                                                "FadeIn": self.replay_request['TransitionOverride']['FadeInMs']
+                                                                }
+
+
+                                    # Override Duration, StartTime, FadeOut
+                                    input_job_setting['ImageInserter'] = {
+                                                                "InsertableImages": [
+                                                                        image_inserter_for_start_time,
+                                                                        image_inserter_for_end_time
+                                                                    ]
+                                                                }
+                                    logger.info(f"Segment with a single chunk. Updated ImageInserter")
+
                                 mutated_input_job_settings.append(input_job_setting)
 
                 if len(input_job_setting['InputClippings']) == 0:
@@ -268,8 +364,7 @@ class Mp4Generator:
         profile_name = event_details['Profile']
         output_resolutions = self.__event['ReplayRequest']['Resolutions']
 
-        logger.info('---------------- get_all_segments_for_replay -----------------------')
-        logger.info(replay_segments)
+        logger.info(f"Replay Segments picked to Create MP4 Job Inputs --{replay_segments}")
         batch_id = f"{str(uuid.uuid4())}"
 
         # This is a Multi Threaded Process which builds MP4 Input settings for every Segment
@@ -280,7 +375,8 @@ class Mp4Generator:
                                         self.__program,
                                         profile_name,
                                         audio_track,
-                                        self.__framerate)
+                                        self.__framerate,
+                                        replay_id)
         input_job_settings = mp4_job_obj.create_input_settings_for_segments()
 
         logger.info(f'---------------- MP4 BEFORE Mutation input_job_settings = {json.dumps(input_job_settings)}')
@@ -379,16 +475,19 @@ class Mp4Generator:
 
             # Set Resolution to the Output Groups for Video
             res = resolution.split(' ')[0]
-            video_res_width, video_res_height = self.__get_output_jobsetting_by_resolution(
-                res)
-            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Width"] = video_res_width
-            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Height"] = video_res_height
+            video_res = self.__get_output_jobsetting_by_resolution(res)
+            
+                
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Width"] = video_res.ResWidth
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Height"] = video_res.ResHeight
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["CodecSettings"]["H264Settings"]["MaxBitrate"] = video_res.MaxBitRate
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["CodecSettings"]["H264Settings"]["QvbrSettings"]["QvbrQualityLevel"] = video_res.QVBR
 
             # Set Thumbnail location as another Output Group
             thumbnail_destination = f"s3://{OUTPUT_BUCKET}/mp4replay/{batch_id}/thumbnails/{resolution}/"
             jobSettings["OutputGroups"][1]['OutputGroupSettings']['FileGroupSettings']['Destination'] = thumbnail_destination
-            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Width"] = video_res_width
-            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Height"] = video_res_height
+            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Width"] = video_res.ResWidth
+            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Height"] = video_res.ResHeight
 
             resolution_thumbnail_mapping.append({
                 resolution: thumbnail_destination
@@ -430,23 +529,23 @@ class Mp4Generator:
     def __get_output_jobsetting_by_resolution(self, resolution):
 
         if "360p" in resolution:
-            return 640, 360
+            return OutputResTuple(640, 360, 7, 700000)
         elif "480p" in resolution:
-            return 854, 480
+            return OutputResTuple(854, 480, 7, 1000000)
         elif "720p" in resolution:
-            return 1280, 720
+            return OutputResTuple(1280, 720, 8, 4000000)
         elif "16:9" in resolution:
-            return 1920, 1080
+            return OutputResTuple(1920, 1080, 9, 6000000)
         elif "1:1" in resolution:
-            return 1080, 1080
+            return OutputResTuple(1080, 1080, 9, 6000000)
         elif "4:5" in resolution:
-            return 864, 1080
+            return OutputResTuple(864, 1080, 9, 6000000)
         elif "9:16" in resolution:
-            return 608, 1080
+            return OutputResTuple(608, 1080, 9, 6000000)
         elif "2K" in resolution:
-            return 2560, 1440
+            return OutputResTuple(2560, 1440, 9, 6000000)
         elif "4K" in resolution:
-            return 3840, 2160
+            return OutputResTuple(3840, 2160, 9, 6000000)
 
     def __put_metric(self, metric_name, metric_value, dimensions: list):
 

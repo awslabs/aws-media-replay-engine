@@ -62,6 +62,12 @@ def main(region, mode, profile=None):
         WithDecryption=False
     )
 
+    mre_cloudfront_domain_name_parameter = ssm_client.get_parameter(
+        Name='/MRE/ControlPlane/MediaOutputDistribution',
+        WithDecryption=False
+    )
+    mre_cloudfront_domain_name = mre_cloudfront_domain_name_parameter['Parameter']['Value']
+
     control_plain_endpoint_domain = '/'.join(
         control_plain_endpoint['Parameter']['Value'].split('/')[0:-2])
     data_plane_endpoint_domain = '/'.join(
@@ -101,7 +107,8 @@ def main(region, mode, profile=None):
                     https://{bucket_name}.s3.amazonaws.com;
                     media-src 'self'
                     https://{bucket_name}.s3.amazonaws.com
-                    https://{transition_clip_bucket_name}.s3.amazonaws.com;
+                    https://{transition_clip_bucket_name}.s3.amazonaws.com
+                    https://{mre_cloudfront_domain_name};
                     object-src 'none';frame-ancestors 'none'; font-src 'self'
                     https://{web_url}; manifest-src 'self'
             ''',
@@ -112,6 +119,7 @@ def main(region, mode, profile=None):
             "REACT_APP_USER_POOL_ID": user_pool_id,
             "REACT_APP_APP_CLIENT_ID": app_client_id,
             "REACT_APP_IDENTITY_POOL_ID": identity_pool_id,
+            "REACT_APP_CLOUDFRONT_DOMAIN_NAME": mre_cloudfront_domain_name
         },
         customRules=[
             {

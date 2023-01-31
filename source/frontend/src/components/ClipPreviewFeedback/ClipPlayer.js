@@ -8,7 +8,8 @@ import _ from "lodash";
 import Grid from "@material-ui/core/Grid";
 import {
     Tooltip,
-    Typography
+    Typography,
+    CircularProgress
 } from "@material-ui/core";
 
 import ReactPlayer from "react-player";
@@ -29,9 +30,18 @@ export const ClipPlayer = (props) => {
                                 <Tooltip title="I like this Segment quality">
                                     <ThumbUpAltIcon fontSize="large" style={{float: "right", cursor: "pointer", color: props.ThumbsUpColor }} onClick={props.HandleOriginalThumbUp}/>
                                 </Tooltip>
-                                <Tooltip title="I dislike this Segment quality">
+                                <Tooltip title="I don't like this Segment quality">
                                     <ThumbDownAltIcon fontSize="large" style={{float: "right",marginRight:"10px", cursor: "pointer", color: props.ThumbsDownColor}} onClick={props.HandleOriginalThumbDown}/>
                                 </Tooltip>
+                                {
+                                    props.IsOriginalLoading &&
+                                    <CircularProgress color="inherit" style={{float: "right", paddingRight: "3px"}}/>
+                                }
+                                {
+                                    props.IsOptimizedLoading &&
+                                    <CircularProgress color="inherit" style={{float: "right", paddingRight: "3px"}}/>
+                                }
+                                
                                 </>
                             }
                         </Typography>

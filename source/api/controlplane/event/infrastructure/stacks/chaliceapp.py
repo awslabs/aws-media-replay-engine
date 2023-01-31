@@ -34,6 +34,7 @@ class ChaliceApp(Stack):
         
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
+        self.eb_schedule_role_arn = common.MreCdkCommon.get_eb_schedule_role_arn(self)
 
         self.create_chalice_role()
 
@@ -188,6 +189,33 @@ class ChaliceApp(Stack):
             )
         )
 
+        # Chalice IAM Role: Schedule permissions
+        self.chalice_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "scheduler:CreateSchedule",
+                    "scheduler:UpdateSchedule",
+                    "scheduler:DeleteSchedule"
+                ],
+                resources=[
+                    f"arn:aws:scheduler:*:*:schedule/default/mre*"
+                ]
+            )
+        )
+
+        self.chalice_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "iam:PassRole"
+                ],
+                resources=[
+                    self.eb_schedule_role_arn
+                ]
+            )
+        )
+
         self.chalice = Chalice(
             self,
             "ChaliceApp",
@@ -202,11 +230,13 @@ class ChaliceApp(Stack):
                     "EVENT_CHANNEL_INDEX": constants.EVENT_CHANNEL_INDEX,
                     "EVENT_BYOB_NAME_INDEX": constants.EVENT_BYOB_NAME_INDEX,
                     "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
+                    "EB_EVENT_BUS_ARN":self.event_bus.event_bus_arn,
                     "CURRENT_EVENTS_TABLE_NAME": Fn.import_value("mre-current-event-table-name"),
                     "PROFILE_TABLE_NAME": Fn.import_value("mre-profile-table-name"),
                     "MEDIASOURCE_S3_BUCKET": Fn.import_value("mre-media-source-bucket-name"),
                     "SQS_QUEUE_URL": Fn.import_value("mre-event-deletion-queue-name"),
-                    "TRIGGER_LAMBDA_ARN": Fn.import_value("mre-trigger-workflow-lambda-arn")
+                    "TRIGGER_LAMBDA_ARN": Fn.import_value("mre-trigger-workflow-lambda-arn"),
+                    "EB_SCHEDULE_ROLE_ARN":self.eb_schedule_role_arn
                 },
                 "tags": {
                     "Project": "MRE"

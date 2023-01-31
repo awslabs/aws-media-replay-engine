@@ -38,7 +38,7 @@ Run the following commands to build and deploy MRE. Be sure to define values for
 
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.5.1
+VERSION=2.6.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -51,7 +51,7 @@ cd deployment
 In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.5.1
+VERSION=2.6.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -131,8 +131,6 @@ The data plane is an API Gateway endpoint that includes APIs using which the Plu
 | source/backend/data_export/runtime/ | Data Export related Lambda functions|
 | source/backend/event_completion_handler/infrastructure/ | Event completion CDK application|
 | source/backend/event_completion_handler/runtime/ | Event completion related Lambda functions|
-| source/backend/event_scheduler/infrastructure/ | Event Scheduler CDK application|
-| source/backend/event_scheduler/runtime/ | Event Scheduler related Lambda functions|
 | source/backend/replay/infrastructure/ | Replay CDK application|
 | source/backend/replay/runtime/ | Replay related Lambda functions|
 | source/backend/workflow_trigger/infrastructure/ | Workflow Trigger CDK application|
@@ -248,8 +246,6 @@ cdk destroy [--profile <aws-profile>]
 cd aws-media-replay-engine/source/backend/replay/infrastructure
 cdk destroy [--profile <aws-profile>]
 
-cd aws-media-replay-engine/source/backend/event_scheduler/infrastructure
-cdk destroy [--profile <aws-profile>]
 
 cd aws-media-replay-engine/source/backend/event_completion_handler/infrastructure
 cdk destroy [--profile <aws-profile>]
@@ -281,7 +277,7 @@ as outlined in the section **Option 1 (Uninstall using AWS CDK)**.
     1. aws-mre-workflow-trigger
     2. aws-mre-replay-handler
     3. aws-mre-event-scheduler
-    4. aws-mre-event-completion-handler
+    4. aws-mre-event-life-cycle
     5. aws-mre-data-exporter
     6. aws-mre-clip-generation
 	7. aws-mre-segment-caching
@@ -306,7 +302,7 @@ Delete the remaining Stacks
 aws cloudformation delete-stack --stack-name aws-mre-workflow-trigger --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-replay-handler --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-event-scheduler --region <aws-region>
-aws cloudformation delete-stack --stack-name aws-mre-event-completion-handler --region <aws-region>
+aws cloudformation delete-stack --stack-name aws-mre-event-life-cycle --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-data-exporter --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-clip-generation --region <aws-region>
 aws cloudformation delete-stack --stack-name aws-mre-segment-caching --region <aws-region>

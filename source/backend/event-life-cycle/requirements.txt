@@ -1,0 +1,3 @@
+-r infrastructure/requirements.txt
+-r runtime/lambda/requirements.txt
+

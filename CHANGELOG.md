@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2023-01-31
+- Feature: Event life cycle management - 
+    - MRE automates event life cycle using EventBridge schedules. MRE now emits events to EventBridge whenever an event Starts, Ends and the status is marked "Complete".
+    - MRE uses the BootstrapTimeInMinutes and DurationMinutes values to determine an Event's End and marks the Event (VOD/LIVE) as Complete.
+    - When MediaLive is used as the Event's video source, the new Event API exposes an input attribute that can be configured to let MRE stop the MediaLive channel when an event ends.
+- Feature: Ability to view mp4 highlight clips - MRE now supports the ability to view the final highlight clip when reviewing replay segments in the Clip preview page.
+- Feature: Manual inclusion of segments in Highlights - Ability to always include segments when creating replays using the Thumbs up action in Clip preview page.
+- Feature: Manual inclusion or exclusion of segments for highlights now triggers a new replay execution as long as the replay is configured to be in catchup mode.
+
+- Fixed:
+    - Event Start time now supports a granularity of specifying time in seconds
+    - When all Completed Replays for an Event are deleted, the Events hasReplays attribute is set to False
+    - Event filter in the Replay list UI now lists all the Events
+    - Replay clip transition pixel offset issues
+    - Dynamically configure Media Convert bitrate based on replay output resolution
+    - "Events from" and "to" filters in the ListEvents MRE UI changed to use a UTC based backend filter
+    - Clip feature based replays not generating highlights.
+   
+
 ## [2.5.1] - 2022-11-14
 - Feature: Support for Replay duration tolerance - With the tolerance value set, you can set a maximum Replay duration when the segments duration exceed the replay duration.
 

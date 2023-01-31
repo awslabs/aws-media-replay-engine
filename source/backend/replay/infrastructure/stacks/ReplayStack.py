@@ -563,17 +563,17 @@ class ReplayStack(Stack):
             role=self.replay_sfn_role
         )
 
-        # EventBridge: ClipGen Events Rule
+        # EventBridge: Create Replay Events Rule
         self.mre_replay_events_rule = events.Rule(
             self,
             "MREReplayLifecycleEventsRule",
-            description="Rule that captures all the MRE Lifecycle Events (Segmentation Status, Optimization Status, Event Status) and outputs them to Replay StateFunction",
+            description="Rule that captures all the MRE Lifecycle Events (OPTIMIZED_SEGMENT_CACHED,SEGMENT_CACHED,EVENT_END,REPLAY_CREATED,OPTIMIZED_SEGMENT_CLIP_FEEDBACK,SEGMENT_CLIP_FEEDBACK) and outputs them to Replay StateFunction",
             enabled=True,
             event_bus=self.event_bus,
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["OPTIMIZED_SEGMENT_CACHED", "SEGMENT_CACHED", "EVENT_END", "REPLAY_CREATED"]
+                    "State":  ["OPTIMIZED_SEGMENT_CACHED", "SEGMENT_CACHED", "EVENT_END", "REPLAY_CREATED", "OPTIMIZED_SEGMENT_CLIP_FEEDBACK", "SEGMENT_CLIP_FEEDBACK"]
                 }
             ),
             targets=[

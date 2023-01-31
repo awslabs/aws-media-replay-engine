@@ -35,6 +35,7 @@ PROFILE_TABLE_NAME = os.environ['PROFILE_TABLE_NAME']
 EVENT_TABLE_NAME = os.environ['EVENT_TABLE_NAME']
 TRANSITION_CLIP_S3_BUCKET = os.environ["TRANSITION_CLIP_S3_BUCKET"]
 TRANSITIONS_CONFIG_TABLE_NAME = os.environ["TRANSITIONS_CONFIG_TABLE_NAME"]
+MEDIA_OUTPUT_BUCKET_NAME  = os.environ["MEDIA_OUTPUT_BUCKET_NAME"]
 
 authorizer = IAMAuthorizer()
 serializer = TypeSerializer()
@@ -92,7 +93,8 @@ def add_replay():
                 "FadeInMs": number,
                 "FadeOutMs": number,
             },
-            "IgnoreDislikedSegments": boolean
+            "IgnoreDislikedSegments": boolean,
+            "IncludeLikedSegments": boolean
         }
 
     Parameters:
@@ -111,7 +113,8 @@ def add_replay():
         - CreateMp4:True if MP4 replay output is to be created
         - TransitionName: Optional. Name of the Transition to be used when Creating Replay clips. 
         - TransitionOverride: Optional. Objects represents additional Transition configuration that can be overwritten during Replay creation.
-        - IgnoreDislikedSegments: Optional. Ignores segments which have been disliked when reviewing the Segment clip. Default False.
+        - IgnoreDislikedSegments: Optional. Ignores segments which have been disliked (thumbs down) when reviewing the Segment clip. Default False.
+        - IncludeLikedSegments: Optional. If True, segments which have been liked (thumbs up) when reviewing the Segment clip will be included in Replay. Default False.
 
     Returns:
 
@@ -154,6 +157,7 @@ def add_replay():
         model["IgnoredSegments"] = []
         model["TransitionName"] = "None" if 'TransitionName' not in model else model['TransitionName']
         model["IgnoreDislikedSegments"] = False if 'IgnoreDislikedSegments' not in model else model['IgnoreDislikedSegments']
+        model["IncludeLikedSegments"] = False if 'IncludeLikedSegments' not in model else model['IncludeLikedSegments']
         
         # Default ToleranceMaxLimitInSecs to 30 Secs if its not a part of Payload
         if 'DurationbasedSummarization' in model:
@@ -425,7 +429,24 @@ def get_replay_by_program_event_id(program, event, id):
     if "Item" not in response:
         raise NotFoundError(f"Replay settings not found")
 
-    return replace_decimals(response['Item'])
+    replay_request = response['Item']
+    replay_request['PreviewVideoUrl'] = ""
+
+    try:
+        if 'Mp4Location' in replay_request:
+            resolutions = replay_request["Mp4Location"].keys()
+            for resolution in resolutions:
+                chosen_mp4_loc = replay_request["Mp4Location"][resolution]
+                if 'ReplayClips' in chosen_mp4_loc:
+                    if chosen_mp4_loc['ReplayClips']:
+                        mp4_loc = chosen_mp4_loc['ReplayClips'][0].split('/')
+                        key = '/'.join(mp4_loc[3:])
+                        replay_request['PreviewVideoUrl'] = get_media_presigned_url(key, MEDIA_OUTPUT_BUCKET_NAME)
+                        break
+    except Exception as e:
+            print(f"Error while generating PreviewVideoUrl: {str(e)}")
+
+    return replace_decimals(replay_request)
 
 
 ########################## Replay Changes Starts ######################
@@ -1128,6 +1149,33 @@ def delete_replay(name, program, replayid):
             }
         )
 
+        # Are there any Replay Requests in Completed Status for this Event ?
+        # If no, Update the hasReplays attribute to False
+
+        response = replay_table.query(
+            KeyConditionExpression=Key("PK").eq(f"{program}#{name}"),
+            ConsistentRead=True
+        )
+        rep_req_exists = False
+        if 'Items' in response:
+            for rep_req in response['Items']:
+                if rep_req["Status"] == "Complete":
+                    rep_req_exists = True
+                    break
+        
+        if not rep_req_exists:
+            event_table = ddb_resource.Table(EVENT_TABLE_NAME)
+            event_table.update_item(
+                Key={
+                    "Name": name,
+                    "Program": program
+                },
+                UpdateExpression="SET #hasreplays = :hasreplays",
+                ExpressionAttributeNames={"#hasreplays": "hasReplays"},
+                ExpressionAttributeValues={":hasreplays": False}
+            )
+
+
     except NotFoundError as e:
         print(f"Got chalice NotFoundError: {str(e)}")
         raise
@@ -1360,7 +1408,7 @@ def get_transitions_config(transition_name):
             if 'PreviewVideoLocation' in config:
                 full_s3_path = config['PreviewVideoLocation'].split('/')
                 key = '/'.join(full_s3_path[3:])
-                config['PreviewVideoUrl'] = get_media_presigned_url(key)
+                config['PreviewVideoUrl'] = get_media_presigned_url(key, TRANSITION_CLIP_S3_BUCKET)
         except Exception as e:
             print(f'Error when creating PreSigned Url for Transition - {transition_name}. Error details - {e}')
             raise ChaliceViewError(f'Error when creating PreSigned Url for Transition - {transition_name}')
@@ -1444,7 +1492,7 @@ def list_all_transitions_config():
         return trans_config
 
 
-def get_media_presigned_url(key):
+def get_media_presigned_url(key, bucket):
     """
     Generate pre-signed URL for downloading the media (video) file from S3.
 
@@ -1464,7 +1512,7 @@ def get_media_presigned_url(key):
         response = s3.generate_presigned_url(
             ClientMethod='get_object',
             Params={
-                'Bucket': TRANSITION_CLIP_S3_BUCKET,
+                'Bucket': bucket,
                 'Key': key
             },
             ExpiresIn=86400  # 24Hrs
@@ -1474,15 +1522,15 @@ def get_media_presigned_url(key):
         print(f"Got S3 ClientError: {str(e)}")
         error = e.response['Error']['Message']
         print(
-            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(error)}")
+            f"Unable to generate S3 pre-signed URL: {str(error)}")
         raise ChaliceViewError(
-            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(error)}")
+            f"Unable to generate S3 pre-signed URL: {str(error)}")
 
     except Exception as e:
         print(
-            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(e)}")
+            f"Unable to generate S3 pre-signed URL: {str(e)}")
         raise ChaliceViewError(
-            f"Unable to generate S3 pre-signed URL for bucket '{TRANSITION_CLIP_S3_BUCKET}' with key '{key}': {str(e)}")
+            f"Unable to generate S3 pre-signed URL: {str(e)}")
 
     else:
         return response

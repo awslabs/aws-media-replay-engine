@@ -34,6 +34,7 @@ import {PluginClassDropdown} from "../PluginClassDropdown/PluginClassDropdown";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
 import {parseReplayDetails} from "../Replay/common";
 import {EventFilters} from "../../containers/Event/Components/EventFilters";
+import { AllEventsDropdown } from '../Event/AllEventsDropDown';
 
 
 const useStyles = makeStyles((theme) => ({
@@ -543,7 +544,7 @@ export const ListRenderer = (props) => {
                                         <Typography variant="h2">and</Typography>
                                     </Box>
                                     <Grid item sm={3}>
-                                        <EventDropdown
+                                        <AllEventsDropdown
                                             initValue={props.eventFilterInitValue}
                                             handleChange={(e) => {
                                                 handleAllFilters(FILTERS.eventFilter.name, e.target.value)

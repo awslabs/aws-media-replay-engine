@@ -22,7 +22,7 @@ logger = Logger()
 MAX_NUMBER_OF_THREADS = 20
 
 class Mp4JobInitializer:
-    def __init__(self, replay_segments, data_plane, event_name, program, profile_name, audio_track, framerate):
+    def __init__(self, replay_segments, data_plane, event_name, program, profile_name, audio_track, framerate, replay_id):
         
         self.event_name = event_name
         self.program_name = program
@@ -35,6 +35,7 @@ class Mp4JobInitializer:
         self.audio_track = audio_track
         self.__framerate = framerate
         self.threads = []
+        self.replay_id = replay_id
 
 
 
@@ -45,6 +46,9 @@ class Mp4JobInitializer:
         chunks = self._data_plane.get_chunks_for_segment(startTime, endTime, self.program_name, self.event_name, self.profile_name )
         input_settings = self.__build_mp4_input(chunks, self.audio_track, startTime, endTime)
         
+        logger.info(f"Got {len(chunks)} chunks for segment with Start time = {segment['Start']} and End = {segment['End']}")
+        logger.info(f"INPUT SETTINGS = {json.dumps(input_settings)} for SEGMENT start = {segment['Start']}")
+
         self.__queue.put({
             "SegStartTime": startTime,
             "input_settings": input_settings
@@ -155,6 +159,7 @@ class Mp4JobInitializer:
     def create_input_settings_for_segments(self):
         segment_groups = [self.replay_segments[i:i + MAX_NUMBER_OF_THREADS] for i in range(0, len(self.replay_segments), MAX_NUMBER_OF_THREADS)]
 
+        logger.append_keys(replay_id=str(self.replay_id))
         logger.info(f"No. of Replay segments for creating MP4 = {len(self.replay_segments)}")
         
         for seg_groups in segment_groups:
@@ -186,6 +191,8 @@ class Mp4JobInitializer:
         return self.input_job_settings
 
     def __configure_threads(self, replay_segs):
+        logger.info(f"Creating MP4 Input settings for segments {json.dumps(replay_segs)}")
+
         for segment in replay_segs:
             self.threads.append(threading.Thread(target=self.__process_mp4_input, args=(segment,)))
 

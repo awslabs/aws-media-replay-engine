@@ -295,7 +295,7 @@ def create_cloudwatch_alarm_for_channel(channel_id):
             EvaluationPeriods=1,
             DatapointsToAlarm=1,
             Threshold=0.0,
-            TreatMissingData="breaching",
+            TreatMissingData="missing",
             Namespace="MediaLive",
             Statistic="Minimum",
             Dimensions=[
@@ -450,7 +450,7 @@ def merge_config(notification_config: dict) -> dict:
     """Merge Notification Configuration
 
     Args:
-        notification_config (dict): Exisiting Configuration
+        notification_config (dict): Existing Configuration. Triggers are restricted to *ts extensions alone.
 
     Returns:
         dict: Updated Notification Configuration
@@ -458,7 +458,17 @@ def merge_config(notification_config: dict) -> dict:
     byob_notification = {
                 "Id": f'{NOTIFICATION_ID}',
                 "LambdaFunctionArn": TRIGGER_LAMBDA_ARN,
-                "Events": ["s3:ObjectCreated:*"]
+                "Events": ["s3:ObjectCreated:*"],
+                'Filter': {
+                    'Key': {
+                        'FilterRules': [
+                            {
+                                'Name': 'suffix',
+                                'Value': '.ts'
+                            },
+                        ]
+                    }
+                }
             }
     if 'LambdaFunctionConfigurations' in notification_config:
         notification_config['LambdaFunctionConfigurations'].append(byob_notification)

@@ -13,6 +13,7 @@ from decimal import Decimal
 from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.config import Config
+from collections import namedtuple
 from MediaReplayEngineWorkflowHelper import ControlPlane
 from MediaReplayEnginePluginHelper import DataPlane
 from timecode import Timecode
@@ -20,6 +21,10 @@ import copy
 from aws_lambda_powertools import Logger
 logger = Logger()
 
+OutputResTuple = namedtuple(
+                                "OutputResTuple",
+                                ['ResWidth', 'ResHeight', 'QVBR', 'MaxBitRate']                
+                            )
 
 MAX_INPUTS_PER_JOB = int(os.environ['MediaConvertMaxInputJobs']) 
 ACCELERATION_MEDIA_CONVERT_QUEUE = os.environ['MediaConvertAcceleratorQueueArn']
@@ -164,7 +169,14 @@ class HlsGenerator:
                     # Make sure we have at least 1 Input Clipping. Which can be EndTimeCode or StartTimeCode
                     # For Settings which do not have InputClipping, just add them into the List
                     if len(input_job_setting['InputClippings']) > 0:
-                        if 'StartTimecode' in input_job_setting['InputClippings'][0]:
+                        '''
+                        We have to Create Overlays based on the Start and EndTimeCode for each segment
+
+                        |    Segment 1                   |       Segment 2                  |
+                        |   Chunk1  | Chunk 2 | Chunk 3  |   Chunk1  | Chunk 2 | Chunk 3    |    
+                        | START_TIME|         | END TIME | START_TIME|         | END TIME   | 
+                        '''
+                        if 'StartTimecode' in input_job_setting['InputClippings'][0] and 'EndTimecode' not in input_job_setting['InputClippings'][0]:
                             # DO NOT Modify the First Chunk of the Replay
                             # For the rest, we will set an Overlay at the beginning of the Chunk
                             if i == 1:
@@ -190,7 +202,7 @@ class HlsGenerator:
                                 input_job_setting['ImageInserter'] = image_inserter
                                 mutated_input_job_settings.append(input_job_setting)
                         
-                        if 'EndTimecode' in input_job_setting['InputClippings'][0]:
+                        if 'EndTimecode' in input_job_setting['InputClippings'][0] and 'StartTimecode' not in input_job_setting['InputClippings'][0]:
                             # Make sure not to add a Transition at the end of the Last Chunk of the Last segment
                             if i != len(input_job_settings):
                                 overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(
@@ -202,6 +214,80 @@ class HlsGenerator:
                                 image_inserter['InsertableImages'][0]['FadeIn'] = self.replay_request['TransitionOverride']['FadeInMs']
                                 image_inserter['InsertableImages'][0]['StartTime'] = overlay_start_time_code
                                 input_job_setting['ImageInserter'] = image_inserter
+
+                            # Make sure to add the Job setting here. Otherwise this causes Clips to be Truncated    
+                            mutated_input_job_settings.append(input_job_setting)
+
+                        if 'StartTimecode' in input_job_setting['InputClippings'][0] and 'EndTimecode' in input_job_setting['InputClippings'][0]:
+                            # This segment has only one chunk and so Add an overlay at the end
+                            if i == 1:
+
+                                overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(
+                                                        input_job_setting['InputClippings'][0]['EndTimecode'], self.replay_request['TransitionOverride']['FadeInMs'])
+
+                                image_inserter = copy.deepcopy(ImageInserter)
+                                # Override Duration, StartTime, FadeIn
+                                image_inserter['InsertableImages'][0]['Duration'] = self.replay_request['TransitionOverride']['FadeInMs']
+                                image_inserter['InsertableImages'][0]['FadeIn'] = self.replay_request['TransitionOverride']['FadeInMs']
+                                image_inserter['InsertableImages'][0]['StartTime'] = overlay_start_time_code
+                                input_job_setting['ImageInserter'] = image_inserter 
+                                mutated_input_job_settings.append(input_job_setting)
+                            else: 
+
+                                # Handle StartTimeCode here
+
+                                # We need to Overlay at the Beginning of the Chunk TimeCode. Lets go back by 1 frame and add transition
+                                # If "00:00:05:08" is the StartTimeCode, we change it to "00:00:05:07"
+                                start_time_code = input_job_setting['InputClippings'][0]['StartTimecode']
+                                try:
+                                    tc = Timecode(self.__video_framerate, start_time_code)
+                                    tc.sub_frames(1)
+                                    final_start_time_code = str(tc)
+                                except ValueError as e:
+                                    # Timecode.frames should be a positive integer bigger than zero, not -17
+                                    # This happens when StartTimeCode is already at 00:00:00:00
+                                    final_start_time_code = "00:00:00:00"
+                                
+                                image_inserter_for_start_time = {
+                                                                "ImageX": 0,
+                                                                "ImageY": 0,
+                                                                "Duration": self.replay_request['TransitionOverride']['FadeOutMs'],
+                                                                "Layer": 1,
+                                                                "ImageInserterInput": self.transition_config['ImageLocation'],
+                                                                "StartTime": final_start_time_code,
+                                                                "Opacity": 100,
+                                                                "FadeOut": self.replay_request['TransitionOverride']['FadeOutMs']
+                                                                }
+
+                                # Handle EndTimeCode here
+                                # If this is the Last Segment and the Last Chunk do not add a Overlay at the end
+                                if i != len(input_job_settings):
+                                    overlay_start_time_code = self.get_overlay_start_timecode_for_last_chunk_in_segment(input_job_setting['InputClippings'][0]['EndTimecode'], self.replay_request['TransitionOverride']['FadeInMs'])
+                                                            
+                                    
+                                    image_inserter_for_end_time = {
+                                                                "ImageX": 0,
+                                                                "ImageY": 0,
+                                                                "Duration": self.replay_request['TransitionOverride']['FadeInMs'],
+                                                                "Layer": 1,
+                                                                "ImageInserterInput": self.transition_config['ImageLocation'],
+                                                                "StartTime": overlay_start_time_code,
+                                                                "Opacity": 100,
+                                                                "FadeIn": self.replay_request['TransitionOverride']['FadeInMs']
+                                                                }
+
+
+                                    # Override Duration, StartTime, FadeOut
+                                    input_job_setting['ImageInserter'] = {
+                                                                "InsertableImages": [
+                                                                        image_inserter_for_start_time,
+                                                                        image_inserter_for_end_time
+                                                                    ]
+                                                                }
+                                    logger.info(f"Segment with a single chunk. Updated ImageInserter")
+
+
+
                                 mutated_input_job_settings.append(input_job_setting)
 
                 if len(input_job_setting['InputClippings']) == 0:
@@ -221,8 +307,8 @@ class HlsGenerator:
 
 
         # We need this to get the Transition Configuration
-        self.replay_request = self._controlPlane.get_replay_request(
-            self.__eventName, self.__program, replay_id)
+        self.replay_request = self._controlPlane.get_replay_request(self.__eventName, self.__program, replay_id)
+            
 
         self.transition_config = None
         if 'TransitionName' in self.replay_request:
@@ -238,9 +324,7 @@ class HlsGenerator:
         # Segments that have been created for the current Replay
         replay_segments = self._dataplane.get_all_segments_for_replay(self.__program, self.__eventName, replay_id)
 
-        logger.info('---------------- get_all_segments_for_replay -----------------------')
-        logger.info(replay_segments)
-        #batch_id = f"{str(self.__eventName).lower()}-{str(self.__program).lower()}-{replay_id}"
+        logger.info(f"Replay Segments picked to Create HLS Job Inputs --{replay_segments}")
         batch_id = f"{str(uuid.uuid4())}"
 
         # Create Input settings per segment
@@ -253,8 +337,9 @@ class HlsGenerator:
             
 
             input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
-            logger.info('---------------- __build_hls_input -----------------------')
-            logger.info(input_settings)
+            logger.info(f"Got {len(chunks)} chunks for segment with Start time = {segment['Start']} and End = {segment['End']}")
+            logger.info(f"HLS INPUT SETTINGS = {json.dumps(input_settings)} for SEGMENT start = {segment['Start']}")
+
             input_job_settings.extend(input_settings)
         
         logger.info(f'---------------- HLS BEFORE Mutation input_job_settings = {json.dumps(input_job_settings)}')
@@ -457,9 +542,13 @@ class HlsGenerator:
             
             # Set Resolution to the Output Groups
             res = resolution.split(' ')[0]
-            video_res_width, video_res_height = self.__get_output_jobsetting_by_resolution(res)
-            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Width"] = video_res_width
-            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Height"] = video_res_height
+            video_res = self.__get_output_jobsetting_by_resolution(res)
+
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Width"] = video_res.ResWidth
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["Height"] = video_res.ResHeight
+            jobSettings["OutputGroups"][0]['Outputs'][0]["VideoDescription"]["CodecSettings"]["H264Settings"]["MaxBitrate"] = video_res.MaxBitRate
+            
+
 
             jobSettings["OutputGroups"][0]["OutputGroupSettings"]["HlsGroupSettings"]["AdditionalManifests"] =  [{
                                                                                                                     "ManifestNameModifier": f"Batch-{index}",
@@ -470,8 +559,8 @@ class HlsGenerator:
             # Set Thumbnail location
             thumbnail_destination = f"s3://{OUTPUT_BUCKET}/HLS/{batch_id}/thumbnails/{resolution}/"
             jobSettings["OutputGroups"][1]['OutputGroupSettings']['FileGroupSettings']['Destination'] = thumbnail_destination
-            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Width"] = video_res_width
-            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Height"] = video_res_height
+            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Width"] = video_res.ResWidth
+            jobSettings["OutputGroups"][1]['Outputs'][0]["VideoDescription"]["Height"] = video_res.ResHeight
             resolution_thumbnail_mapping.append({
                 resolution: thumbnail_destination
             })     
@@ -509,22 +598,22 @@ class HlsGenerator:
     def __get_output_jobsetting_by_resolution(self, resolution):
 
         if "360p" in resolution:
-            return 640, 360
+            return OutputResTuple(640, 360, 7, 700000)
         elif "480p" in resolution:
-            return 854, 480
+            return OutputResTuple(854, 480, 7, 1000000)
         elif "720p" in resolution:
-            return 1280, 720
+            return OutputResTuple(1280, 720, 8, 4000000)
         elif "169" in resolution:
-            return 1920, 1080
+            return OutputResTuple(1920, 1080, 9, 6000000)
         elif "11" in resolution:
-            return 1080, 1080
+            return OutputResTuple(1080, 1080, 9, 6000000)
         elif "45" in resolution:
-            return 864, 1080
+            return OutputResTuple(864, 1080, 9, 6000000)
         elif "916" in resolution:
-            return 608, 1080
+            return OutputResTuple(608, 1080, 9, 6000000)
         elif "2K" in resolution:
-            return 2560, 1440
+            return OutputResTuple(2560, 1440, 9, 6000000)
         elif "4K" in resolution:
-            return 3840, 2160
+            return OutputResTuple(3840, 2160, 9, 6000000)
             
     

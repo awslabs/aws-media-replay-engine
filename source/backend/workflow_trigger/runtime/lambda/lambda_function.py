@@ -28,14 +28,23 @@ def lambda_handler(event, context):
     
     s3_bucket = event['Records'][0]['s3']['bucket']['name']
     s3_key = event['Records'][0]['s3']['object']['key']
+
+    print(f"s3_key={s3_key}")
+    print(f"s3_bucket={s3_bucket}")
     
     # UnquotePlus the URL encoded S3 Key
     s3_key = urllib.parse.unquote_plus(s3_key)
     
-    # Get the program, event and profile from the S3 Key
-    program = s3_key.split("/")[-4]
-    p_event = s3_key.split("/")[-3]
-    profile = s3_key.split("/")[-2]
+    if len(s3_key.split("/")) == 3: #BYOB
+        # Get the program, event and profile from the S3 Key
+        program = s3_key.split("/")[0]
+        p_event = s3_key.split("/")[1]
+        profile = s3_key.split("/")[2]
+    else:
+        # Get the program, event and profile from the S3 Key
+        program = s3_key.split("/")[-4]
+        p_event = s3_key.split("/")[-3]
+        profile = s3_key.split("/")[-2]
     
     try:
         print(f"Getting the Event details and StepFunction ARN from the Control plane")
@@ -63,8 +72,15 @@ def lambda_handler(event, context):
         }
         
         print(f"Starting the StepFunction execution of '{sfn_arn}' for bucket '{s3_bucket}' and key '{s3_key}'")
+
         
-        response = sfn.start_execution(
+        event_status = controlplane.get_event_status(p_event, program)
+
+        if event_status == "Complete":
+            print(f"Event status is Complete. Not starting StepFunction execution for arriving chunks event '{p_event}' in program '{program}'.")
+            return
+        
+        sfn.start_execution(
             stateMachineArn=sfn_arn,
             name=execution_id,
             input=json.dumps(sfn_input),
@@ -72,8 +88,9 @@ def lambda_handler(event, context):
         
         print("Successfully started the StepFunction execution")
         
+        
         # Update the status of event to "In Progress" if not done already
-        if controlplane.get_event_status(p_event, program) != "In Progress":
+        if event_status != "In Progress":
             print(f"Updating the status of event '{p_event}' in program '{program}' to 'In Progress'")
             controlplane.put_event_status(p_event, program, "In Progress")
     

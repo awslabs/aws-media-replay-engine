@@ -328,11 +328,11 @@ def get_dependent_plugins_output():
 
         for d_plugin in dependent_plugins:
 
-            if last_evaluated_keys and d_plugin not in last_evaluated_keys:
-                continue
-
             d_plugin_name = d_plugin["Name"]
             d_plugin_media_type = d_plugin["SupportedMediaType"]
+
+            if last_evaluated_keys and d_plugin_name not in last_evaluated_keys:
+                continue
 
             print(
                 f"Getting the output of dependent plugin '{d_plugin_name}' for program '{program}', event '{event}' and chunk number '{chunk_number}'")
@@ -351,9 +351,9 @@ def get_dependent_plugins_output():
                 "KeyConditionExpression": Key("PK").eq(pk) & Key("ChunkNumber").eq(chunk_number),
             }
 
-            if d_plugin in last_evaluated_keys:
-                print(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin]}'")
-                query_params["ExclusiveStartKey"]=last_evaluated_keys[d_plugin]
+            if d_plugin_name in last_evaluated_keys:
+                print(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin_name]}'")
+                query_params["ExclusiveStartKey"]=last_evaluated_keys[d_plugin_name]
 
             response = plugin_result_table.query(**query_params)
 

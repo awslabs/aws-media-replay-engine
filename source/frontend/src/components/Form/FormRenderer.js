@@ -34,6 +34,7 @@ import {OutputAttributesForm} from "../OutputAttributeForm/OutputAttributesForm"
 import {FormSelect} from "./Components/FormSelect";
 import {ProfilePluginsFormWrapper} from "../../containers/Profile/Forms/ProfilePluginsFormWrapper";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
+import Tooltip from '@material-ui/core/Tooltip';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -155,6 +156,14 @@ export const FormRenderer = (props) => {
                                                     <Grid item key={`label-${index}`}>
                                                         <FormLabel
                                                             required={inputFieldValue.isRequired}>{inputFieldValue.label}</FormLabel>
+                                                        {
+                                                            inputFieldValue.displayHelp && 
+                                                            <Tooltip title={inputFieldValue.helpText} >
+                                                                <InfoIcon 
+                                                                    style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", "marginLeft" : "5px"}}
+                                                                />
+                                                            </Tooltip>
+                                                        }
                                                     </Grid>
                                                     <Grid item sm={inputFieldValue.size || 10} key={`grid-${index}`}>
                                                         <TextField
@@ -247,7 +256,7 @@ export const FormRenderer = (props) => {
                                                             <Grid item sm={9} key={`${inputFieldValue.type}-${index}`}>
                                                                 <FormControl>
                                                                     <FormLabel
-                                                                        className={classes.labelSpace}> {inputFieldValue.name}
+                                                                        className={classes.labelSpace}> {inputFieldValue.label}
                                                                     </FormLabel>
                                                                     <div>
                                                                         <DateTimePicker
@@ -266,6 +275,7 @@ export const FormRenderer = (props) => {
                                                                             required
                                                                             disableClock
                                                                             disableCalendar
+                                                                            format="MM/dd/yyyy h:mm:ss a"
                                                                         />
                                                                     </div>
                                                                 </FormControl>
@@ -288,10 +298,19 @@ export const FormRenderer = (props) => {
                                                                                         })
                                                                                     }}
                                                                                 />
+                                                                                
                                                                             </Grid>
                                                                             <Grid item>
                                                                                 {
                                                                                     inputFieldValue.label
+                                                                                }
+                                                                                {
+                                                                                    inputFieldValue.displayHelp && 
+                                                                                        <Tooltip title={inputFieldValue.helpText} >
+                                                                                            <InfoIcon 
+                                                                                                style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", "marginLeft" : "5px"}}
+                                                                                            />
+                                                                                        </Tooltip>
                                                                                 }
                                                                             </Grid>
                                                                         </Grid>

@@ -199,6 +199,11 @@ export const REPLAY_SUMMARY_FORM = {
         label: "Description",
         type: "textField",
     },
+    UxLabel: {
+        name: "UxLabel",
+        label: "UxLabel",
+        type: "textField",
+    },
     Requester: {
         name: "Requester",
         label: "Requester",
@@ -231,7 +236,12 @@ export const REPLAY_SUMMARY_FORM = {
     },
     IgnoreDislikedSegments: {
         name: "IgnoreDislikedSegments",
-        label: "Ignore low quality segments",
+        label: "Ignore manually deselected segments",
+        type: "textField",
+    },
+    IncludeLikedSegments: {
+        name: "IncludeLikedSegments",
+        label: "Include manually selected segments",
         type: "textField",
     },
     PriorityList: {

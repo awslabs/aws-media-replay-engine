@@ -12,7 +12,14 @@ import {Backdrop, CircularProgress, Dialog, DialogContent, TextField} from "@mat
 import {APIHandler} from "../../common/APIHandler/APIHandler";
 import DialogTitle from "@material-ui/core/DialogTitle";
 import DialogActions from "@material-ui/core/DialogActions";
+import {
+    Checkbox,
+    FormControlLabel,
+    Tooltip,
 
+
+} from "@material-ui/core";
+import InfoIcon from '@material-ui/icons/Info';
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -32,6 +39,7 @@ export const ClipPreviewModal = (props) => {
     const classes = useStyles();
     const [feedback, setFeedback] = React.useState('');
 
+
     const {query, isLoading} = APIHandler();
 
     const handleOpen = () => {
@@ -39,6 +47,7 @@ export const ClipPreviewModal = (props) => {
     };
 
     const resetModal = () => {
+        props.onCancelFunction()
         props.setOpen(false);
     };
 
@@ -49,32 +58,39 @@ export const ClipPreviewModal = (props) => {
 
     const postForm = async () => {
         let retVal;
-        let clipState = await props.clipState(props.feedbackMode, "Dislike")
+        if (props.feedbackMode === "Original"){
+            console.log("Original");
+            await props.SetOriginalThumbsDown(true)
+            await props.SetOriginalThumbsUp(false)
+        }
+        else{
+            console.log("Opto");
+            await props.SetOptimizedThumbsDown(true)
+            await props.SetOptimizedThumbsUp(false)
+        }
+            
 
-        if (props.feedbackMode === 'Original')
-            clipState.OriginalFeedback.FeedbackDetail = props.feedback
-        else if (props.feedbackMode === 'Optimized')
-            clipState.OptimizedFeedback.FeedbackDetail = props.feedback
-
+        /* let clipState = await props.clipState()
+        console.log(clipState);
         retVal = await query('post', 'api-data-plane', `clip/preview/feedback`, {
             body: clipState
         });
 
-        return retVal;
+        return retVal; */
     };
 
     const handleFormSubmit = async (e) => {
         e.preventDefault();
 
-        let res = await postForm();
+        //let res = await postForm();
 
-        if (res.success) {
-            props.onSuccessFunction(props.feedback);
-            handleClose();
-        }
-        else {
-            props.onFailureFunction();
-        }
+        //if (res.success) {
+        props.onSuccessFunction(props.feedback);
+        props.setOpen(false);
+        // }
+        // else {
+        //     props.onFailureFunction();
+        // }
     };
 
     const dialogBody = (
@@ -101,6 +117,23 @@ export const ClipPreviewModal = (props) => {
                                         label={"Notes"}
                                     />
                                 </Box>
+                            </Grid>
+                            <Grid item style={{paddingTop: "0px"}}>
+                                <FormControlLabel control={
+                                    <Checkbox
+                                        color="primary"
+                                        checked={props.resetChecked}
+                                        onChange={props.resetCheckedChangeHandler}
+                                        name="checkedDislikeReset"
+                                        inputProps={{'aria-label': 'primary checkbox'}}
+                                    />
+                                } label="Remove feedback?"/>
+                                <Tooltip title="Removes the Dislike feedback on this segment">
+                                    <InfoIcon 
+                                        style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer"}}
+                                    />
+                                </Tooltip>
+                                
                             </Grid>
                         </Grid>
                 }

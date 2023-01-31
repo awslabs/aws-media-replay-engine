@@ -35,6 +35,7 @@ class MreSharedResources(Stack):
         super().__init__(scope, id, **kwargs)
 
         self.create_mre_event_bus()
+        self.create_eb_schedule_execution_role()
         self.create_s3_buckets()
         self.upload_mre_transition_sample_videos()
         self.upload_mre_transition_fade_in_out_image()
@@ -272,11 +273,47 @@ class MreSharedResources(Stack):
 
         CfnOutput(self, "mre-event-bus", value=self.eb_event_bus.event_bus_arn,
                       description="Arn of the MRE Event Bus", export_name="mre-event-bus-arn")
+    
+
+    def create_eb_schedule_execution_role(self):
+
+        self.eb_schedule_role = iam.Role(
+            self,
+            "MreScheduleRole",
+            assumed_by=iam.ServicePrincipal(
+                service="scheduler.amazonaws.com",
+                conditions=
+                    {
+                        "StringEquals": {
+                            "aws:SourceAccount": f"{Aws.ACCOUNT_ID}"
+                        },
+                        "StringLike": {
+                            "aws:SourceArn": f"arn:aws:scheduler:{Aws.REGION}:{Aws.ACCOUNT_ID}:schedule/default/mre*"
+                        }
+                    }
+            ),
+            description="Role used by MRE to create EB Schedules"
+        )
+
+        #Allows a Schedule Push events to EventBridge
+        self.eb_schedule_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "events:PutEvents"
+                ],
+                resources=[
+                    self.eb_event_bus.event_bus_arn
+                ]
+            )
+        )
+
+        CfnOutput(self, "mre-eb-schedule-role-arn", value=self.eb_schedule_role.role_arn,
+                      description="Arn of the MRE Schedule Role", export_name="mre-eb-schedule-role-arn")
 
     def create_s3_buckets(self):
         ##### START: S3 BUCKETS #####
 
-        
         # MRE Access Log Bucket
         self.access_log_bucket = s3.Bucket(
             self,
@@ -481,6 +518,7 @@ class MreSharedResources(Stack):
                 _lambda.Runtime.PYTHON_3_8
             ]
         )
+
 
         # Deploy ffprobe_layer after layers_deploy
         self.ffprobe_layer.node.add_dependency(self.layer_deploy)

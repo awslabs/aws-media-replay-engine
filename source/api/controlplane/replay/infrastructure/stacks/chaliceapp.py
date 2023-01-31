@@ -40,6 +40,7 @@ class ChaliceApp(Stack):
         self.profile_table_name = Fn.import_value("mre-profile-table-name")
         self.event_table_name = Fn.import_value("mre-event-table-name")
         self.media_output_domain_name = Fn.import_value("mre-media-output-distro-domain-name")
+        self.media_output_bucket_name = Fn.import_value("mre-media-output-bucket-name")
 
         self.create_cloudfront_secrets()
         self.create_replay_dynamodb_table()
@@ -236,7 +237,8 @@ class ChaliceApp(Stack):
                     "CLOUDFRONT_COOKIE_KEY_PAIR_ID_NAME": "mre_cloudfront_key_pair_id",
                     "HLS_STREAM_CLOUDFRONT_DISTRO": self.media_output_domain_name,
                     "TRANSITION_CLIP_S3_BUCKET": Fn.import_value("mre-transition-clips-bucket-name"),
-                    "TRANSITIONS_CONFIG_TABLE_NAME": self.transitions_config_table.table_name
+                    "TRANSITIONS_CONFIG_TABLE_NAME": self.transitions_config_table.table_name,
+                    "MEDIA_OUTPUT_BUCKET_NAME": self.media_output_bucket_name
                 },
                 "tags": {
                     "Project": "MRE"

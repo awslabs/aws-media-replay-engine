@@ -18,8 +18,8 @@ from jsonschema import validate, ValidationError, FormatChecker
 from chalicelib import DecimalEncoder
 from chalicelib import helpers
 from chalicelib import load_api_schema, replace_decimals, replace_floats
-    
-
+from chalicelib.Schedule import Schedule
+from chalicelib.EventScheduler import EventScheduler
 
 app = Chalice(app_name='aws-mre-controlplane-event-api')
 
@@ -42,7 +42,9 @@ EVENT_PROGRAMID_INDEX = os.environ['EVENT_PROGRAMID_INDEX']
 EVENT_PROGRAM_INDEX = os.environ['EVENT_PROGRAM_INDEX']
 EVENT_CHANNEL_INDEX = os.environ['EVENT_CHANNEL_INDEX']
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
+EB_EVENT_BUS_ARN = os.environ['EB_EVENT_BUS_ARN']
 CURRENT_EVENTS_TABLE_NAME = os.environ['CURRENT_EVENTS_TABLE_NAME']
+EB_SCHEDULE_ROLE_ARN = os.environ['EB_SCHEDULE_ROLE_ARN']
 
 @app.route('/event', cors=True, methods=['POST'], authorizer=authorizer)
 def create_event():
@@ -71,29 +73,31 @@ def create_event():
             "SourceVideoBucket": string,
             "GenerateOrigClips": boolean,
             "GenerateOptoClips": boolean,
-            "TimecodeSource": string
+            "TimecodeSource": string,
+            "StopMediaLiveChannel: boolean
         }
 
     Parameters:
 
-        - Name: Name of the Event
-        - Program: Name of the Program
-        - Description: Event Description 
+        - Name: [REQUIRED] Name of the Event.
+        - Program: [REQUIRED] Name of the Program.
+        - Description: Event Description. 
         - Channel: Identifier of the AWS Elemental MediaLive Channel used for the Event
         - ProgramId: A Unique Identifier for the event being broadcasted.
-        - SourceVideoUrl: VOD or Live Urls to help MRE to harvest the streams
-        - SourceVideoAuth: A Dict which contains API Authorization payload to help MRE harvest VOD/Live streams
+        - SourceVideoUrl: VOD or Live Urls to help MRE to harvest the streams.
+        - SourceVideoAuth: A Dict which contains API Authorization payload to help MRE harvest VOD/Live streams.
         - SourceVideoMetadata: A Dict of additional Event Metadata for reporting purposes.
-        - BootstrapTimeInMinutes: Duration in Minutes which indicates the time it takes for the VOD/Live stream harvester to be initialized
-        - Profile: Name of the MRE Profile to make use of for processing the event
-        - ContentGroup: Name of the Content Group
-        - Start: The Actual start DateTime of the event
-        - DurationMinutes: The Total Event Duration
-        - Archive: Backup the Source Video if true.
+        - BootstrapTimeInMinutes: [REQUIRED] Default value 0. Duration in Minutes which indicates the time it takes for the Source video process to be initialized.
+        - Profile: [REQUIRED] Name of the MRE Profile to make use of for processing the event.
+        - ContentGroup: [REQUIRED] Name of the Content Group.
+        - Start: [REQUIRED] The Actual start DateTime of the event (in UTC).
+        - DurationMinutes: [REQUIRED] The Total Event Duration.
+        - Archive: [REQUIRED] Backup the Source Video if true.
         - SourceVideoBucket: S3 Bucket where Live or VOD video chunks would land to trigger the Event.
         - GenerateOrigClips: Generate Original segment clips if true (Default is true).
         - GenerateOptoClips: Generate Optimized segment clips if true (Default is true).
-        - TimecodeSource: Source of the embedded timecode in the Event video frames (Default is NOT_EMBEDDED).
+        - TimeCodeSource: Source of the embedded TimeCode in the Event video frames (Default is NOT_EMBEDDED).
+        - StopMediaLiveChannel: False by default. When MediaLive is the Video chunk source, setting this attribute to True lets MRE stop the channel when the event ends.
 
     Returns:
 
@@ -109,6 +113,11 @@ def create_event():
         event = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
 
         validate(instance=event, schema=API_SCHEMA["create_event"], format_checker=FormatChecker())
+
+        # Validate that the Event Duration is not Negative
+        if 'DurationMinutes' in event:
+            if event['DurationMinutes'] < 0:
+                raise ValidationError("Event duration cannot be a negative value.")
 
         print("Got a valid event schema")
 
@@ -126,10 +135,13 @@ def create_event():
 
         is_vod_event = False
 
+        # The API caller sends the Start time in UTC format
         start_utc_time = datetime.strptime(event["Start"], "%Y-%m-%dT%H:%M:%SZ")
+        print(f"start_utc_time={start_utc_time}")
+
         cur_utc_time = datetime.utcnow()
 
-        event["BootstrapTimeInMinutes"] = event["BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else 5
+        event["BootstrapTimeInMinutes"] = event["BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else 0
         event["Id"] = str(uuid.uuid4())
         event["Status"] = "Queued"
         event["Created"] = cur_utc_time.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -142,20 +154,31 @@ def create_event():
         event["GenerateOptoClips"] = True if 'GenerateOptoClips' not in event else event['GenerateOptoClips']
 
         event["TimecodeSource"] = "NOT_EMBEDDED" if "TimecodeSource" not in event else event["TimecodeSource"]
+        event["StopMediaLiveChannel"] = event["StopMediaLiveChannel"] if "StopMediaLiveChannel" in event else False
 
         event_table = ddb_resource.Table(EVENT_TABLE_NAME)
 
+        # Check if the event start time is in the past
+        if cur_utc_time >= start_utc_time:
+            is_vod_event = True
+
+        # These are required to be passed to EventBridge for Event Life Cycle Management
+        if is_vod_event:
+            vod_schedule_id = f"mre-vod-end-{str(uuid.uuid4())}"
+            event["vod_schedule_id"] = vod_schedule_id
+        else:
+            live_start_schedule_id = f"mre-live-{str(uuid.uuid4())}-event-start"
+            live_end_schedule_id = f"mre-live-{str(uuid.uuid4())}-event-end"
+            event["live_start_schedule_id"] = live_start_schedule_id
+            event["live_end_schedule_id"] = live_end_schedule_id
+
         # MediaLive
         if "Channel" in event and event["Channel"]:
-            # Check if the event start time is in the past
-            if cur_utc_time >= start_utc_time:
-                is_vod_event = True
-
             event["LastKnownMediaLiveConfig"] = helpers.add_or_update_medialive_output_group(name, program, event["Profile"],
                                                                                      event["Channel"])
 
             # Add or Update the CW Alarm for the MediaLive channel
-            helpers.create_cloudwatch_alarm_for_channel(event["Channel"])
+            #helpers.create_cloudwatch_alarm_for_channel(event["Channel"])
 
         # Harvester
         if "SourceVideoAuth" in event:
@@ -238,23 +261,138 @@ def create_event():
     else:
         print(f"Successfully created the event: {json.dumps(event)}")
 
-        if is_vod_event:
-            channel_id = event["Channel"]
-            print(f"Starting the MediaLive channel '{channel_id}' as the event is based on a VOD asset")
+        try:
+            # HANDLE VOD EVENTS
+            if is_vod_event:
 
-            try:
-                medialive_client.start_channel(
-                    ChannelId=channel_id
-                )
+                # Attempting to Start MediaLive Channel
+                start_medialive_channel(event, name, program)
 
-            except Exception as e:
-                print(
-                    f"Creation of event '{name}' in program '{program}' is successful but unable to start the MediaLive channel '{channel_id}': {str(e)}")
-                raise ChaliceViewError(
-                    f"Creation of event '{name}' in program '{program}' is successful but unable to start the MediaLive channel '{channel_id}': {str(e)}")
+                # Create a EB Schedule for Ending this VOD Event
+                cur_utc_time = datetime.utcnow()
+                event_start_time = cur_utc_time.strftime("%Y-%m-%dT%H:%M:%S")
+                schedule = Schedule(
+                                    schedule_name=vod_schedule_id,
+                                    event_name=name, 
+                                    program_name=program, 
+                                    event_start_time=event_start_time,
+                                    is_vod_event=True,
+                                    bootstrap_time_in_mins=event["BootstrapTimeInMinutes"],
+                                    event_duration_in_mins=event["DurationMinutes"],
+                                    resource_arn=EB_EVENT_BUS_ARN,
+                                    execution_role=EB_SCHEDULE_ROLE_ARN,
+                                    input_payload="",
+                                    stop_channel= event["StopMediaLiveChannel"] if "StopMediaLiveChannel" in event else False
+                                    )
+                # Schedule with a Message Status of VOD_EVENT_END
+                EventScheduler().create_schedule_event_bridge_target(schedule, get_chunk_source_details(event))
+                print(f"Created Schedule for VOD event {name}")
+
+                
+            else:
+                eventScheduler = EventScheduler()
+                # HANDLE LIVE EVENTS
+                event_start_time_utc = datetime.strptime(event["Start"], "%Y-%m-%dT%H:%M:%SZ")
+                
+                # Create two EB Schedules. One for Starting the Live Event and another to End it
+                schedule = Schedule(
+                                    schedule_name=live_start_schedule_id,
+                                    event_name=name, 
+                                    program_name=program, 
+                                    event_start_time=event_start_time_utc,
+                                    is_vod_event=False,
+                                    bootstrap_time_in_mins=event["BootstrapTimeInMinutes"],
+                                    event_duration_in_mins=event["DurationMinutes"],
+                                    resource_arn=EB_EVENT_BUS_ARN,
+                                    execution_role=EB_SCHEDULE_ROLE_ARN,
+                                    input_payload="",
+                                    schedule_name_prefix="event-start",
+                                    stop_channel= event["StopMediaLiveChannel"] if "StopMediaLiveChannel" in event else False
+                                    )
+                
+                eventScheduler.create_schedule_event_bridge_target(schedule, get_chunk_source_details(event))
+
+
+
+                # Create a EB Schedule for Ending this VOD Event
+                schedule = Schedule(
+                                    schedule_name=live_end_schedule_id,
+                                    event_name=name, 
+                                    program_name=program, 
+                                    event_start_time=event_start_time_utc,
+                                    is_vod_event=False,
+                                    bootstrap_time_in_mins=event["BootstrapTimeInMinutes"],
+                                    event_duration_in_mins=event["DurationMinutes"],
+                                    resource_arn=EB_EVENT_BUS_ARN,
+                                    execution_role=EB_SCHEDULE_ROLE_ARN,
+                                    input_payload="",
+                                    schedule_name_prefix="event-end",
+                                    stop_channel= event["StopMediaLiveChannel"] if "StopMediaLiveChannel" in event else False
+                                    )
+
+                eventScheduler.create_schedule_event_bridge_target(schedule, get_chunk_source_details(event))
+
+                print(f"Created Schedules for LIVE event {name}")
+                
+
+            # Publishing message VOD_EVENT_START to Event Bridge.
+            # LIVE_EVENT_START events are sent via the Event Start EB Schedule when it gets triggered.
+            if is_vod_event:
+                put_event_start_to_event_bus(is_vod_event, name, program, event)
+                
+        except Exception as e:
+            print(f"Error creating Schedules for event '{name}' in program '{program}': {str(e)}")
+            raise ChaliceViewError(f"Error creating Schedules for event '{name}' in program '{program}': {str(e)}")
 
         return {}
 
+
+def start_medialive_channel(event, name, program):
+    # Attempting to Start MediaLive Channel
+    if "Channel" in event:
+        channel_id = event["Channel"]
+        try:
+            medialive_client.start_channel(
+                ChannelId=channel_id
+            )
+        except Exception as e:
+            
+            print(f"Creation of event '{name}' in program '{program}' is successful but unable to start the MediaLive channel '{channel_id}': {str(e)}")
+            raise ChaliceViewError(
+                f"Creation of event '{name}' in program '{program}' is successful but unable to start the MediaLive channel '{channel_id}': {str(e)}")
+
+
+def get_chunk_source_details(event):
+    chunk_source_details = {}
+    if "Channel" in event:
+        chunk_source_details['ChannelId'] = event['Channel']
+    elif "SourceVideoAuth" in event:
+        chunk_source_details["SourceVideoAuthSecretARN"]= event['SourceVideoAuthSecretARN']
+    elif "SourceVideoBucket" in event:
+        chunk_source_details["SourceVideoBucket"] = event['SourceVideoBucket']
+    
+    return chunk_source_details
+
+def put_event_start_to_event_bus(is_vod, event_name, program_name, event):
+     
+    chunk_source_details = get_chunk_source_details(event)
+    detail = {
+                "State": "VOD_EVENT_START",
+                "Event": event_name,
+                "Program": program_name,
+                "ChunkSource": chunk_source_details,
+                "IsVOD": is_vod
+            }
+    eb_client.put_events(
+        Entries=[
+            {
+                "Source": "awsmre",
+                "DetailType": "Either a VOD/LIVE event has been created. Use this to Start event processing",
+                "Detail": json.dumps(detail),
+                "EventBusName": EB_EVENT_BUS_NAME
+            }
+        ]
+    )
 
 # List events
 def list_events(path_params):
@@ -812,7 +950,7 @@ def update_event(name, program):
             ## Add trigger to updated bucket
             helpers.create_s3_bucket_trigger(event["SourceVideoBucket"])
 
-        update_expression = "SET #Description = :Description, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive, #GenerateOrigClips = :GenerateOrigClips, #GenerateOptoClips = :GenerateOptoClips, #TimecodeSource = :TimecodeSource"
+        update_expression = "SET #Description = :Description, #Profile = :Profile, #ContentGroup = :ContentGroup, #Start = :Start, #DurationMinutes = :DurationMinutes, #Archive = :Archive, #GenerateOrigClips = :GenerateOrigClips, #GenerateOptoClips = :GenerateOptoClips, #TimecodeSource = :TimecodeSource, #StartFilter = :StartFilter"
 
         expression_attribute_names = {
             "#Description": "Description",
@@ -823,7 +961,8 @@ def update_event(name, program):
             "#Archive": "Archive",
             "#GenerateOrigClips": "GenerateOrigClips",
             "#GenerateOptoClips": "GenerateOptoClips",
-            "#TimecodeSource": "TimecodeSource"
+            "#TimecodeSource": "TimecodeSource",
+            "#StartFilter": "StartFilter"
         }
 
         expression_attribute_values = {
@@ -837,8 +976,20 @@ def update_event(name, program):
             ":Archive": event["Archive"] if "Archive" in event else response["Item"]["Archive"],
             ":GenerateOrigClips": event["GenerateOrigClips"] if "GenerateOrigClips" in event else (response["Item"]["GenerateOrigClips"] if "GenerateOrigClips" in response["Item"] else True),
             ":GenerateOptoClips": event["GenerateOptoClips"] if "GenerateOptoClips" in event else (response["Item"]["GenerateOptoClips"] if "GenerateOptoClips" in response["Item"] else True),
-            ":TimecodeSource": event["TimecodeSource"] if "TimecodeSource" in event else (response["Item"]["TimecodeSource"] if "TimecodeSource" in response["Item"] else "NOT_EMBEDDED")
+            ":TimecodeSource": event["TimecodeSource"] if "TimecodeSource" in event else (response["Item"]["TimecodeSource"] if "TimecodeSource" in response["Item"] else "NOT_EMBEDDED"),
+            ":StartFilter": event["Start"] if "Start" in event else response["Item"]["Start"]
         }
+
+        # For MediaLive Channels, Update the Bootstrap time
+        if "Channel" in response["Item"]:
+            if response["Item"]['Channel'] != '':
+                update_expression += ", #BootstrapTimeInMinutes = :BootstrapTimeInMinutes"
+                expression_attribute_names["#BootstrapTimeInMinutes"] = "BootstrapTimeInMinutes"
+
+                expression_attribute_values[":BootstrapTimeInMinutes"] = event[
+                    "BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else response["Item"][
+                    "BootstrapTimeInMinutes"]
+                
 
         ## BYOB events do not have ProgramId
         if "ProgramId" in response["Item"]:
@@ -870,8 +1021,13 @@ def update_event(name, program):
 
         ## If BYOB
         if "SourceVideoBucket" in response["Item"]:
-            update_expression += ", #SourceVideoBucket = :SourceVideoBucket"
+            update_expression += ", #SourceVideoBucket = :SourceVideoBucket, #BootstrapTimeInMinutes = :BootstrapTimeInMinutes"
             expression_attribute_names["#SourceVideoBucket"] = "SourceVideoBucket"
+            expression_attribute_names["#BootstrapTimeInMinutes"] = "BootstrapTimeInMinutes"
+
+            expression_attribute_values[":BootstrapTimeInMinutes"] = event[
+                "BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else response["Item"][
+                "BootstrapTimeInMinutes"]
             expression_attribute_values[":SourceVideoBucket"] = event["SourceVideoBucket"] if "SourceVideoBucket" in event else response["Item"]["SourceVideoBucket"]
 
         event_table.update_item(
@@ -898,6 +1054,58 @@ def update_event(name, program):
 
     else:
         print(f"Successfully updated the event: {json.dumps(event, cls=DecimalEncoder)}")
+
+        new_event_start = event["Start"] if "Start" in event else response["Item"]["Start"]
+        new_event_duration_in_mins = event["DurationMinutes"] if "DurationMinutes" in event else response["Item"]["DurationMinutes"]
+        new_event_start = datetime.strptime(new_event_start, "%Y-%m-%dT%H:%M:%SZ")
+        print(f"new_event_start={new_event_start}")
+        print(f"new_event_duration_in_mins={new_event_duration_in_mins}")
+
+        cur_utc_time = datetime.utcnow()
+        eventScheduler = EventScheduler()
+        # Only update Schedules for LIVE Events
+        if cur_utc_time <  new_event_start:
+
+
+            # Create two EB Schedules. One for Starting the Live Event and another to End it
+            schedule = Schedule(
+                                schedule_name=event['live_start_schedule_id'] if 'live_start_schedule_id' in event else response['Item']['live_start_schedule_id'] if 'live_start_schedule_id' in response['Item'] else '',
+                                event_name=name, 
+                                program_name=program, 
+                                event_start_time=new_event_start,
+                                is_vod_event=False,
+                                bootstrap_time_in_mins=event["BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else response["Item"]["BootstrapTimeInMinutes"],
+                                event_duration_in_mins=new_event_duration_in_mins,
+                                resource_arn=EB_EVENT_BUS_ARN,
+                                execution_role=EB_SCHEDULE_ROLE_ARN,
+                                input_payload="",
+                                schedule_name_prefix="event-start",
+                                stop_channel= event["StopMediaLiveChannel"] if "StopMediaLiveChannel" in event else response["Item"]["StopMediaLiveChannel"] if "StopMediaLiveChannel" in response["Item"] else False
+                                )
+            
+            eventScheduler.update_schedule_event_bridge_target(schedule, get_chunk_source_details(response["Item"]))
+
+
+
+            # Create a EB Schedule for Ending this LIVE Event
+            schedule = Schedule(
+                                schedule_name=event['live_end_schedule_id'] if 'live_end_schedule_id' in event else response['Item']['live_end_schedule_id'] if 'live_end_schedule_id' in response['Item'] else '',
+                                event_name=name, 
+                                program_name=program, 
+                                event_start_time=new_event_start,
+                                is_vod_event=False,
+                                bootstrap_time_in_mins=event["BootstrapTimeInMinutes"] if "BootstrapTimeInMinutes" in event else response["Item"]["BootstrapTimeInMinutes"],
+                                event_duration_in_mins=new_event_duration_in_mins,
+                                resource_arn=EB_EVENT_BUS_ARN,
+                                execution_role=EB_SCHEDULE_ROLE_ARN,
+                                input_payload="",
+                                schedule_name_prefix="event-end",
+                                stop_channel= event["StopMediaLiveChannel"] if "StopMediaLiveChannel" in event else response["Item"]["StopMediaLiveChannel"] if "StopMediaLiveChannel" in response["Item"] else False
+                                )
+
+            eventScheduler.update_schedule_event_bridge_target(schedule, get_chunk_source_details(response["Item"]))
+
+            print(f"Updated Schedules for LIVE event {name}")
 
         return {}
 
@@ -936,10 +1144,14 @@ def delete_event(name, program):
             ConsistentRead=True
         )
 
+        
+
         if "Item" not in response:
             raise NotFoundError(f"Event '{name}' in Program '{program}' not found")
         elif response["Item"]["Status"] == "In Progress":
             raise BadRequestError(f"Cannot delete Event '{name}' in Program '{program}' as it is currently in progress")
+
+        existing_event = response["Item"]
 
         channel_id = response["Item"]["Channel"] if "Channel" in response["Item"] else None
         profile = response["Item"]["Profile"]
@@ -995,6 +1207,18 @@ def delete_event(name, program):
             ## Remove trigger from bucket
             helpers.delete_s3_bucket_trigger(source_bucket)
 
+        
+        # Delete EB Schedules for an Event. Either the VOD or LIVE event schedule gets deleted here
+        eventScheduler = EventScheduler()
+        if 'vod_schedule_id' in existing_event:
+            eventScheduler.delete_schedule(existing_event['vod_schedule_id'])
+
+        if 'live_start_schedule_id' in existing_event: 
+            eventScheduler.delete_schedule(existing_event['live_start_schedule_id'])
+
+        if 'live_end_schedule_id' in existing_event:
+            eventScheduler.delete_schedule(existing_event['live_end_schedule_id'])
+
         print(f"Deleting the Event '{name}' in Program '{program}'")
 
         response = event_table.delete_item(
@@ -1003,6 +1227,9 @@ def delete_event(name, program):
                 "Program": program
             }
         )
+
+        
+
 
         # Send a message to the Event Deletion SQS Queue to trigger the deletion of processing data in DynamoDB for the Event
         helpers.notify_event_deletion_queue(name, program, profile)
@@ -1385,7 +1612,8 @@ def get_event_status(name, program):
             ProjectionExpression="#Status",
             ExpressionAttributeNames={
                 "#Status": "Status"
-            }
+            },
+            ConsistentRead=True
         )
 
         if "Item" not in response or len(response["Item"]) < 1:
@@ -1732,6 +1960,10 @@ def delete_processed_events_from_control(id):
 def update_event_with_replay(name, program):
     """
     Updates an event with a flag to indicate Replay creation.
+
+    Parameters:
+        - name: Name of the Event.
+        - program: Name of the Program.
 
     Returns:
 

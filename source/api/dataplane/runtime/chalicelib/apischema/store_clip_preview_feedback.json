@@ -46,6 +46,16 @@
             "$id": "#/properties/OptimizedFeedback",
             "type": "object",
             "title": "The OptimizedFeedback Schema"
+        },
+        "ActionSource": {
+            "$id": "#/properties/ActionSource",
+            "type": "string",
+            "title": "The ActionSource Schema"
+        },
+        "IsOptimizerConfiguredInProfile": {
+            "$id": "#/properties/IsOptimizerConfiguredInProfile",
+            "type": "boolean",
+            "title": "The IsOptimizerConfiguredInProfile Schema"
         }
     },
     "additionalProperties": false,
@@ -54,6 +64,8 @@
         "Event",
         "Classifier",
         "AudioTrack",
-        "StartTime"
+        "StartTime",
+        "ActionSource",
+        "IsOptimizerConfiguredInProfile"
     ]
 }

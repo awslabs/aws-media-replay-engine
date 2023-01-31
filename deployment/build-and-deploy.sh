@@ -421,11 +421,11 @@ deploy_cdk_app "Clip Generation" "$backend_dir/clipgeneration"
 # Data Export stack
 deploy_cdk_app "Data Export" "$backend_dir/data_export"
 
-# Event Completion Handler stack
-deploy_cdk_app "Event Completion Handler" "$backend_dir/event_completion_handler"
+# Event Life Cycle Handler stack
+deploy_cdk_app "Event Life Cycle Handler" "$backend_dir/event-life-cycle"
 
 # Event Scheduler stack
-deploy_cdk_app "Event Scheduler" "$backend_dir/event_scheduler"
+#deploy_cdk_app "Event Scheduler" "$backend_dir/event_scheduler"
 
 # Replay Handler stack
 deploy_cdk_app "Replay Handler" "$backend_dir/replay"

@@ -281,6 +281,7 @@ def update_replay_results():
     additional_info = replay_result["AdditionalInfo"]
     total_score = replay_result["TotalScore"]
     lastSegmentStartTime = replay_result["LastSegmentStartTime"]
+    has_clip_feedback = replay_result['HasFeedback']
 
     update_expression = []
     expression_attribute_names = {}
@@ -314,9 +315,13 @@ def update_replay_results():
     expression_attribute_names["#TotalScore"] = "TotalScore"
     expression_attribute_values[":TotalScore"] = total_score
 
-    update_expression.append("#LastSegmentStartTime = :LastSegmentStartTime")
-    expression_attribute_names["#LastSegmentStartTime"] = "LastSegmentStartTime"
-    expression_attribute_values[":LastSegmentStartTime"] = lastSegmentStartTime
+    # When a Segment gets added or deleted manually (via Feedback), do not Update the LastSegmentStartTime since this will be a Old
+    # Segment Start time. For ex, if current ReplayResults was when a Segment with StartTime of 3400.54 secs,
+    # and a older Segment (Start time of 1390.23) was Forcibly added, we dont want to change the LastSegmentStartTime to be 1390.23
+    if not has_clip_feedback:
+        update_expression.append("#LastSegmentStartTime = :LastSegmentStartTime")
+        expression_attribute_names["#LastSegmentStartTime"] = "LastSegmentStartTime"
+        expression_attribute_values[":LastSegmentStartTime"] = lastSegmentStartTime
 
     
 
@@ -341,13 +346,21 @@ def update_replay_results():
         # new value. If the value is more, we are trying to update an older 
         # replay result.
         try:
-            replay_results_table.update_item(
-                Key={"ProgramEventReplayId": f"{program}#{event}#{replay_id}"},
-                UpdateExpression="SET " + ", ".join(update_expression),
-                ConditionExpression="attribute_exists(LastSegmentStartTime) and LastSegmentStartTime <= :LastSegmentStartTime",
-                ExpressionAttributeNames=expression_attribute_names,
-                ExpressionAttributeValues=expression_attribute_values
-            )
+            if not has_clip_feedback:
+                replay_results_table.update_item(
+                    Key={"ProgramEventReplayId": f"{program}#{event}#{replay_id}"},
+                    UpdateExpression="SET " + ", ".join(update_expression),
+                    ConditionExpression="attribute_exists(LastSegmentStartTime) and LastSegmentStartTime <= :LastSegmentStartTime",
+                    ExpressionAttributeNames=expression_attribute_names,
+                    ExpressionAttributeValues=expression_attribute_values
+                )
+            else:
+                replay_results_table.update_item(
+                    Key={"ProgramEventReplayId": f"{program}#{event}#{replay_id}"},
+                    UpdateExpression="SET " + ", ".join(update_expression),
+                    ExpressionAttributeNames=expression_attribute_names,
+                    ExpressionAttributeValues=expression_attribute_values
+                )
         except ddb_resource.meta.client.exceptions.ConditionalCheckFailedException as e: 
             print(f'POSSIBLE RACE CONDITION!! Got lastSegmentStartTime={str(lastSegmentStartTime)} ')
             return False

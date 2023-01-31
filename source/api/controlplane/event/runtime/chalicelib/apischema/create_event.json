@@ -105,6 +105,11 @@
             "type": "string",
             "title": "The TimecodeSource Schema",
             "enum": ["ZERO_BASED", "UTC_BASED", "NOT_EMBEDDED"]
+        },
+        "StopMediaLiveChannel": {
+            "$id": "#/properties/StopMediaLiveChannel",
+            "type": "boolean",
+            "title": "The StopMediaLiveChannel Schema"
         }
     },
     "additionalProperties": true,

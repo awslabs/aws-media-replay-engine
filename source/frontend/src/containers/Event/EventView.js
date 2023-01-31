@@ -185,6 +185,7 @@ export const EventView = () => {
                 allClipsData: clips,
                 origEventData: eventData,
                 mode: 'EventClips',
+                data: _.get(stateParams, 'data'),
                 IsOptimizerConfiguredInProfile: isOptimizerConfiguredInProfile
             }
         });
@@ -462,7 +463,7 @@ export const EventView = () => {
                                             }
                                             <Grid item>
                                                 <Typography variant="subtitle2">Start Time:</Typography>
-                                                <Typography>{moment(eventData.Start).format('MM/DD/YY, h:mm:ss a')}</Typography>
+                                                <Typography>{moment(eventData.Start).format('MM/DD/YY, h:mm:ss a (UTCZ)')}</Typography>
                                             </Grid>
                                             <Grid item>
                                                 <Typography variant="subtitle2">Duration:</Typography>

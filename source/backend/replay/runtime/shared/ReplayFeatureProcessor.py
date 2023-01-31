@@ -35,7 +35,7 @@ client = boto3.client('cloudwatch')
 
 
 class ReplayFeatureProcessor:
-    def __init__(self, features: list, is_catchup_replay: bool, segments_ignore_file_list: list, audioTrack: str, event, program, replay_id, dataplane, ignore_disliked_segments):
+    def __init__(self, features: list, is_catchup_replay: bool, segments_ignore_file_list: list, audioTrack: str, event, program, replay_id, dataplane, ignore_disliked_segments, include_liked_segments, clip_preview_feedback, replay_to_be_processed):
 
         self.__queue = Queue()
         self.__segment_mapping_file_names = []
@@ -49,9 +49,12 @@ class ReplayFeatureProcessor:
         self.replay_id = replay_id
         self._dataplane = dataplane
         # This is needed to Ignore segments which have been Disliked due to wrong segmentation or non important features
-        self._clip_preview_feedback = dataplane.get_all_clip_preview_feedback(program, event, str(audioTrack))
+        self._clip_preview_feedback = clip_preview_feedback
         self._ignore_disliked_segments = ignore_disliked_segments
+        self._include_liked_segments = include_liked_segments
+        self._replay_to_be_processed = replay_to_be_processed
             
+    
 
     def __sort_cache_files(self, cache_files, asc=True):
         cache_dicts = []
@@ -77,8 +80,8 @@ class ReplayFeatureProcessor:
         '''
 
         logger.info('Getting a Subset of Segment Cache files ....')
-        logger.info(
-            f'Segments to be Ignored List = {self.segments_ignore_file_list}')
+        logger.info(f'Segments to be Ignored List = {self.segments_ignore_file_list}')
+            
 
         cached_files = os.listdir(f"/tmp/{self.replay_id}")
 
@@ -205,42 +208,92 @@ class ReplayFeatureProcessor:
 
     def __match_feature(self, feature, feature_data_point, segmentinfo):
         # Make sure that The Feature is Available in Cache and that the Weight is more than ZERO
-        if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
-            # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
-            # Ex. SegmentBySceneAndSR | score_change | true
-            # Ex. DetectSentiment | Sentiment | false
-            feature_condition = feature['Name'].split("|")[-1]
-            if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
-                segmentinfo['Features'].append(feature)
-                return True
+        if 'Weight' in feature: #For ClipBased settings i n Replay, no weight attribute exists
+            if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
+                # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
+                # Ex. SegmentBySceneAndSR | score_change | true
+                # Ex. DetectSentiment | Sentiment | false
+                feature_condition = feature['Name'].split("|")[-1]
+                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                    segmentinfo['Features'].append(feature)
+                    return True
+        else:
+            # Make sure that The Feature is Available in Cache
+            if feature['AttribName'] in feature_data_point and feature['Include']:
+                # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
+                # Ex. SegmentBySceneAndSR | score_change | true
+                # Ex. DetectSentiment | Sentiment | false
+                feature_condition = feature['Name'].split("|")[-1]
+                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                    segmentinfo['Features'].append(feature)
+                    return True
+        return False
 
+    def should_segment_be_force_included(self, segment_start_time, segment):
+        '''
+            Checks if a Segment has been given a thumbs up and if the Replay Configured wants to Include such Segments
+            If an Optimizer exists, we simply check for 
+        '''
+
+        does_replay_force_segments_inclusion = False if 'IncludeLikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IncludeLikedSegments']
+        if does_replay_force_segments_inclusion:
+            for clip_feedback in self._clip_preview_feedback:
+                if 'Start' in clip_feedback:
+                    if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                        if 'OptoStart' in segment and 'OptoEnd' in segment:
+                            if 'OptimizedFeedback' in clip_feedback:
+                                if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                                    return True if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "like" else False
+                            return False        
+                        elif 'OriginalFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OriginalFeedback']:
+                                return True if clip_feedback['OriginalFeedback']['Feedback'].lower() == "like" else False
+                            return False
         return False
 
     def __map_segment_with_features(self, segmentinfo, segment_mapping_as_json):
+        '''
+            Maps out the Features present in a given Segment Cache file with the Features in Replay Request
+            If a Segment has been marked for force Inclusion, we dont check if the Segment Cache File 
+            has any feature configured in the Replay Request. We simply map the entire Features present in 
+            the Cache file
+        '''
 
         unique_features = []
 
-        # Check if the ReplayRequest features are in any of the segments from the Cache and Map it out
-        for feature in self.features:  # This is the list of Features from ReplayRequest
-            if 'FeaturesDataPoints' in segment_mapping_as_json:
-                if '0' in segment_mapping_as_json['FeaturesDataPoints']:
-                    # Check Video based Feature data
-                    for feature_data_point in segment_mapping_as_json['FeaturesDataPoints']["0"]:
-                        if feature['AttribName'] not in unique_features:
-                            if self.__match_feature(feature, feature_data_point, segmentinfo):
-                                unique_features.append(feature['AttribName'])
+        # Only if the Current Segment (cache file) is not to be force Included, we find the matching features
+        if not self.should_segment_be_force_included(segment_mapping_as_json['Start'], segment_mapping_as_json):
 
-                # Check Audio based Feature data based on the current Audio Track
-                if str(self.audio_track) in segment_mapping_as_json['FeaturesDataPoints']:
-                    for feature_data_point in segment_mapping_as_json['FeaturesDataPoints'][str(self.audio_track)]:
-                        if feature['AttribName'] not in unique_features:
-                            if self.__match_feature(feature, feature_data_point, segmentinfo):
-                                unique_features.append(feature['AttribName'])
+            # Check if the ReplayRequest features are in any of the segments from the Cache and Map it out
+            for feature in self.features:  # This is the list of Features from ReplayRequest
+                if 'FeaturesDataPoints' in segment_mapping_as_json:
+                    if '0' in segment_mapping_as_json['FeaturesDataPoints']:
+                        # Check Video based Feature data
+                        for feature_data_point in segment_mapping_as_json['FeaturesDataPoints']["0"]:
+                            if feature['AttribName'] not in unique_features:
+                                if self.__match_feature(feature, feature_data_point, segmentinfo):
+                                    unique_features.append(feature['AttribName'])
+
+                    # Check Audio based Feature data based on the current Audio Track
+                    if str(self.audio_track) in segment_mapping_as_json['FeaturesDataPoints']:
+                        for feature_data_point in segment_mapping_as_json['FeaturesDataPoints'][str(self.audio_track)]:
+                            if feature['AttribName'] not in unique_features:
+                                if self.__match_feature(feature, feature_data_point, segmentinfo):
+                                    unique_features.append(feature['AttribName'])
+        else:
+            # Since this Segment is to be Force Included we dont care about the features in it
+            # We also add a Flag to Indicate that this Segment was Force Included
+            # We add an Item into the Features list to help debug
+            segmentinfo['Features'].append({
+                "Reason": "Segment manually included"
+            })
+            segmentinfo['ForceIncluded'] = True
+            logger.info(f"CLIP FORCE INCLUDED - Considering segment for replay with StartTime {segment_mapping_as_json['Start']}")
 
     def __configure_threads(self, cached_file_names):
         for file_name in cached_file_names:
-            self.threads.append(threading.Thread(
-                target=self.__find_features_in_segments, args=(file_name,)))
+            self.threads.append(threading.Thread(target=self.__find_features_in_segments, args=(file_name,)))
+                
 
     def __start_threads(self):
         for thread in self.threads:
@@ -250,17 +303,20 @@ class ReplayFeatureProcessor:
         for thread in self.threads:
             thread.join()
 
-    def is_segment_disliked(self, segment_start_time):
+    def is_segment_disliked(self, segment_start_time, segment):
         for clip_feedback in self._clip_preview_feedback:
-            if str(segment_start_time) == str(clip_feedback['Start']):
-                if 'OriginalFeedback' in clip_feedback:
-                    if 'Feedback' in clip_feedback['OriginalFeedback']:
-                        if clip_feedback['OriginalFeedback']['Feedback'].lower() == "dislike":
-                            return True
-                if 'OptimizedFeedback' in clip_feedback:
-                    if 'Feedback' in clip_feedback['OptimizedFeedback']:
-                        if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "dislike":
-                            return True
+            if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                # If we are dealing with Optimized Segments, just check the Optimized Feedback
+                if 'OptoStart' in segment and 'OptoEnd' in segment:
+                    if 'OptimizedFeedback' in clip_feedback:
+                        if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                            if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "dislike":
+                                return True
+                else:
+                    if 'OriginalFeedback' in clip_feedback:
+                        if 'Feedback' in clip_feedback['OriginalFeedback']:
+                            if clip_feedback['OriginalFeedback']['Feedback'].lower() == "dislike":
+                                return True
         return False
 
     def find_features_in_cached_files(self):
@@ -275,8 +331,7 @@ class ReplayFeatureProcessor:
             cached_file_groups = [self.__segment_mapping_file_names[i:i + MAX_NUMBER_OF_THREADS]
                                   for i in range(0, len(self.__segment_mapping_file_names), MAX_NUMBER_OF_THREADS)]
             logger.info(f"Cache File Groups for Non Catchup = {cached_file_groups}")
-            logger.info(
-                f"Cache File Groups Length for Non Catchup = {len(cached_file_groups)}")
+            logger.info(f"Cache File Groups Length for Non Catchup = {len(cached_file_groups)}")
 
             start_time = datetime.datetime.now()
             # Process each group with multiple threads and add the result of every thread into a global list
@@ -290,7 +345,7 @@ class ReplayFeatureProcessor:
                     # First Check if this Replay needs to Ignore any Disliked Segments
                     if self._ignore_disliked_segments:
                         # Check if this Segment has been Disliked or marked for not to be Added to the Replay Clip
-                        if not self.is_segment_disliked(segment_in_queue['Start']):
+                        if not self.is_segment_disliked(segment_in_queue['Start'], segment_in_queue):
                             segments_with_features.append(segment_in_queue)
                         else:
                             logger.info(f"CLIP DISLIKED - Ignoring segment with StartTime {segment_in_queue['Start']}")
@@ -319,17 +374,22 @@ class ReplayFeatureProcessor:
 
             while not self.__queue.empty():
                 segment_in_queue = self.__queue.get()
-                # Check if this Segment has been Disliked or marked for not to be Added to the Replay Clip
-                if not self.is_segment_disliked(segment_in_queue['Start']):
-                    segments_with_features.append(segment_in_queue)
+
+                # First Check if this Replay needs to Ignore any Disliked Segments
+                if self._ignore_disliked_segments:
+                    # Check if this Segment has been Disliked or marked for not to be Added to the Replay Clip
+                    if not self.is_segment_disliked(segment_in_queue['Start'], segment_in_queue):
+                        segments_with_features.append(segment_in_queue)
+                    else:
+                        logger.info(f"CLIP DISLIKED - Ignoring segment with StartTime {segment_in_queue['Start']}")
                 else:
-                    logger.info(f"CLIP DISLIKED - Ignoring segment with StartTime {segment_in_queue['Start']}")
+                    segments_with_features.append(segment_in_queue)
 
             end_time = datetime.datetime.now()
-            find_features_time_in_secs = (
-                end_time - start_time).total_seconds()
-            logger.info(
-                f'ReplayFeatureProcessor-Catchup Replay-Find Features Duration: {find_features_time_in_secs} seconds')
+            find_features_time_in_secs = (end_time - start_time).total_seconds()
+                
+            logger.info(f'ReplayFeatureProcessor-Catchup Replay-Find Features Duration: {find_features_time_in_secs} seconds')
+                
             self.__put_metric("CatchUpFindFeaturesTime", find_features_time_in_secs, [{'Name': 'Function', 'Value': 'MREReplayFeatureProcessor'}, {
                               'Name': 'EventProgramReplayId', 'Value': f"{self.event_name}#{self.program_name}#{self.replay_id}"}])
 

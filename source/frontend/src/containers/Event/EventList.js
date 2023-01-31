@@ -30,8 +30,8 @@ export const EventList = () => {
         setQueryParams({
             limit: 25,
             ProjectionExpression: "Name, Start, Channel, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id, BootstrapTimeInMinutes, AudioTracks, DurationMinutes, GenerateOptoClips, GenerateOrigClips, TimecodeSource",
-            fromFilter: moment(pastWeek.toDate()).format("YYYY-MM-DDTHH:mm:ss") + "Z",
-            toFilter: moment(tomorrow.toDate()).format("YYYY-MM-DDTHH:mm:ss") + "Z",
+            fromFilter: moment(pastWeek.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
+            toFilter: moment(tomorrow.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
         })
 
     }, []);
@@ -51,7 +51,7 @@ export const EventList = () => {
     const getRow = (row) => {
         return [
             <TableCell align="left">
-                {row.Start && moment(row.Start).format('MM/DD/YY h:mm:ss a')}
+                {row.Start && moment(row.Start).format('MM/DD/YYYY h:mm:ss a (UTCZ)')}
             </TableCell>,
             <TableCell align="left">{row.Program}</TableCell>,
             <TableCell align="left">
@@ -84,7 +84,7 @@ export const EventList = () => {
 
     const handleTimeChange = (filterName, dateTime) => {
         let queryParamsCopy = _.cloneDeep(queryParams);
-        queryParamsCopy[filterName] = moment(dateTime).format("YYYY-MM-DDTHH:mm:ss") + "Z";
+        queryParamsCopy[filterName] = moment(dateTime).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z";
         setQueryParams(queryParamsCopy);
     };
 
@@ -109,7 +109,7 @@ export const EventList = () => {
                 hideRemoveFilters: true
             }}
             tableHeaders={[
-                <TableCell align="left" style={{minWidth: 200}}>Start Time</TableCell>,
+                <TableCell align="left" style={{minWidth: 180}}>Start Time</TableCell>,
                 <TableCell align="left">Program Name</TableCell>,
                 <TableCell align="left">Event</TableCell>,
                 <TableCell align="left">Channel</TableCell>,

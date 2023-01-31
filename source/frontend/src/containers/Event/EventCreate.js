@@ -11,6 +11,7 @@ import {Backdrop, CircularProgress, Tooltip} from "@material-ui/core";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
 import {makeStyles} from "@material-ui/core/styles";
 import {EXECUTION_TYPES, LAMBDA_WITH_VERSION_ARN_REGEX} from "../../common/Constants";
+import moment from "moment";
 
 const useStyles = makeStyles((theme) => ({
     backdrop: {
@@ -126,12 +127,13 @@ export const EventCreate = () => {
         SourceVideoUrl: "",
         SourceVideoAuth: "",
         SourceVideoMetadata: "",
-        BootstrapTimeInMinutes: 0,
+        BootstrapTimeInMinutes: 2,
         SourceSelection: sourceTypes.UNDEFINED,
         SourceVideoBucket: sourceTypes.UNDEFINED,
         GenerateOrigClips: true,
         GenerateOptoClips: true,
-        TimecodeSource: timeCodes.NONE
+        TimecodeSource: timeCodes.NONE,
+        StopMediaLiveChannel: false
     };
 
     const inputFieldsMap = {
@@ -209,6 +211,16 @@ export const EventCreate = () => {
                 return values.SourceSelection && values.SourceSelection === sourceTypes.MEDIALIVE;
             },
         },
+        StopMediaLiveChannel: {
+            name: "StopMediaLiveChannel",
+            label: "Stop channel when event ends ?",
+            type: "checkbox",
+            condition: (values) => {
+                return values.SourceSelection && values.SourceSelection === sourceTypes.MEDIALIVE;
+            },
+            displayHelp: true,
+            helpText: "When selected, MRE will stop the MediaLive channel after an event has ended."
+        },
         ProgramId: {
             name: "ProgramId",
             label: "Program ID",
@@ -254,16 +266,7 @@ export const EventCreate = () => {
                 return isValidValue ? "" : "Value should be JSON structure"
             }
         },
-        BootstrapTimeInMinutes: {
-            name: "BootstrapTimeInMinutes",
-            label: "Bootstrap Time (minutes)",
-            type: "textField",
-            textFieldType: "number",
-            size: 3,
-            condition: (values) => {
-                return values.SourceSelection === sourceTypes.HARVESTER;
-            },
-        },
+        
         SourceVideoBucket: {
             name: "SourceVideoBucket",
             label: "Source S3 Bucket",
@@ -286,7 +289,7 @@ export const EventCreate = () => {
             NestedFormRenderer: "ClickableInfoChip",
             parameters: {
                 label: (values) => {
-                    return  `Upload video chunks to ${values.SourceVideoBucket}/${values.Program}/${values.Name}/${values.Profile}/ after creation to trigger workflow`;
+                    return  `Source video chunks should be uploaded to s3://${values.SourceVideoBucket}/${values.Program}/${values.Name}/${values.Profile}/ to process the event.`;
                 },
                 link: (values)=>{
                     return `https://s3.console.aws.amazon.com/s3/buckets/${values.SourceVideoBucket}?prefix=${values.Program}/${values.Name}/${values.Profile}/`
@@ -296,9 +299,10 @@ export const EventCreate = () => {
         },
         Start: {
             name: "Start",
-            label: "Start",
+            label: `Start (${moment().format('UTCZ')})`,
             type: "timePicker",
-            isRequired: true
+            isRequired: true,
+
         },
         DurationMinutes: {
             name: "DurationMinutes",
@@ -308,7 +312,19 @@ export const EventCreate = () => {
             isRequired: true,
             size: 3
         },
-        
+        BootstrapTimeInMinutes: {
+            name: "BootstrapTimeInMinutes",
+            label: "Bootstrap Time (minutes)",
+            type: "textField",
+            textFieldType: "number",
+            size: 3,
+            isRequired: true,
+            condition: (values) => {
+                return true; //values.SourceSelection === sourceTypes.HARVESTER;
+            },
+            displayHelp: true,
+            helpText: "Time taken by MediaLive to start a channel and enter the RUNNING state or time taken by an external process to begin ingesting source video."
+        },
         Archive: {
             name: "Archive",
             label: "Archive the event",

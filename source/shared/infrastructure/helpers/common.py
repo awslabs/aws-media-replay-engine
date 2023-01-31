@@ -65,6 +65,9 @@ class MreCdkCommon():
         # Get the IEventBus Object back from the Event Bus Arn
         return events.EventBus.from_event_bus_arn(this, "ImportedEventBus", Fn.import_value("mre-event-bus-arn"))
 
+    @staticmethod
+    def get_eb_schedule_role_arn(this):
+        return Fn.import_value("mre-eb-schedule-role-arn")
 
     @staticmethod
     def get_media_convert_output_bucket_name(this):

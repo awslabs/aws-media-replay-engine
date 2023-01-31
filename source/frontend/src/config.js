@@ -19,5 +19,8 @@ export default {
         "REACT_APP_USER_POOL_ID": process.env.REACT_APP_USER_POOL_ID,
         "REACT_APP_APP_CLIENT_ID": process.env.REACT_APP_APP_CLIENT_ID,
         "REACT_APP_IDENTITY_POOL_ID": process.env.REACT_APP_IDENTITY_POOL_ID
+    },
+    "cloudfront":{
+        "REACT_APP_CLOUDFRONT_DOMAIN_NAME": process.env.REACT_APP_CLOUDFRONT_DOMAIN_NAME
     }
 };

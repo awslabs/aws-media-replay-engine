@@ -3,6 +3,6 @@ from aws_cdk import App
 from stacks.chaliceapp import ChaliceApp
 
 app = App()
-ChaliceApp(app, 'aws-mre-event-completion-handler')
+ChaliceApp(app, 'aws-mre-event-life-cycle')
 
 app.synth()

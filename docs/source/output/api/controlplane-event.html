@@ -15,9 +15,6 @@
 
     
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-    <script src="../_static/jquery.js"></script>
-    <script src="../_static/underscore.js"></script>
-    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
@@ -183,31 +180,33 @@
     <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
-    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;StopMediaLiveChannel: boolean</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Parameters:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>Name: Name of the Event</p></li>
-<li><p>Program: Name of the Program</p></li>
-<li><p>Description: Event Description</p></li>
+<li><p>Name: [REQUIRED] Name of the Event.</p></li>
+<li><p>Program: [REQUIRED] Name of the Program.</p></li>
+<li><p>Description: Event Description.</p></li>
 <li><p>Channel: Identifier of the AWS Elemental MediaLive Channel used for the Event</p></li>
 <li><p>ProgramId: A Unique Identifier for the event being broadcasted.</p></li>
-<li><p>SourceVideoUrl: VOD or Live Urls to help MRE to harvest the streams</p></li>
-<li><p>SourceVideoAuth: A Dict which contains API Authorization payload to help MRE harvest VOD/Live streams</p></li>
+<li><p>SourceVideoUrl: VOD or Live Urls to help MRE to harvest the streams.</p></li>
+<li><p>SourceVideoAuth: A Dict which contains API Authorization payload to help MRE harvest VOD/Live streams.</p></li>
 <li><p>SourceVideoMetadata: A Dict of additional Event Metadata for reporting purposes.</p></li>
-<li><p>BootstrapTimeInMinutes: Duration in Minutes which indicates the time it takes for the VOD/Live stream harvester to be initialized</p></li>
-<li><p>Profile: Name of the MRE Profile to make use of for processing the event</p></li>
-<li><p>ContentGroup: Name of the Content Group</p></li>
-<li><p>Start: The Actual start DateTime of the event</p></li>
-<li><p>DurationMinutes: The Total Event Duration</p></li>
-<li><p>Archive: Backup the Source Video if true.</p></li>
+<li><p>BootstrapTimeInMinutes: [REQUIRED] Default value 0. Duration in Minutes which indicates the time it takes for the Source video process to be initialized.</p></li>
+<li><p>Profile: [REQUIRED] Name of the MRE Profile to make use of for processing the event.</p></li>
+<li><p>ContentGroup: [REQUIRED] Name of the Content Group.</p></li>
+<li><p>Start: [REQUIRED] The Actual start DateTime of the event (in UTC).</p></li>
+<li><p>DurationMinutes: [REQUIRED] The Total Event Duration.</p></li>
+<li><p>Archive: [REQUIRED] Backup the Source Video if true.</p></li>
 <li><p>SourceVideoBucket: S3 Bucket where Live or VOD video chunks would land to trigger the Event.</p></li>
 <li><p>GenerateOrigClips: Generate Original segment clips if true (Default is true).</p></li>
 <li><p>GenerateOptoClips: Generate Optimized segment clips if true (Default is true).</p></li>
-<li><p>TimecodeSource: Source of the embedded timecode in the Event video frames (Default is NOT_EMBEDDED).</p></li>
+<li><p>TimeCodeSource: Source of the embedded TimeCode in the Event video frames (Default is NOT_EMBEDDED).</p></li>
+<li><p>StopMediaLiveChannel: False by default. When MediaLive is the Video chunk source, setting this attribute to True lets MRE stop the channel when the event ends.</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>
@@ -654,6 +653,13 @@
 <section class="chalice-route" id="update-event-with-replay">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span><a class="headerlink" href="#update-event-with-replay" title="Permalink to this heading">¶</a></h2>
 <p>Updates an event with a flag to indicate Replay creation.</p>
+<dl class="simple">
+<dt>Parameters:</dt><dd><ul class="simple">
+<li><p>name: Name of the Event.</p></li>
+<li><p>program: Name of the Program.</p></li>
+</ul>
+</dd>
+</dl>
 <p>Returns:</p>
 <blockquote>
 <div><p>None</p>
@@ -785,7 +791,7 @@
 <footer id="footer">
     <div class="width-wrapper">
         <div class="copyright">
-            <p>©2022, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+            <p>©2023, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
         </div>
     </div>
 </footer>

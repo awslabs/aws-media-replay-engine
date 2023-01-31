@@ -145,7 +145,12 @@
       "$id": "#/properties/IgnoreDislikedSegments",
       "type": "boolean",
       "title": "The IgnoreDislikedSegments Schema"
-  },
+    },
+    "IncludeLikedSegments": {
+      "$id": "#/properties/IncludeLikedSegments",
+      "type": "boolean",
+      "title": "The IncludeLikedSegments Schema"
+    },
     "CreateHls": {
       "$id": "#/properties/CreateHls",
       "type": "boolean",

@@ -37,7 +37,11 @@ import {parseReplayDetails} from "../../components/Replay/common";
 import {AWS_COLOR_PALETTE} from "../../components/ClipPreviewFeedback/RangeColorPallete"
 import ArrowBackIosIcon from '@material-ui/icons/ArrowBackIos';
 import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos';
-
+import PlayCircleFilledIcon from "@material-ui/icons/PlayCircleFilled";
+import {Dialog, DialogContent, DialogTitle, DialogActions} from "@material-ui/core";
+import ReactPlayer from "react-player";
+import Button from "@material-ui/core/Button";
+import config from "../../config";
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -72,7 +76,7 @@ export const ClipPreview = () => {
         const stateParams = _.get(history, 'location.state');
         const [allClips, setAllClips] = React.useState(undefined);
         const {setIsSidebarOpen, isSidebarOpen, authenticatedUserName} = useSessionContext()
-
+        
         const [rangeEvents, setOptimizedRangeEvents] = React.useState([])
         const [rangeEventsCharts, setOptimizedRangeEventsCharts] = React.useState([])
         const [clipFeatures, setOptimizedClipFeatures] = React.useState([])
@@ -93,8 +97,8 @@ export const ClipPreview = () => {
         const [featureLabelColors, setFeatureLabelColors] = React.useState({})
         const [rangeEventColors, setRangeEventColors] = React.useState({})
 
-        const [originalThumbsUp, setOriginalThumbsUp] = React.useState(undefined)
-        const [optimizedThumbsUp, setOptimizedThumbsUp] = React.useState(undefined)
+        const [originalThumbsUp, setOriginalThumbsUp] = React.useState(false)
+        const [optimizedThumbsUp, setOptimizedThumbsUp] = React.useState(false)
         const [clipPreviewOpen, setClipPreviewOpen] = React.useState(false);
         const [currentFeedbackMode, setCurrentFeedbackMode] = React.useState('');
         const [originalThumbsUpColor, setOriginalThumbsUpColor] = React.useState('');
@@ -128,12 +132,40 @@ export const ClipPreview = () => {
         const [isOptimizerConfiguredInProfile, setIsOptimizerConfiguredInProfile] = React.useState(false);
 
         const {query, isLoading, setIsLoading} = APIHandler();
+        const [checkBoxState, setCheckBoxState] = React.useState({
+            checkedDislikeReset: false
+        });
+        const [originalDislikeResetCheckBoxState, setOriginalDislikeResetCheckBoxState] = React.useState(false)
+        const [optoDislikeResetCheckBoxState, setoptoDislikeResetCheckBoxState] = React.useState(false)
+        const [originalThumbsDown, setOriginalThumbsDown] = React.useState(false)
+        const [optimizedThumbsDown, setOptimizedThumbsDown] = React.useState(false)
+        const [originalAction, setOriginalAction] = React.useState(false)
+        const [optimizedAction, setOptimizedAction] = React.useState(false)
+        const [thumbsUpOrigLoading, setThumbsUpOrigLoading] = React.useState(false)
+        const [thumbsUpOptoLoading, setThumbsUpOptoLoading] = React.useState(false)
+        const [highlightClipOpen, setHighlightClipOpen] = React.useState(false)
+        const [highlightClipVideoUrl, setHighlightClipVideoUrl]= React.useState('')
+        const [loadingHighlightClipVideo, setLoadingHighlightClipVideo]= React.useState(false)
 
         const MAX_CLIPS = 10;
 
         React.useEffect(() => {
             setSidebarOpen(isSidebarOpen)
         }, [isSidebarOpen]);
+
+        const handleDislikeResetCheckBoxChange = (event) => {
+            setCheckBoxState({...checkBoxState, [event.target.name]: event.target.checked});
+
+            ////console.log(`event.target.checked=${event.target.checked}`);
+            ////console.log(currentFeedbackMode);
+            if (event.target.checked && currentFeedbackMode === "Original"){
+                setOriginalDislikeResetCheckBoxState(true)
+            }
+            else if (event.target.checked && currentFeedbackMode === "Optimized"){
+                setoptoDislikeResetCheckBoxState(true)
+            }
+        };
+        
 
         const getLatestEventState = async (origEventData) => {
             let latestEvent = await query('get', 'api', `event/${origEventData.Name}/program/${origEventData.Program}`, {disableLoader: true});
@@ -149,9 +181,36 @@ export const ClipPreview = () => {
                     "Color": index >= AWS_COLOR_PALETTE.length ? AWS_COLOR_PALETTE[0].hex : AWS_COLOR_PALETTE[index].hex
                 }
             })
-            console.log(pluginNamesWithColors);
+            ////console.log(pluginNamesWithColors);
             setAllPluginNameColor(pluginNamesWithColors);
         }
+
+        const goBack = () => {
+            if (clipPreviewMode === "EventClips") {
+                history.push({
+                    pathname: "/viewEvent", state: {
+                        back: {
+                            name: "Events List",
+                            link: "/viewEvent"
+                        },
+                        data: originalEventData,
+                    }
+                });
+            }
+            else {
+                history.push({
+                    pathname: "/listReplays", state: {
+                        data: '',
+                    }
+                });
+            }
+        };
+
+        if (!stateParams) {
+            goBack();
+        }
+
+        
 
         React.useEffect(() => {
             (async () => {
@@ -291,7 +350,7 @@ export const ClipPreview = () => {
 
                     // Renders GridList of Clips
                     setAllClips([segments]);
-                    console.log([segments]);
+                    ////console.log([segments]);
                     setCurrentClipPage(0);
                     setTotalClipPages(0);
                     
@@ -511,93 +570,12 @@ export const ClipPreview = () => {
             setRangeEventColors(pluginLabelColors)
         }, [pluginLabels]);
 
-        const getClipReviewFeedback = async (clipInfo, eventData, classifier, track = undefined) => {
-            const clipStart = clipInfo.StartTime
-            const event = eventData.Name
-            const program = eventData.Program
 
-            const audioTrack = track === undefined ? selectedAudioTrack : track
-
-            //let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/reviewer/${authenticatedUserName}/feedback`,
-            let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/feedback`,
-                {disableLoader: true});
-            response = response.data;
-
-            if (response !== undefined) {
-                if (response.hasOwnProperty('PK')) {
-                    if (response.OptimizedFeedback.Feedback === 'Like') {
-                        setOptimizedThumbsUp(true)
-                        setOptimizedThumbsUpColor("green")
-                        setOptimizedThumbsDownColor("")
-                    }
-                    if (response.OptimizedFeedback.Feedback === 'Dislike') {
-
-                        setOptimizedThumbsUp(false)
-                        setOptimizedFeedbackDetail(response.OptimizedFeedback.FeedbackDetail)
-                        setOptimizedThumbsUpColor("")
-                        setOptimizedThumbsDownColor("red")
-                    }
-                    if (response.OriginalFeedback.Feedback === 'Like') {
-                        setOriginalThumbsUp(true)
-                        setOriginalThumbsUpColor("green")
-                        setOriginalThumbsDownColor("")
-                    }
-                    if (response.OriginalFeedback.Feedback === 'Dislike') {
-
-                        setOriginalThumbsUp(false)
-                        setOriginalFeedbackDetail(response.OriginalFeedback.FeedbackDetail)
-                        setOriginalThumbsUpColor("")
-                        setOriginalThumbsDownColor("red")
-                    }
-                }
-            }
-        }
-
-        const goBack = () => {
-            if (clipPreviewMode === "EventClips") {
-                history.push({
-                    pathname: "/viewEvent", state: {
-                        back: {
-                            name: "Events List",
-                            link: "/viewEvent"
-                        },
-                        data: originalEventData,
-                    }
-                });
-            }
-            else {
-                history.push({
-                    pathname: "/listReplays", state: {
-                        data: '',
-                    }
-                });
-            }
-        };
-
-        if (!stateParams) {
-            goBack();
-        }
-
-        const resetThumbColor = () => {
-
-            setOriginalThumbsUpColor("")
-            setOriginalThumbsDownColor("")
-            setOptimizedThumbsDownColor("")
-            setOptimizedThumbsUpColor("")
-        }
-
-        const resetThumbs = () => {
-            setOriginalThumbsUp(undefined)
-            setOptimizedThumbsUp(undefined)
-            setOriginalFeedbackDetail('')
-            setOptimizedFeedbackDetail('')
-
-        }
-
-// This callback gets called whenever a card is clicked in the Video Preview list
-// Handles the Highlighting of the selected card and deselects all the other cards.
-// Also Loads the Original and Optimized data for the selected Clip
+        // This callback gets called whenever a card is clicked in the Video Preview list
+        // Handles the Highlighting of the selected card and deselects all the other cards.
+        // Also Loads the Original and Optimized data for the selected Clip
         const handleHighlightCard = async (cardId) => {
+            //console.log(cardId);
             _.forEach(allClips, async (page) => {
                 _.forEach(page, async (allc) => {
                     if (allc.id === cardId) {
@@ -626,6 +604,8 @@ export const ClipPreview = () => {
                 })
             })
 
+            //console.log(displayedClipList);
+
             // Handle Highlighting
             _.forEach(allClips, (page) => {
                 _.forEach(page, allc => {
@@ -634,6 +614,11 @@ export const ClipPreview = () => {
             });
 
             setAllClips(_.cloneDeep(allClips))
+            
+            _.forEach(displayedClipList, allc => {
+                allc.id === cardId ? allc.selected = true : allc.selected = false
+            })
+            setDisplayedClipList(displayedClipList)
         }
 
         const handleAudioTrackChange = async (event) => {
@@ -661,38 +646,170 @@ export const ClipPreview = () => {
             setIsLoading(false)
         }
 
-        const handleOriginalThumbUp = async () => {
-            setCurrentFeedbackMode('Original')
-            setOriginalThumbsUp(true)
+        React.useEffect(() => {
+            (async () => {
+                const origEventData = clipPreviewMode === "EventClips" ? _.get(stateParams, 'origEventData') : originalEventData
+                if (origEventData.Program !== undefined && (originalAction || optimizedAction)){
+                    
+                    //console.log("React.useEffect");
+                    if (originalAction)
+                        setThumbsUpOrigLoading(true)
+                    else if (optimizedAction)
+                        setThumbsUpOptoLoading(true)
 
-            let feedback = await getClipFeedbackState("Original", "Like")
-            feedback.OriginalFeedback.Feedback = 'Like'
+                    let feedback = await getClipFeedbackState()
+                    const res = await saveThumbsUpFeedback(feedback)
+                    
+                    
+                    if (originalAction){
+                        setThumbsUpOrigLoading(false)
+                        setOriginalAction(false)
+                    }
+                    if (optimizedAction){
+                        setThumbsUpOptoLoading(false)
+                        setOptimizedAction(false)    
+                    }
 
+            }
 
-            const res = await saveThumbsUpFeedback(feedback)
-            if (res.success) {
-                setOriginalThumbsUpColor("green")
-                setOriginalThumbsDownColor("")
-                setOriginalFeedbackDetail('')
+            })();
 
+        }, [originalThumbsUp, optimizedThumbsUp, originalThumbsDown, optimizedThumbsDown, originalAction, optimizedAction ]);
+
+        /*React.useEffect(() => {
+            (async () => {
+                const origEventData = clipPreviewMode === "EventClips" ? _.get(stateParams, 'origEventData') : originalEventData
+                if (origEventData.Program !== undefined && optimizedAction){
+                    setThumbsUpOptoLoading(true)
+
+                    let feedback = await getClipFeedbackState()
+                    const res = await saveThumbsUpFeedback(feedback)
+
+                    if (res.success) {
+                        setOptimizedThumbsUpColor(optimizedThumbsUp ? "green": "")
+                        setOptimizedThumbsDownColor("")
+                        setOptimizedFeedbackDetail('')
+                        setOptimizedAction(false)
+                    }
+                    setThumbsUpOptoLoading(false)
+            }
+
+            })();
+
+        }, [optimizedThumbsUp]); */
+
+        const getClipReviewFeedback = async (clipInfo, eventData, classifier, track = undefined) => {
+            const clipStart = clipInfo.StartTime
+            const event = eventData.Name
+            const program = eventData.Program
+
+            //console.log("getClipReviewFeedback");
+
+            const audioTrack = track === undefined ? selectedAudioTrack : track
+
+            setOriginalAction(false)
+            setOptimizedAction(false)
+
+            //let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/reviewer/${authenticatedUserName}/feedback`,
+            let response = await query('get', 'api-data-plane', `clip/preview/program/${program}/event/${event}/classifier/${classifier}/start/${clipStart}/track/${audioTrack}/feedback`,
+                {disableLoader: true});
+            response = response.data;
+
+            if (response !== undefined) {
+                if (response.hasOwnProperty('PK')) {
+                    
+                    if (response.OptimizedFeedback.Feedback === 'Like') {
+                        setOptimizedThumbsUp(true)
+                        setOptimizedThumbsUpColor("green")
+                        setOptimizedThumbsDownColor("")
+                    }
+                    else if (response.OptimizedFeedback.Feedback === 'Dislike') {
+
+                        setOptimizedThumbsUp(false)
+                        setOptimizedThumbsDown(true)
+                        setOptimizedFeedbackDetail(response.OptimizedFeedback.FeedbackDetail)
+                        setOptimizedThumbsUpColor("")
+                        setOptimizedThumbsDownColor("red")
+                    }
+                    else{
+                        setOptimizedThumbsUp(false)
+                        setOptimizedThumbsDown(false)
+                        setOptimizedFeedbackDetail('')
+                        setOptimizedThumbsUpColor("")
+                        setOptimizedThumbsDownColor("")
+
+                    }
+
+                    if (response.OriginalFeedback.Feedback === 'Like') {
+                        setOriginalThumbsUp(true)
+                        setOriginalThumbsUpColor("green")
+                        setOriginalThumbsDownColor("")
+                    }
+                    else if (response.OriginalFeedback.Feedback === 'Dislike') {
+
+                        setOriginalThumbsUp(false)
+                        setOriginalThumbsDown(true)
+                        setOriginalFeedbackDetail(response.OriginalFeedback.FeedbackDetail)
+                        setOriginalThumbsUpColor("")
+                        setOriginalThumbsDownColor("red")
+                    }
+                    else{
+                        setOriginalThumbsUp(false)
+                        setOriginalThumbsDown(false)
+                        setOriginalFeedbackDetail("")
+                        setOriginalThumbsUpColor("")
+                        setOriginalThumbsDownColor("")
+                    }
+                }
             }
         }
 
+        const resetThumbColor = () => {
+
+            setOriginalThumbsUpColor("")
+            setOriginalThumbsDownColor("")
+            setOptimizedThumbsDownColor("")
+            setOptimizedThumbsUpColor("")
+        }
+
+        const resetThumbs = () => {
+            setOriginalThumbsUp(false)
+            setOptimizedThumbsUp(false)
+            setOriginalFeedbackDetail('')
+            setOptimizedFeedbackDetail('')
+
+        }
+
+        
+
+        const handleOriginalThumbUp = async () => {
+            setCurrentFeedbackMode('Original')
+            setOriginalThumbsUp(!originalThumbsUp)
+            setOriginalThumbsUpColor(originalThumbsUp ? "" : "green")
+
+            setOriginalThumbsDownColor("")
+            setOriginalThumbsDown(false)
+
+            setOriginalFeedbackDetail("")
+
+            setOriginalAction(true)
+            
+            
+        }
+
         const handleOptimalThumbUp = async () => {
-            setCurrentFeedbackMode('Optimized')
-            setOptimizedThumbsUp(true)
+            setCurrentFeedbackMode('Optimized')            
+            setOptimizedThumbsUp(!optimizedThumbsUp)
+            setOptimizedThumbsUpColor(optimizedThumbsUp ? "" : "green")
 
-            let feedback = await getClipFeedbackState("Optimized", "Like")
-            feedback.OptimizedFeedback.Feedback = 'Like'
+            setOptimizedThumbsDown(false)
+            setOptimizedThumbsDownColor("")
 
+            setOptimizedFeedbackDetail("")
 
-            const res = await saveThumbsUpFeedback(feedback)
-            if (res.success) {
-                setOptimizedThumbsUpColor("green")
-                setOptimizedThumbsDownColor("")
-                setOptimizedFeedbackDetail('')
-            }
+            setOptimizedAction(true)
 
+            
         }
 
         const handleOriginalThumbDown = () => {
@@ -705,7 +822,7 @@ export const ClipPreview = () => {
             setClipPreviewOpen(true);
         }
 
-        const getClipFeedbackState = async (feedbackMode, feedbackType) => {
+        const getClipFeedbackState = async () => {
             let feedbackState = {}
 
             const origEventData = clipPreviewMode === "EventClips" ? _.get(stateParams, 'origEventData') : originalEventData
@@ -717,30 +834,64 @@ export const ClipPreview = () => {
             feedbackState.StartTime = selectedCard.StartTime
             feedbackState.AudioTrack = selectedAudioTrack
             feedbackState.Reviewer = authenticatedUserName
+            feedbackState.IsOptimizerConfiguredInProfile = isOptimizerConfiguredInProfile
+
+            if (originalAction || currentFeedbackMode === "Original")
+                feedbackState.ActionSource = "Original"
+            else if (optimizedAction || currentFeedbackMode === "Optimized")
+                feedbackState.ActionSource = "Optimized"
 
             feedbackState.OriginalFeedback = {}
             feedbackState.OptimizedFeedback = {}
-            feedbackState.OriginalFeedback.Feedback = '-'
-            feedbackState.OriginalFeedback.FeedbackDetail = '-'
-            feedbackState.OptimizedFeedback.Feedback = '-'
-            feedbackState.OptimizedFeedback.FeedbackDetail = '-'
+            //console.log(`originalThumbsDown=${originalThumbsDown}`);
+            if (originalThumbsDown){
+                feedbackState.OriginalFeedback.Feedback = 'Dislike'
+                feedbackState.OriginalFeedback.FeedbackDetail = originalFeedbackDetail
 
-            // User Clicked ThumbsDown for Original
-            if (feedbackMode === 'Original') {
-                feedbackState.OriginalFeedback.Feedback = feedbackType //'Dislike'
+                if (originalDislikeResetCheckBoxState){
+                    feedbackState.OriginalFeedback.Feedback = '-'
+                    feedbackState.OriginalFeedback.FeedbackDetail = ''
 
-                // Carry over the Optimize Feedback
-                feedbackState.OptimizedFeedback.Feedback = optimizedThumbsUp === undefined ? '-' : optimizedThumbsUp ? 'Like' : 'Dislike'
-                feedbackState.OptimizedFeedback.FeedbackDetail = feedbackState.OptimizedFeedback.Feedback === 'Like' ? '-' : optimizedFeedbackDetail
+                    setOriginalDislikeResetCheckBoxState(false)
+                }
             }
-            if (feedbackMode === 'Optimized') {
-                feedbackState.OptimizedFeedback.Feedback = feedbackType //'Dislike'
+            //console.log(`optimizedThumbsDown=${optimizedThumbsDown}`);
 
-                // Carry over the Original Feedback
-                feedbackState.OriginalFeedback.Feedback = originalThumbsUp === undefined ? '-' : originalThumbsUp ? 'Like' : 'Dislike'
-                feedbackState.OriginalFeedback.FeedbackDetail = feedbackState.OriginalFeedback.Feedback === 'Like' ? '-' : originalFeedbackDetail
+            if (optimizedThumbsDown){
+                feedbackState.OptimizedFeedback.Feedback = 'Dislike'
+                feedbackState.OptimizedFeedback.FeedbackDetail = optimizedFeedbackDetail
+
+                if (optoDislikeResetCheckBoxState){
+                    feedbackState.OptimizedFeedback.Feedback = '-'
+                    feedbackState.OptimizedFeedback.FeedbackDetail = ''
+
+                    setoptoDislikeResetCheckBoxState(false)
+                }
+            }
+            
+            //console.log(`originalThumbsUp=${originalThumbsUp}`);
+            if (originalThumbsUp){
+                feedbackState.OriginalFeedback.Feedback = 'Like'
+                feedbackState.OriginalFeedback.FeedbackDetail = '-'
+            }   
+            //console.log(`optimizedThumbsUp=${optimizedThumbsUp}`);
+            if (optimizedThumbsUp){
+                feedbackState.OptimizedFeedback.Feedback = 'Like'
+                feedbackState.OptimizedFeedback.FeedbackDetail = '-'
             }
 
+            if (!originalThumbsDown && !originalThumbsUp){
+                feedbackState.OriginalFeedback.Feedback = '-'
+                feedbackState.OriginalFeedback.FeedbackDetail = '-'
+            }
+
+            if (!optimizedThumbsDown && !optimizedThumbsUp){
+                feedbackState.OptimizedFeedback.Feedback = '-'
+                feedbackState.OptimizedFeedback.FeedbackDetail = '-'
+            }
+                
+            
+            //console.log(feedbackState);
             return feedbackState
         }
 
@@ -750,23 +901,66 @@ export const ClipPreview = () => {
                 disableLoader: true
             });
         }
-
-        const handleFeedbackSuccess = (feedbackDetail) => {
+        const handleFeedbackCancel = () => {
             if (currentFeedbackMode === 'Original') {
-                setOriginalThumbsDownColor("red")  // This will Enable ThumbsDown
-                setOriginalThumbsUpColor("")
-                setOriginalThumbsUp(false)
-                setOriginalFeedbackDetail(feedbackDetail)
+                setOriginalDislikeResetCheckBoxState(false)
+                setOriginalFeedbackDetail("")
+                setOriginalAction(false)
             }
             else if (currentFeedbackMode === 'Optimized') {
-                setOptimizedThumbsDownColor("red")  // This will Enable ThumbsDown
+                setoptoDislikeResetCheckBoxState(false)
+                setOptimizedFeedbackDetail("")
+                setOptimizedAction(false)
+            }
+        }
+        const handleFeedbackSuccess = (feedbackDetail) => {
+
+            if (currentFeedbackMode === 'Original') {
+
+                // User chose to remove the Dislike
+                if (originalDislikeResetCheckBoxState){
+                    setOriginalThumbsDownColor("") 
+                    setOriginalThumbsDown(false)
+                    setOriginalFeedbackDetail("")
+                    setOriginalDislikeResetCheckBoxState(false)
+                }
+                else{
+                    setOriginalThumbsDownColor("red")
+                    setOriginalThumbsDown(true)
+                    setOriginalFeedbackDetail(feedbackDetail)
+                }
+
+                // Triggers useEffect to persist to DB
+                setOriginalAction(true)
+                setOriginalThumbsUpColor("")
+                setOriginalThumbsUp(false)
+                
+            }
+            else if (currentFeedbackMode === 'Optimized') {
+                if (optoDislikeResetCheckBoxState){
+                    setOptimizedThumbsDown(false)
+                    setOptimizedThumbsDownColor("") 
+                    setOptimizedFeedbackDetail("")
+                    setoptoDislikeResetCheckBoxState(false)
+                }
+                else{
+                    setOptimizedThumbsDown(true)
+                    setOptimizedThumbsDownColor("red")
+                    setOptimizedFeedbackDetail(feedbackDetail)
+                }   
+
+                // Triggers useEffect to persist to DB
+                setOptimizedAction(true)
                 setOptimizedThumbsUpColor("")
                 setOptimizedThumbsUp(false)
-                setOptimizedFeedbackDetail(feedbackDetail)
+                
             }
         }
 
+        
+
         const handleFeedbackFailure = () => {
+            //console.log('failure');
             if (currentFeedbackMode === 'Original')
                 setOriginalThumbsDownColor("") // This will Clear both ThumbsUp and Down
             else if (currentFeedbackMode === 'Optimized')
@@ -774,6 +968,7 @@ export const ClipPreview = () => {
         }
 
         const handleFeedbackChange = (e) => {
+            //console.log('change');
             if (currentFeedbackMode === 'Original')
                 setOriginalFeedbackDetail(e.target.value)
             else if (currentFeedbackMode === 'Optimized')
@@ -932,6 +1127,28 @@ export const ClipPreview = () => {
                 _.min([(_.size(displayedClipList)), 10])
         }
 
+
+        const handlePlayHighlightClick = async(event) => {
+
+            setHighlightClipOpen(true)
+            setLoadingHighlightClipVideo(true)
+
+            const replayRequestId = stateParams.data.ReplayId;
+            const eventName = stateParams.data.Event;
+            const programName = stateParams.data.Program;
+
+            const replayRequest = await query('get', 'api', `replay/program/${programName}/event/${eventName}/replayid/${replayRequestId}`, {disableLoader: true});
+            const replay_details = replayRequest.data
+            setHighlightClipVideoUrl(replay_details["PreviewVideoUrl"])
+
+            setLoadingHighlightClipVideo(false)
+
+        }
+
+        const handleHiglightClipDialogClose = () => {
+            setHighlightClipOpen(false)
+        }
+
         return (
             <Box pt={1} pb={10}>
                 <ClipPreviewModal
@@ -943,7 +1160,16 @@ export const ClipPreview = () => {
                     onFailureFunction={handleFeedbackFailure}
                     feedbackMode={currentFeedbackMode}
                     feedback={currentFeedbackMode === 'Original' ? originalFeedbackDetail : optimizedFeedbackDetail}
-                    onFeedbackChange={handleFeedbackChange}/>
+                    onFeedbackChange={handleFeedbackChange}
+                    resetOriginalChecked={originalDislikeResetCheckBoxState}
+                    resetOptimizedChecked={optoDislikeResetCheckBoxState}
+                    resetCheckedChangeHandler={handleDislikeResetCheckBoxChange}
+                    onCancelFunction={handleFeedbackCancel}
+                    SetOriginalThumbsUp={setOriginalThumbsUp}
+                    SetOptimizedThumbsUp={setOptimizedThumbsUp}
+                    SetOriginalThumbsDown={setOriginalThumbsDown}
+                    SetOptimizedThumbsDown={setOptimizedThumbsDown}
+                />
 
                 {completeReplayRequest &&
                 <ReplayViewDialog
@@ -962,13 +1188,13 @@ export const ClipPreview = () => {
                                     stateParams.mode === "EventClips" ?
                                         <Grid item>
                                             <Typography
-                                                color="textPrimary">{`Clip Preview / Program - ${originalEventData.Program} / Event- ${originalEventData.Name}`}
+                                                color="textPrimary">{`Clip Preview / Program - ${originalEventData.Program === undefined ? '' : originalEventData.Program} / Event- ${originalEventData.Name === undefined ? '' : originalEventData.Name}`}
                                             </Typography>
                                         </Grid> : stateParams.mode === "ReplayClips" &&
 
                                         <Grid item>
                                             <Typography
-                                                color="textPrimary">{`Replay Clips / Program - ${stateParams.data.Program} / Event- ${stateParams.data.Event}`}
+                                                color="textPrimary">{`Replay Clips / Program - ${stateParams.data.Program === undefined ? '' : stateParams.data.Program} / Event- ${stateParams.data.Event === undefined ? '' : stateParams.data.Event}`}
                                             </Typography>
                                         </Grid>
                                 }
@@ -978,6 +1204,18 @@ export const ClipPreview = () => {
                             stateParams.mode !== "EventClips" &&
                             <Grid container item direction={"row"} alignItems="center" justify="flex-end" sm={2}
                                   spacing={2}>
+                                <Grid item>
+                                    <IconButton size="small" color="secondary"
+                                                onClick={handlePlayHighlightClick}>
+                                        <Tooltip title="Play highlight MP4 clip">
+                                            <PlayCircleFilledIcon  
+                                                color={"primary"} 
+                                                style={{ verticalAlign: "middle", cursor: "pointer"}}
+                                                disabled={highlightClipVideoUrl === "" ? true : false}
+                                            />
+                                        </Tooltip>
+                                    </IconButton>
+                                </Grid>
                                 <Grid item>
                                     <IconButton size="small" color="secondary"
                                                 onClick={showReplayRequest}>
@@ -1108,7 +1346,8 @@ export const ClipPreview = () => {
                                                                 ThumbsDownColor={originalThumbsDownColor}
                                                                 ClipLocation={originalClipLocation}
                                                                 Mode={clipPreviewMode}
-                                                                IsLoading={isLoading}
+                                                                IsOriginalLoading={thumbsUpOrigLoading}
+                                                                
                                                             /> :
                                                             <ClipPlaceholder 
                                                                 Title=""
@@ -1128,7 +1367,8 @@ export const ClipPreview = () => {
                                                             ThumbsDownColor={optimizedThumbsDownColor}
                                                             ClipLocation={optimizedClipLocation}
                                                             Mode={clipPreviewMode}
-                                                            IsLoading={isLoading}
+                                                            IsOptimizedLoading={thumbsUpOptoLoading}
+                                                            
                                                         /> 
                                                         :
                                                         !originalEventData.GenerateOptoClips && isOptimizerConfiguredInProfile ?
@@ -1216,7 +1456,58 @@ export const ClipPreview = () => {
                         }
                     </Grid>
                 </Grid>
+
+
+                <Box>
+                    <Dialog
+                        fullWidth
+                        maxWidth="md"
+                        open={highlightClipOpen}
+                        onClose={handleHiglightClipDialogClose}
+                        disableBackdropClick
+                    >
+                        <form>
+                        <DialogTitle>
+                            Highlights for {stateParams.data.Program}/{stateParams.data.Event}
+                            
+                        </DialogTitle>
+                        <DialogContent>
+                            {
+                                loadingHighlightClipVideo ? 
+                                    <div style={{paddingLeft: 10}}>
+                                        <CircularProgress color="inherit"/>
+                                    </div>
+                                :
+                                    highlightClipVideoUrl !== '' ?
+                                    <ReactPlayer
+                                        url={highlightClipVideoUrl}
+                                        width='100%'
+                                        height='500px'
+                                        controls={true}
+                                        playing={true}
+                                        loop={true}
+                                    /> : !loadingHighlightClipVideo ? 
+                                        <Typography color="textPrimary">No highlight clip has been generated yet. Please try again in a while.</Typography>
+                                    : <></>
+                            }
+                            
+                        </DialogContent>
+                        <DialogActions>
+                            <Button color="primary" disabled={false} onClick={handleHiglightClipDialogClose}>
+                                Close
+                            </Button>
+                        </DialogActions>
+                        </form>
+
+                    </Dialog>
+                </Box>
+
+
+
             </Box>
+
+
+            
         );
     }
 ;

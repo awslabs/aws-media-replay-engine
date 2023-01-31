@@ -39,17 +39,14 @@ class ReplayEngine:
 
         self.__event = event
 
-        if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
+        if event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK','OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
             self._event = event['detail']['Segment']['Event']
-        elif event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
-            self._event = event['detail']['Event']['Name']
-
-        if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
             self._program = event['detail']['Segment']['Program']
         elif event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
+            self._event = event['detail']['Event']['Name']
             self._program = event['detail']['Event']['Program']
 
-        if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
+        if event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK','OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
             self._profile = event['detail']['Segment']['ProfileName']
         else:
             self._profile = self._get_profile_from_event()
@@ -57,9 +54,9 @@ class ReplayEngine:
         # Get Classifier from Profile
         self._classifier = self._get_profile()['Classifier']['Name']
 
-        if event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
+        if event['detail']['State'] in ['OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
             self._audio_track = event['detail']['Segment']['AudioTrack']
-        elif event['detail']['State'] == 'SEGMENT_CACHED':
+        elif event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK']:
             self._audio_track = 1
         else:
             self._audio_track = event['detail']['Event']['AudioTrack']
@@ -75,9 +72,21 @@ class ReplayEngine:
                 logger.append_keys(replay_id=str(self._replay_to_be_processed['ReplayId']))
                 logger.append_keys(event_name=str(self._event))
                 logger.append_keys(program_name=str(self._program))
+                logger.append_keys(replay_event_origin=str(event['detail']['State']))
 
         # CatchUp Replays will have Segment Dict coming in
         self.current_segment = event['detail']['Segment'] if self._is_catch_up_enabled() else {}
+
+        # This is passed to the API when updating Replay Results to circumvent the Conditional Update - 
+        # We might already have a latest segment that updated ReplayResults table and the conditional update exists to prevent Race condition
+        # However when a segment is Added or Removed due to Feedback provided, it is done for older segments.
+        # The conditional updates would prevent updating Replay Results. We use this attribute to avoid this conditional update
+        # to allow a new Replay Result to be Updated in DDB
+        # This is obviously only applicable for CatchUp replays and is set to True only for Replays reacting to FEEDBACK events
+        if self._is_catch_up_enabled():
+            self.current_segment['HasFeedback'] = True if event['detail']['State'] in ['SEGMENT_CLIP_FEEDBACK','OPTIMIZED_SEGMENT_CLIP_FEEDBACK'] else False
+        else:
+            self.current_segment['HasFeedback'] = False
 
         #Segments which have been persisted so far
         self.previous_replay_segments = []
@@ -85,6 +94,9 @@ class ReplayEngine:
             if 'ReplayId' in self._replay_to_be_processed:
                 self.previous_replay_segments = self._dataplane.get_replay_segments(self._event, self._program, self._replay_to_be_processed['ReplayId']) 
         
+        self._clip_preview_feedback = self._dataplane.get_all_clip_preview_feedback(self._program, self._event, str(self._audio_track))
+        logger.info(f"all_clip_preview_feedback={json.dumps(self._clip_preview_feedback)}")
+
 
     def __does_current_segment_have_any_replay_feature(self, current_segment_cache_file_name):
         '''
@@ -137,23 +149,37 @@ class ReplayEngine:
                 if '0' in segment_mapping_as_json['FeaturesDataPoints']:
                     # Check Video based Feature data
                     for feature_data_point in segment_mapping_as_json['FeaturesDataPoints']["0"]:
-
-                        # If any of the ReplayRequest Feature exists in the Segment
-                        if feature['AttribName'] in feature_data_point:
-                            # Ex. SegmentBySceneAndSR | score_change | true
-                            feature_condition = feature['Name'].split("|")[-1]
-                            if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
-                                return True
+                        if 'Weight' in feature: #For ClipBased settings in Replay, no weight attribute exists. This is Duration based.
+                            # If any of the ReplayRequest Feature exists in the Segment
+                            if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
+                                # Ex. SegmentBySceneAndSR | score_change | true
+                                feature_condition = feature['Name'].split("|")[-1]
+                                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                                    return True
+                        else:
+                            # Make sure that a Feature is included in case of Clip based Priorities
+                            if feature['AttribName'] in feature_data_point and feature['Include']:
+                                # Ex. SegmentBySceneAndSR | score_change | true
+                                feature_condition = feature['Name'].split("|")[-1]
+                                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                                    return True
 
                 # Check Audio based Feature data based on the current Audio Track
                 if str(self._audio_track) in segment_mapping_as_json['FeaturesDataPoints']:
                     for feature_data_point in segment_mapping_as_json['FeaturesDataPoints'][str(self._audio_track)]:
-                        # If any of the ReplayRequest Feature exists in the Segment
-                        if feature['AttribName'] in feature_data_point:
-                            # Ex. SegmentBySceneAndSR | score_change | true
-                            feature_condition = feature['Name'].split("|")[-1]
-                            if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
-                                return True
+                        if 'Weight' in feature: #For ClipBased settings in Replay, no weight attribute exists. This is Duration based.
+                            # If any of the ReplayRequest Feature exists in the Segment
+                            if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
+                                # Ex. SegmentBySceneAndSR | score_change | true
+                                feature_condition = feature['Name'].split("|")[-1]
+                                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                                    return True
+                        else:
+                            # Make sure that a Feature is included in case of Clip based Priorities
+                            if feature['AttribName'] in feature_data_point and feature['Include']:
+                                feature_condition = feature['Name'].split("|")[-1]
+                                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                                    return True
 
         return False
 
@@ -199,7 +225,76 @@ class ReplayEngine:
 
         return segments_with_features
 
-    
+    def should_segment_be_force_included(self, segment_start_time, segment):
+        '''
+            Checks if a Segment has been given a thumbs up and if the Replay Configured wants to Include such Segments
+            If an Optimizer exists, we simply check for Optimized Clip Feedback. Else we fall back on Original Feedback
+        '''
+
+        does_replay_force_segments_inclusion = False if 'IncludeLikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IncludeLikedSegments']
+        if does_replay_force_segments_inclusion:
+
+            # Check to see if this Segment has a LIKE Feedback
+            for clip_feedback in self._clip_preview_feedback:
+                if 'Start' in clip_feedback:
+                    if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                        # If we are dealing with Optimized Segments, just check the Optimized Feedback
+                        if 'OptoStart' in segment and 'OptoEnd' in segment:
+                            if 'OptimizedFeedback' in clip_feedback:
+                                if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                                    return True if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "like" else False
+                                return False        
+                        else:# If we are dealing with Non-Optimized Segments, just check the Original Feedback
+                            if 'OriginalFeedback' in clip_feedback:
+                                if 'Feedback' in clip_feedback['OriginalFeedback']:
+                                    return True if clip_feedback['OriginalFeedback']['Feedback'].lower() == "like" else False
+                                return False
+        return False
+
+    def is_segment_disliked(self, segment_start_time, segment):
+        does_replay_force_segments_exclusion = False if 'IgnoreDislikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IgnoreDislikedSegments']
+
+        if does_replay_force_segments_exclusion:
+            for clip_feedback in self._clip_preview_feedback:
+                if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                    # If we are dealing with Optimized Segments, just check the Optimized Feedback
+                    if 'OptoStart' in segment and 'OptoEnd' in segment:
+                        if 'OptimizedFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                                if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "dislike":
+                                    return True
+                    else:
+                        if 'OriginalFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OriginalFeedback']:
+                                if clip_feedback['OriginalFeedback']['Feedback'].lower() == "dislike":
+                                    return True
+        return False
+
+    def should_segment_be_considered_after_initial_inclusion_exclusion(self, segment_start_time, segment):
+        '''
+            If a Segment was previously added manually or excluded, if the same segment was DeSelected, we need to consider such segments in the Replay Processing
+            Return of True indicates that the segment will need to be considered for Replay Processing
+        '''
+
+        #does_replay_force_segments_inclusion = False if 'IncludeLikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IncludeLikedSegments']
+        #if does_replay_force_segments_inclusion:
+
+        # Check to see if this Segment has a Feedback which was Reset
+        for clip_feedback in self._clip_preview_feedback:
+            if 'Start' in clip_feedback:
+                if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                    # If we are dealing with Optimized Segments, just check the Optimized Feedback
+                    if 'OptoStart' in segment and 'OptoEnd' in segment:
+                        if 'OptimizedFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                                return True if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "-" else False
+
+                    else:# If we are dealing with Non-Optimized Segments, just check the Original Feedback
+                        if 'OriginalFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OriginalFeedback']:
+                                return True if clip_feedback['OriginalFeedback']['Feedback'].lower() == "-" else False
+
+        return False
 
     def initialize_segment_features(self):
 
@@ -256,19 +351,36 @@ class ReplayEngine:
 
         if self._is_catch_up_enabled():
             current_segment_cache_file_name = f"Seg_{self.current_segment['Start']}_{self.current_segment['End']}_{self._audio_track}.json"
-            # Step 4 - For a CatchUp replay, check if current Segment has any features configured in the Replay Request? If no, SKIP the rest of the steps. Record this segment in DDB.
-            if not self.__does_current_segment_have_any_replay_feature(current_segment_cache_file_name):
 
-                # Update this Segment in the ReplayRequest "SegmentsToBeIgnored" attrib so we dont process this Segment Cache file to find features in future cycles
-                #self._controlplane.update_segments_to_be_ignored(self._event,self._program, self._replay_to_be_processed['ReplayId'], current_segment_cache_file_name)
+            if not self.is_segment_disliked(self.current_segment['Start'], self.current_segment):
 
-                # Update the ReplayRequest with current Segment's CacheFile name in the ReplayRequest "SegmentsToBeIgnored" attrib
-                logger.info(
-                    f"CURRENT Segment with Start {str(self.current_segment['Start'])} cache file name {current_segment_cache_file_name} has no ReplayRequest Feature's. IGNORING further processing for this Segment.")
-                return False
+                # If Feedback is "-". When a Like / Dislike is reset. Segments with such state should be considered in the replay Run. 
+                # This means if a Segment was Previously Manually Included, it could be excluded.if a Segment was Previously Manually Excluded, it could be included.
+                if not self.should_segment_be_considered_after_initial_inclusion_exclusion(self.current_segment['Start'], self.current_segment):
+
+                    # if Current Segment is not to be force included, check if it has any Features we are looking for
+                    if not self.should_segment_be_force_included(self.current_segment['Start'], self.current_segment):
+
+                        logger.info(f"CURRENT Segment with StartTime {str(self.current_segment['Start'])} is NOT set for FORCE INCLUSION. Cache file name {current_segment_cache_file_name}. Proceeding to check if it has any Replay features...")
+                        # For a CatchUp replay, check if current Segment has any features configured in the Replay Request? If no, SKIP the rest of the steps.
+                        if not self.__does_current_segment_have_any_replay_feature(current_segment_cache_file_name):
+
+                            # Update this Segment in the ReplayRequest "SegmentsToBeIgnored" attrib so we dont process this Segment Cache file to find features in future cycles
+                            #self._controlplane.update_segments_to_be_ignored(self._event,self._program, self._replay_to_be_processed['ReplayId'], current_segment_cache_file_name)
+
+                            # Update the ReplayRequest with current Segment's CacheFile name in the ReplayRequest "SegmentsToBeIgnored" attrib
+                            logger.info(f"CURRENT Segment with StartTime {str(self.current_segment['Start'])} has no ReplayRequest Feature's. IGNORING further processing for this Segment. Cache file name {current_segment_cache_file_name}.")
+                                
+                            return False
+                        else:
+                            logger.info(f"CURRENT Segment with StartTime {str(self.current_segment['Start'])} cache file name {current_segment_cache_file_name} HAS ONE OR MORE FEATURES !!! ")
+                                
+                    else:
+                        logger.info(f"CURRENT Segment with StartTime {str(self.current_segment['Start'])} is set for FORCE INCLUSION. Cache file name {current_segment_cache_file_name}. Will be considered to be added to replay !!! ")
+                else:
+                    logger.info(f"CURRENT Segment with StartTime {str(self.current_segment['Start'])} cache file name {current_segment_cache_file_name} is to be removed/added since it was INCLUDED/EXCLUDED MANUALLY. Proceeding further ...")
             else:
-                logger.info(
-                    f"CURRENT Segment with Start {str(self.current_segment['Start'])} cache file name {current_segment_cache_file_name} HAS ONE OR MORE FEATURES !!! ")
+                logger.info(f"CURRENT Segment with StartTime {str(self.current_segment['Start'])} is set for MANUAL REMOVAL. cache file name {current_segment_cache_file_name}. Proceeding further ...")
 
         # Step 5 - Get all segments with Features mapped from Cache. This is a Multi-threaded process
 
@@ -284,7 +396,10 @@ class ReplayEngine:
             self._program,
             self._replay_to_be_processed['ReplayId'],
             self._dataplane,
-            False if 'IgnoreDislikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IgnoreDislikedSegments']
+            False if 'IgnoreDislikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IgnoreDislikedSegments'],
+            False if 'IncludeLikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IncludeLikedSegments'],
+            self._clip_preview_feedback,
+            self._replay_to_be_processed
         )
         '''
         segments_with_features_from_new_cache_files structure
@@ -321,8 +436,8 @@ class ReplayEngine:
         # For CatchUp, this will be a list of the last 5 segment with features mapped
         # For NonCatchup, this will the full list of segment with features mapped
         segments_with_features_from_new_cache_files = replay_feature_processor.find_features_in_cached_files()
-        logger.info(
-            f'segments_with_features_from_new_cache_files={segments_with_features_from_new_cache_files}')
+        logger.info(f'segments_with_features_from_new_cache_files={json.dumps(segments_with_features_from_new_cache_files)}')
+            
 
         # Step 6 - MAP Segments to Features - CatchUp Optimization - Get the existing Segments Features Cache File from S3. This is only for CatchUp replays as we dont want to re-process all Segments with Features.
         # We will re-use the Cache created after the previous Replay calculated and cached the results.
@@ -330,23 +445,16 @@ class ReplayEngine:
         if self._is_catch_up_enabled():
             # This is a Mapping of ALL Segments with Features
             self._all_segments_with_features = segments_with_features_from_new_cache_files
-            #logger.info('Optimizing 2 SegmentFeature list by creating an Intersection.')
-            # self._all_segments_with_features = self.get_unique_segment_features_for_catchup(segments_with_features_from_new_cache_files) # This is a Mapping of Segments created so far with Features
-
-            logger.info(
-                f"CATCH UP _all_segments_with_features = {self._all_segments_with_features}")
+            logger.info(f"CATCH UP _all_segments_with_features = {self._all_segments_with_features}")
         else:
             # This is a Mapping of ALL Segments with Features
             self._all_segments_with_features = segments_with_features_from_new_cache_files
-            logger.info(
-                f"NOT CATCH UP _all_segments_with_features = {self._all_segments_with_features}")
+            logger.info(f"NOT CATCH UP _all_segments_with_features = {self._all_segments_with_features}")
 
         # Sort Segments in Asc order based on Start time
         self._all_segments_with_features.sort(key=lambda x: x['Start'])
 
-        logger.info(
-            f"SORTED _all_segments_with_features before re-calculating Scores = {self._all_segments_with_features}")
-
+        logger.info(f"SORTED _all_segments_with_features before re-calculating Scores = {json.dumps(self._all_segments_with_features)}")
         return True
 
     def create_tmp_file(self, file_content, filename):
@@ -437,36 +545,79 @@ class ReplayEngine:
             logger.info(f'Prev and New segments processing error - {e}')
             return True
     
-    def _create_replay(self):
 
-        
+    def does_segment_have_thumbs_up(self, segment_start_time, segment):
+        # Check to see if this Segment has a LIKE Feedback
+        for clip_feedback in self._clip_preview_feedback:
+            if 'Start' in clip_feedback:
+                if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                    # If we are dealing with Optimized Segments, just check the Optimized Feedback
+                    if 'OptoStart' in segment and 'OptoEnd' in segment:
+                        if 'OptimizedFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                                return True if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "like" else False
+                            return False        
+                    else:# If we are dealing with Non-Optimized Segments, just check the Original Feedback
+                        if 'OriginalFeedback' in clip_feedback:
+                            if 'Feedback' in clip_feedback['OriginalFeedback']:
+                                return True if clip_feedback['OriginalFeedback']['Feedback'].lower() == "like" else False
+                            return False
+        return False
+
+    def does_segment_have_thumbs_down(self, segment_start_time, segment) -> bool:
+        for clip_feedback in self._clip_preview_feedback:
+            if float(str(segment_start_time)) == float(str(clip_feedback['Start'])):
+                # If we are dealing with Optimized Segments, just check the Optimized Feedback
+                if 'OptoStart' in segment and 'OptoEnd' in segment:
+                    if 'OptimizedFeedback' in clip_feedback:
+                        if 'Feedback' in clip_feedback['OptimizedFeedback']:
+                            if clip_feedback['OptimizedFeedback']['Feedback'].lower() == "dislike":
+                                return True
+                else:
+                    if 'OriginalFeedback' in clip_feedback:
+                        if 'Feedback' in clip_feedback['OriginalFeedback']:
+                            if clip_feedback['OriginalFeedback']['Feedback'].lower() == "dislike":
+                                return True
+        return False
+
+    def _create_replay(self):
 
         # Only when a Replay is in Queued State, do we want to Update the Replay as In Progress
         if 'Status' in self._replay_to_be_processed:
             if self._replay_to_be_processed['Status'] == 'Queued':
                 self.__mark_replay_in_progress()
         
+        # If a Replay was Triggered coz a Clip Feedback was received, check if the Replay has the Options to Include or Exclude segments Turned On. If not, no point in processing further
+        # if self.__event['detail']['State'] in ['SEGMENT_CLIP_FEEDBACK', 'OPTIMIZED_SEGMENT_CLIP_FEEDBACK'] and self.__event['ReplayRequest']['Catchup']:
+        #     if self.does_segment_have_thumbs_down(self.current_segment['Start'], self.current_segment):
+        #         does_replay_support_adding_disliked_clips = False if 'IgnoreDislikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IgnoreDislikedSegments']
+        #         if not does_replay_support_adding_disliked_clips:
+        #             logger.info(f"IgnoreDislikedSegments-NOT PROCESSING REPLAY for segment - {self.__event['detail']['State']} - with StartTime {self.current_segment['Start']} since Replay IgnoreDislikedSegments is False or this segment got no Thumbs Down!!")
+        #             return False    
+        #     if self.does_segment_have_thumbs_up(self.current_segment['Start'], self.current_segment):
+        #         does_replay_force_segments_inclusion = False if 'IncludeLikedSegments' not in self._replay_to_be_processed else self._replay_to_be_processed['IncludeLikedSegments']
+        #         if not does_replay_force_segments_inclusion:
+        #             logger.info(f"IncludeLikedSegments-NOT PROCESSING REPLAY for segment - {self.__event['detail']['State']} - with StartTime {self.current_segment['Start']} since Replay IncludeLikedSegments is False or this segment got no Thumbs Up!!")
+        #             return False
+            
+
         # The required segments with Features will get mapped out here
         # If a segment has not features that the Replay is Configured for, we come out of
         # the current processing cycle.
         if not self.initialize_segment_features():
             return False
 
-        # Get Segments with Features. OptoStart and OptoEndtime of Segments will be Maps by default.
-        # self.get_all_segments_with_features()
-
+        
         # If We are dealing with Clip Based Features, we are done with Collecting the segments having Features, just push to DDB
         if not self._is_replay_duration_based():
 
-            logger.info(
-                f"-FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
-            replay_res = self._persist_replay_metadata(
-                self._all_segments_with_features)
+            logger.info(f"CLIP BASED - FINAL SEGMENTS SAVED IN REPLAY RESULT - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
+            replay_res = self._persist_replay_metadata(self._all_segments_with_features)
+                
 
             # Looks like replay results were not persisted. Race condition perhaps
             if not replay_res:
-                logger.info(
-                    f"Clip based replay. Replay results have not been persisted. Check for Race condition!!")
+                logger.info(f"Clip based replay. Replay results have not been persisted. Check for Race condition!!")
                 return False
 
         else:
@@ -484,11 +635,26 @@ class ReplayEngine:
             # For Duration based, we need to check if the Sum of Segment Clip Duration is more than the Duration asked for in the
             # Reply Request. If yes, we calculate scores and pick the best segments. If no, we simply push the segments into DDB
             duration_result, duration = self._does_total_duration_of_all_segments_exceed_configured(replay_request_duration)
+
+            # Total Segment Duration is less than Replay Duration. Include all. Not calculating Scores and weights.
             if not duration_result:
-                logger.info(f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
-                logger.info(f"CHECK 1 - FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
-                replay_res = self._persist_replay_metadata(self._all_segments_with_features, debuginfo)
-                logger.info(f"Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
+                logger.info(f"Potential Segments which can be included in Replay = {json.dumps(self._all_segments_with_features)}")
+                if len(self._all_segments_with_features) > 0:
+                    #Now that we have the segments that are within the replay, lets compare to see if 
+                    #these segments are any different than the segments which have already been persisted for the replay request
+                    sorted_final_segments = sorted(self._all_segments_with_features, key=lambda x: x['Start'], reverse=False)
+                    if not self.are_segments_different(sorted_final_segments):
+                        logger.info(f"CHECK 1 - PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(sorted_final_segments)}")
+                        return False
+                    logger.info(f"Total duration {duration} secs of chosen Segments within Replay Request duration {replay_request_duration} secs. Not calculating Scores and weights.")
+                    logger.info(f"CHECK 1 - FINAL SEGMENTS SAVED IN REPLAY RESULT -  for {self._replay_to_be_processed['ReplayId']}--{json.dumps(self._all_segments_with_features)}")
+                    replay_res = self._persist_replay_metadata(self._all_segments_with_features, debuginfo)
+                    logger.info(f"CHECK 1 - Total duration {duration} secs of chosen Segments is less than Replay Request duration {replay_request_duration} secs.")
+                else:
+                    # This can occur when we have segments having features, but when their Weights are Zero
+                    # The _all_segments_with_features will be empty till we encounter a segment having a Weight > 0 and having at least one of the Features or one or more segments are force included
+                    logger.info("CHECK 1 - We found Segments having at least one Feature, but they have Zero Weights. Ignoring replay creation.")
+                    return False
 
                 # Looks like replay results were not persisted. Race condition perhaps
                 if not replay_res:
@@ -496,18 +662,15 @@ class ReplayEngine:
 
             else:
 
-                
-
                 # If no Equal Distribution is sought, pick segments based on High Scores, duration
                 if not self.__event['ReplayRequest']['DurationbasedSummarization']['EqualDistribution']:
                     logger.append_keys(equal_distribution="N")
 
                     logger.info(f'Calculate Scores based on Weights .. total duration was {duration}')
                     self._calculate_segment_scores_basedon_weights(self._all_segments_with_features)
-                        
 
                     '''
-                    After Scoring, new structure includes "Score" attrib. For ex.
+                    After Scoring, new structure includes "Score" attrib. For ex. It may also include a new attribute 'ForceIncluded' if a segment is Force Included
 
                     [
                         {
@@ -534,7 +697,8 @@ class ReplayEngine:
                             "OptoEnd": 1701.697,
                             "OptoStart": 1688.422,
                             "Start": 1690.939,
-                            "Score": 100
+                            "Score": 100,
+                            "ForceIncluded": True
                         }
                     ]
                     '''
@@ -542,27 +706,19 @@ class ReplayEngine:
                     
                     # After each Segment has been scored, sort them in Desc based on Score
                     sorted_segments = sorted(self._all_segments_with_features, key=lambda x: x['Score'], reverse=True)
-                        
 
                     logger.info(f"---- AFTER DESC SORT Before Filtering based on Duration and Score - AllSegmentsWithFeatures ----{json.dumps(sorted_segments)}")
 
                     # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
-                    #total_duration_all = 0
                     total_duration = 0
                     final_segments = []
 
                     # Event if the last segment time makes the overall time to beyond the Duration limit,
                     # lets add that segment. The rest of the segments will be ignored since the Duration limit
                     # will be crossed.
-                    #last_segment_crossed_duration_limit = False
+                    
                     for segment in sorted_segments:
-
-                        # This conditions is met when the Replay Duration has been exceeded. So stop processing all segments
-                        #if last_segment_crossed_duration_limit:
-                        #    break
-
                         segment_duration = self._get_segment_duration_in_secs(segment)
-                        #total_duration_all += segment_duration
 
                         if (total_duration + segment_duration) <= replay_request_duration:
                             final_segments.append(segment)
@@ -580,13 +736,12 @@ class ReplayEngine:
                     #Now that we have the segments that are within the replay, lets compare to see if 
                     #these segments are any different than the segments which have already been persisted for the replay request
                     if not self.are_segments_different(sorted_final_segments):
-                        logger.info(f"PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(sorted_final_segments)}")
+                        logger.info(f"CHECK 2 - PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(sorted_final_segments)}")
                         return False
                         
-                    logger.info(f"CHECK 2 - FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(sorted_final_segments)}")
+                    logger.info(f"CHECK 2 - FINAL SEGMENTS SAVED IN REPLAY RESULT - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(sorted_final_segments)}")
                     replay_res = self._persist_replay_metadata(sorted_final_segments, debuginfo)
                         
-
                     # Looks like replay results were not persisted. Race condition perhaps
                     if not replay_res:
                         return False
@@ -605,24 +760,23 @@ class ReplayEngine:
                     first_segment = self._all_segments_with_features[0]
                     last_segment = self._all_segments_with_features[-1]
 
-                    start_of_first_segment_secs = first_segment['OptoStart'] if self._is_segment_optimized(
-                        first_segment) else first_segment['Start']
-                    end_of_last_segment_secs = last_segment['OptoEnd'] if self._is_segment_optimized(
-                        last_segment) else last_segment['End']
+                    start_of_first_segment_secs = 0 #first_segment['OptoStart'] if self._is_segment_optimized(first_segment) else first_segment['Start']
+                        
+                    end_of_last_segment_secs = last_segment['OptoEnd'] if self._is_segment_optimized(last_segment) else last_segment['End']
+                        
 
-                    logger.info(
-                        f"First Seg starts at {start_of_first_segment_secs} secs")
+                    logger.info(f"First Seg starts at {start_of_first_segment_secs} secs")
                     logger.info(f"Last Seg Ends at {end_of_last_segment_secs} secs")
 
-                    total_segment_duration_in_secs = end_of_last_segment_secs - \
-                        start_of_first_segment_secs
-                    logger.info(
-                        f"total_segment_duration_in_secs = {total_segment_duration_in_secs} secs")
+                    total_segment_duration_in_secs = end_of_last_segment_secs - start_of_first_segment_secs
+                        
+                    logger.info(f"total_segment_duration_in_secs = {total_segment_duration_in_secs} secs")
+                        
 
-                    total_segment_duration_in_hrs = (
-                        end_of_last_segment_secs - start_of_first_segment_secs) / 3600  # Hours
-                    logger.info(
-                        f"total_segment_duration_in_hrs = {total_segment_duration_in_hrs} hrs")
+                    total_segment_duration_in_hrs = (end_of_last_segment_secs - start_of_first_segment_secs) / 3600  # Hours
+                        
+                    logger.info(f"total_segment_duration_in_hrs = {total_segment_duration_in_hrs} hrs")
+                        
 
                     # Find how many Time Groups we need. If we have more than 1 Hr lets divide into multiple groups.
                     if total_segment_duration_in_secs > 3600:
@@ -630,6 +784,7 @@ class ReplayEngine:
                             math.ceil(total_segment_duration_in_hrs) * 2) + TIMEGROUP_MULTIPLIER
                     else:
                         no_of_time_groups = TIMEGROUP_MULTIPLIER
+                    
                     logger.info(f"no_of_time_groups = {no_of_time_groups}")
 
                     # Calculate the TimeGroup time based on the Replay Request Duration
@@ -654,12 +809,12 @@ class ReplayEngine:
                             total += start_of_first_segment_secs + time_frame_in_time_group
                         else:
                             time_groups.append({
-                                "TimeGroupStartInSecs": total,
+                                "TimeGroupStartInSecs": total + 0.001,
                                 "TimeGroupEndInSecs": total + time_frame_in_time_group,
                             })
                             total += time_frame_in_time_group
 
-                    logger.info(time_groups)
+                    logger.info(f"time_groups calculated = {time_groups}")
 
                     final_segments_across_timegroups = []
 
@@ -669,28 +824,31 @@ class ReplayEngine:
                     # TimeGroups will be Asc Order by Default based on how its Constructed above
                     '''
                     Time groups with segments sorted by Score Desc
+
                     |   TimeGroup 1 | |   TimeGroup 2 | |   TimeGroup 3 | |   TimeGroup 4 | |   TimeGroup 5 | 
-                    |        13             34                56                                    100         ----> 1st Pass - All Segment with highest scores in each TimeGroup are processed
-                    |        9                                48                                    80          ----> 2nd Pass (only if Duration is not met in previous pass)
-                    |                                         30                                                ----> 3rd pass (only if Duration is not met in previous pass)
+                    |        13            9999911.2            56                                    100         ----> 1st Pass - All Segment with highest scores in each TimeGroup are processed
+                    |        9               34                 48                                    80          ----> 2nd Pass (only if Duration is not met in previous pass)
+                    |                                           30                                                ----> 3rd pass (only if Duration is not met in previous pass)
                     '''
                     total_duration = 0
                     final_segments = []
                     time_groups_with_no_segments_available_or_duration_met = []
                     while True:
                         segments_per_pass = []
-                        logger.info(f"Processing Index {segment_index} from each Timegroup segment list")
+                        logger.info(f"Processing Index {segment_index} from each Time group segment list")
                         for timegroup in time_groups:
 
                             if str(timegroup['TimeGroupStartInSecs']) in time_groups_with_no_segments_available_or_duration_met:
                                 continue
 
                             segments_within_timegroup = self._get_segments_with_features_within_timegroup(timegroup)
+                            logger.info(f"segments_within_timegroup={segments_within_timegroup}, TimeGroupStartInSecs = {str(timegroup['TimeGroupStartInSecs'])}")
 
                             self._calculate_segment_scores_basedon_weights(segments_within_timegroup)
 
                             # After each Segment has been scored, sort them in Desc based on Score
                             sorted_segments = sorted(segments_within_timegroup, key=lambda x: x['Score'], reverse=True)
+                            logger.info(f"sorted_segments={sorted_segments}")
                                 
 
                             # Find which segments needs to be Removed to meet the Duration Requirements in Replay Request
@@ -706,7 +864,7 @@ class ReplayEngine:
                                     logger.info(f"Exception - Segment with specific Index not found in a Timegroup.  Index = {segment_index}, TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']}. This is expected as each Timegroup has variable number of segments.")
                                     time_groups_with_no_segments_available_or_duration_met.append(str(timegroup['TimeGroupStartInSecs']))
                             else:
-                                logger.info(f"No segments available in this TimeGroup.  Index = {segment_index}, TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']}")
+                                logger.info(f"No segments available in this TimeGroup. This is not an Error. Index = {segment_index}, TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']}")
                                 time_groups_with_no_segments_available_or_duration_met.append(str(timegroup['TimeGroupStartInSecs']))
 
                         sorted_segments_per_pass = sorted(segments_per_pass, key=lambda x: x['Segment']['Score'], reverse=True)
@@ -741,11 +899,11 @@ class ReplayEngine:
                     #Now that we have the segments that are within the replay, lets compare to see if 
                     #these segments are any different than the segments which have already been persisted for the replay request
                     if not self.are_segments_different(final_segments_across_timegroups):
-                        logger.info(f"PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(final_segments_across_timegroups)}")
+                        logger.info(f"CHECK 3 - PREV AND NEW SEGMENTS ARE EQUAL .. not persisting the new segments nor gen clips --{json.dumps(final_segments_across_timegroups)}")
                         return False
                             
 
-                    logger.info(f"CHECK 3 - FINAL SEGMENTS SAVED IN REP RES - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(final_segments_across_timegroups)}")
+                    logger.info(f"CHECK 3 - FINAL SEGMENTS SAVED IN REPLAY RESULT - for {self._replay_to_be_processed['ReplayId']}--{json.dumps(final_segments_across_timegroups)}")
                         
 
                     # Persist all segment+features across all timegroups
@@ -760,12 +918,13 @@ class ReplayEngine:
     def _get_segments_with_features_within_timegroup(self, timegroup):
         segments_within_timegroup = []
         for segment in self._all_segments_with_features:
-            segment_startTime, segment_endTime = self._get_segment_start_and_end_times(
-                segment)
+            segment_startTime, segment_endTime = self._get_segment_start_and_end_times(segment)
 
             # Check if a Segments Startstime falls within the Timegroup Start and Endtimes
+            logger.info(f"Checking if segment start {segment_startTime} Falls in TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']} and {timegroup['TimeGroupEndInSecs']}")
             if segment_startTime >= timegroup['TimeGroupStartInSecs'] and segment_startTime <= timegroup['TimeGroupEndInSecs']:
                 segments_within_timegroup.append(segment)
+                logger.info(f"Added segment start {segment_startTime} for TimeGroupStartInSecs = {timegroup['TimeGroupStartInSecs']}")
 
         return segments_within_timegroup
 
@@ -795,8 +954,17 @@ class ReplayEngine:
         '''
 
         for segment_feature in segments_with_features:
-            score = self._calculate_score(segment_feature)
-            segment_feature['Score'] = score
+
+            # If thi Segment is to be Included, just assign a really high score to always be included
+            if 'ForceIncluded' not in segment_feature:
+                score = self._calculate_score(segment_feature)
+                segment_feature['Score'] = score
+            else:
+                # If a Segment is to be Manually Included
+                # We Add a Std very High Score value to the Start value of the Segment to ensure that the latest ForceIncluded segments always have a Higher score
+                # This will ensure that the Latest latest Manually included segments will always get a Higher priority than 
+                # other segments (Manual or included due to interesting features)
+                segment_feature['Score'] = 999999999 + float(segment_feature['Start'])
 
     def _calculate_score(self, segment):
         total_score = 0
@@ -872,8 +1040,14 @@ class ReplayEngine:
         ]
         replay_result_payload['ReplayResults'] = replay_results
         replay_result_payload['TotalScore'] = total_score_of_selected_segments
+        # LastSegmentStartTime is Ignored in API if HasFeedback is True
         replay_result_payload["LastSegmentStartTime"] = self.current_segment['Start'] if self._is_catch_up_enabled() else 0
+        replay_result_payload['HasFeedback'] = self.current_segment['HasFeedback']
         
+        if self.current_segment['HasFeedback']:
+            logger.info(f"SEGMENT that initiated the replay with StartTime - {self.current_segment['Start']} HAS FEEDBACK. PERSISTED TO DDB")
+        else:
+            logger.info(f"REPLAY PERSISTED TO DDB. This replay was not initiated due to a Manual clip Feedback override.")
 
         update_result = self._dataplane.update_replay_result(replay_result_payload)
         return update_result

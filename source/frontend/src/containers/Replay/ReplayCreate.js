@@ -122,7 +122,8 @@ export const ReplayCreate = () => {
         checkedEqualDistro: false,
         checkedCatchup: false,
         checkedTransitions: true,
-        checkedIgnoreLowQualitySegments: false
+        checkedIgnoreLowQualitySegments: false,
+        checkedIncludeHighQualitySegments: false
     });
 
     const handleCheckBoxChange = (event) => {
@@ -149,7 +150,8 @@ export const ReplayCreate = () => {
             "CreateHls": outputFormat === "Hls" ? true : false,
             "ClipfeaturebasedSummarization": replayMode === "Clips" ? true : false,
             "Resolutions": outputFormat !== "" ? resolutionValues : [],
-            "IgnoreDislikedSegments": checkBoxState.checkedIgnoreLowQualitySegments
+            "IgnoreDislikedSegments": checkBoxState.checkedIgnoreLowQualitySegments,
+            "IncludeLikedSegments": checkBoxState.checkedIncludeHighQualitySegments
         }
         if (replayMode === "Duration") {
             formValues['DurationbasedSummarization'] = {
@@ -695,8 +697,25 @@ export const ReplayCreate = () => {
                                                     name="checkedIgnoreLowQualitySegments"
                                                     inputProps={{'aria-label': 'primary checkbox'}}
                                                 />
-                                            } label="Ignore low quality segments ?"/>
-                                            <Tooltip title="Ignores all segments which have been disliked (thumbs down) in the Clip Preview page">
+                                            } label="Ignore manually deselected segments ?"/>
+                                            <Tooltip title="Ignores all segments which have been manually disliked (thumbs down) in the Clip Preview page">
+                                                <InfoIcon 
+                                                    style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer"}}
+                                                />
+                                            </Tooltip>
+                                            
+                                        </Grid>
+                                        <Grid item sm={11}>
+                                            <FormControlLabel control={
+                                                <Checkbox
+                                                    color="primary"
+                                                    checked={checkBoxState.checkedIncludeHighQualitySegments}
+                                                    onChange={handleCheckBoxChange}
+                                                    name="checkedIncludeHighQualitySegments"
+                                                    inputProps={{'aria-label': 'primary checkbox'}}
+                                                />
+                                            } label="Include manually selected segments ?"/>
+                                            <Tooltip title="Includes all segments which have been manually liked (thumbs up) in the Clip Preview page">
                                                 <InfoIcon 
                                                     style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer"}}
                                                 />

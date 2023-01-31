@@ -53,12 +53,12 @@ def CreateReplay(event, context):
                 event['detail']['Event']['AudioTrack'] = str(event['ReplayRequest']['AudioTrack'])
                 
 
-            # If SEGMENT_CACHED comes in, check if an Optimizer is attached to the Profile.
+            # If SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK comes in, check if an Optimizer is attached to the Profile.
             # If yes, Do not create a Replay
             if skip_segment_when_optimizer_configured(event):
                 return {
                     "Status": "Replay Not Processed",
-                    "Reason": "Got SEGMENT_CACHED. Ignoring this run of replay since we expect to process OPTIMIZED_SEGMENT_CACHED as an Opto is Configured"
+                    "Reason": "Got SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK. Ignoring this run of replay since we expect to process OPTIMIZED_SEGMENT_CACHED as an Opto is Configured"
                 }
 
             runId = str(uuid.uuid4())
@@ -67,7 +67,6 @@ def CreateReplay(event, context):
             replay = ReplayEngine(event)
             replay_result = replay._create_replay()
 
-            
             if not replay_result:
                 return {
                     "Status": "Replay Not Processed",
@@ -123,7 +122,7 @@ def CreateReplay(event, context):
 def skip_segment_when_optimizer_configured(event):
      # If SEGMENT_CACHED comes in, check if an Optimizer is attached to the Profile.
     # If yes, Do not create a Replay
-    if event['detail']['State'] == 'SEGMENT_CACHED':
+    if event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK']:
 
         # from MediaReplayEngineWorkflowHelper import ControlPlane
         # controlplane = ControlPlane()
@@ -133,7 +132,7 @@ def skip_segment_when_optimizer_configured(event):
         # This is because, replays will get created when Segments are optimized.
         if 'Optimizer' in response:
             if len(response['Optimizer']) > 0:
-                logger.info("Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED event.")
+                logger.info("Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK event.")
                 return True
 
     return False
@@ -146,7 +145,7 @@ def GetEligibleReplays(event, context):
     # from MediaReplayEngineWorkflowHelper import ControlPlane
     # controlplane = ControlPlane()
     
-    logger.info(f"Getting eligible replays event payload = {event}")
+    logger.info(f"GetEligibleReplays EVENT PAYLOAD = {event}")
 
     # Only if the Event has Completed, then create a replay for the Event
     # Supports use case of Creating Replays for Past/Completed Events
@@ -199,7 +198,7 @@ def GetEligibleReplays(event, context):
 
         return { "AllReplays": all_replays }
 
-    elif event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
+    elif event['detail']['State'] in ['OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
 
         replay = ReplayEngine(event)
         replays = replay._get_all_replays_for_opto_segment_end()
@@ -211,7 +210,7 @@ def GetEligibleReplays(event, context):
                 "AllReplays": replays
             }
 
-    elif event['detail']['State'] == 'SEGMENT_CACHED':
+    elif event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK']:
 
         event_name = event['detail']['Segment']['Event']
         program_name = event['detail']['Segment']['Program']
@@ -229,6 +228,8 @@ def get_event(event_name, program_name):
     return controlplane.get_event(event_name, program_name)
 
 
+
+
 def should_replay_be_processed(event):
     '''
         Checks if the Current Replay should be Processed 
@@ -236,9 +237,11 @@ def should_replay_be_processed(event):
     
     # If the Event received is SEGMENT based, we will only create Replay Clips
     # for CatchUp Replay Requests
-    if event['detail']['State'] == 'SEGMENT_CACHED' or event['detail']['State'] == 'OPTIMIZED_SEGMENT_CACHED':
+    if event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK', 'OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
         if not event['ReplayRequest']['Catchup']:
-            return False, f"Replay not processed as Catchup is Disabled."
+            return False, f"Replay not processed as Catchup is Disabled. Got event {event['detail']['State']}"
+
+    
     
     # If an Event has Ended and the ReplayRequest had CatchUp enabled, DO NOT Process it again.
     # The last Segment of the Catchup workflow would have generated the final Replay.

@@ -20,7 +20,7 @@ from chalicelib.common import get_event_segment_metadata
 
 segment_api = Blueprint(__name__)
 
-
+EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 CLIP_PREVIEW_FEEDBACK_TABLE_NAME = os.environ['CLIP_PREVIEW_FEEDBACK_TABLE_NAME']
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = os.environ[
@@ -32,6 +32,7 @@ authorizer = IAMAuthorizer()
 
 ddb_resource = boto3.resource("dynamodb")
 s3_client = boto3.client("s3")
+eb_client = boto3.client("events")
 
 API_SCHEMA = load_api_schema()
 
@@ -326,6 +327,7 @@ def record_clip_preview_feedback():
             "Classifier": string,
             "StartTime": number,
             "AudioTrack": number,
+            "IsOptimizerConfiguredInProfile": boolean,
             "OriginalFeedback: {
                 "Feedback": string,
                 "FeedbackDetail": string
@@ -356,6 +358,7 @@ def record_clip_preview_feedback():
         reviewer = request["Reviewer"]
         original_feedback = request['OriginalFeedback'] if 'OriginalFeedback' in request else None
         optimized_feedback = request['OptimizedFeedback'] if 'OptimizedFeedback' in request else None
+        isOptimizerConfiguredInProfile = request["IsOptimizerConfiguredInProfile"]
 
         clip_preview_table = ddb_resource.Table(CLIP_PREVIEW_FEEDBACK_TABLE_NAME)
 
@@ -378,6 +381,38 @@ def record_clip_preview_feedback():
 
         clip_preview_table.put_item(Item=feedback)
 
+        # Push event into Event Bus - Opportunity for a CatchUp replay to Trigger - Include or Exclude Segments explicitly in Replay
+        # We need to figure out if the Feedback was provided to a Original Segment or Optimized Segment
+        # and send the Segment Payload to the Bus. To do this, we need to get the Segment Details.
+        segment = get_segment_details(program, event, classifier, feedback["Start"])
+        segment['AudioTrack'] = audio_track
+
+        if request["ActionSource"] == "Optimized":
+            eb_detail_type = "Optimized Segment clip Inclusion/Exclusion Feedback"
+            new_eb_state = "OPTIMIZED_SEGMENT_CLIP_FEEDBACK"
+        elif request["ActionSource"] == "Original":
+            eb_detail_type = "Segment clip Inclusion/Exclusion Feedback"
+            new_eb_state = "SEGMENT_CLIP_FEEDBACK"
+        
+        # When an Optimizer is configured in the profile, we dont send a message to EB when ActionSource == Original
+        if (request["ActionSource"] == "Original" and not isOptimizerConfiguredInProfile) or (request["ActionSource"] == "Optimized" and isOptimizerConfiguredInProfile):
+            detail = {
+                "State": new_eb_state,
+                "Segment": segment,
+                "EventSource": "ClipFeedback"
+            }
+
+            eb_client.put_events(
+                Entries=[
+                    {
+                        "Source": "awsmre",
+                        "DetailType": eb_detail_type,
+                        "Detail": json.dumps(detail),
+                        "EventBusName": EB_EVENT_BUS_NAME
+                    }
+                ]
+            )
+
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
@@ -388,7 +423,12 @@ def record_clip_preview_feedback():
     else:
         return {}
 
-
+def get_segment_details(program, event, classifier, starttime):
+    plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+    response = plugin_result_table.query(
+            KeyConditionExpression=Key("PK").eq(f"{program}#{event}#{classifier}") & Key("Start").eq(starttime)
+    )
+    return replace_decimals(response["Items"][0]) if "Items" in response else None
 
 @segment_api.route('/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/feedback',
     cors=True, methods=['GET'], authorizer=authorizer)

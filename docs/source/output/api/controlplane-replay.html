@@ -15,9 +15,6 @@
 
     
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-    <script src="../_static/jquery.js"></script>
-    <script src="../_static/underscore.js"></script>
-    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
     <script src="_static/aws-sdk-2.826.0.min.js"></script>
@@ -201,7 +198,8 @@
         <span class="s2">&quot;FadeInMs&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
         <span class="s2">&quot;FadeOutMs&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
     <span class="p">},</span>
-    <span class="s2">&quot;IgnoreDislikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+    <span class="s2">&quot;IgnoreDislikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;IncludeLikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -222,7 +220,8 @@
 <li><p>CreateMp4:True if MP4 replay output is to be created</p></li>
 <li><p>TransitionName: Optional. Name of the Transition to be used when Creating Replay clips.</p></li>
 <li><p>TransitionOverride: Optional. Objects represents additional Transition configuration that can be overwritten during Replay creation.</p></li>
-<li><p>IgnoreDislikedSegments: Optional. Ignores segments which have been disliked when reviewing the Segment clip. Default False.</p></li>
+<li><p>IgnoreDislikedSegments: Optional. Ignores segments which have been disliked (thumbs down) when reviewing the Segment clip. Default False.</p></li>
+<li><p>IncludeLikedSegments: Optional. If True, segments which have been liked (thumbs up) when reviewing the Segment clip will be included in Replay. Default False.</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>
@@ -603,7 +602,7 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 <footer id="footer">
     <div class="width-wrapper">
         <div class="copyright">
-            <p>©2022, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+            <p>©2023, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
         </div>
     </div>
 </footer>

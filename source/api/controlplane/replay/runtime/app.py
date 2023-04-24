@@ -236,9 +236,13 @@ def get_all_replays():
     response = event_table.scan()
     replayInfo = response["Items"]
 
-    while "NextToken" in response:
+    projection_expression = "PK, Requester, DurationbasedSummarization, AudioTrack, Catchup, #st, MediaTailorChannel, ReplayId, Description, EdlLocation, HlsLocation, UxLabel, TransitionName, TransitionOverride, Created"
+    expression_attribute_names = {"#st": "Status"}
+    while "LastEvaluatedKey" in response:
         response = event_table.scan(
-            NextToken=response["NextToken"]
+            ProjectionExpression=projection_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExclusiveStartKey=response['LastEvaluatedKey']
         )
         replayInfo.extend(response["Items"])
 
@@ -250,8 +254,7 @@ def get_all_replays():
             "Program": item['PK'].split('#')[0],
             "Event": item['PK'].split('#')[1],
             "Requester": item['Requester'],
-            "Duration": item['DurationbasedSummarization'][
-                'Duration'] if 'DurationbasedSummarization' in item else 'N/A',
+            "Duration": item['DurationbasedSummarization']['Duration'] if 'DurationbasedSummarization' in item else 'N/A',
             "AudioTrack": item['AudioTrack'] if 'AudioTrack' in item else '',
             "CatchUp": item['Catchup'],
             "Status": item['Status'],

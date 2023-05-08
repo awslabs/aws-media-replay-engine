@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.7.0] - 2023-05-01
+## [2.7.0] - 2023-05-08
 - MRE framework and Samples GitHub repositories are now merged to provide a unified codebase for deploying the MRE framework and optionally, sample plugins, profiles and ML model notebooks.
-- Feature: Context variable support for MRE Events - MRE now supports adding context variables (key-value pairs) during Profile creation which can then be included (and optionally updated) during Event creation. When included, these event-level variables can be accessed and modified through MRE plugin helper functions in one or more Plugin lambdas thereby providing the ability to share event specific data across multiple plugins and step function invocations.
+- Feature: Context variable support for MRE Events - MRE now supports adding context variables (key-value pairs) during Profile creation which can then be included (and optionally updated) during Event creation. When included, these event-level variables can be accessed and modified through MRE plugin helper functions in one or more Plugin lambdas thereby providing the ability to share event specific data across multiple plugins and step function invocations. More information on this can be found [here](docs/guides/MRE-Developer-Guide-Profiles.md#context-variables).
 - Feature: Reworked the timestamp-based event filter component in the MRE List Events UI to list all the events starting prior to a given timestamp in a paginated fashion.
 
 - Fixed:

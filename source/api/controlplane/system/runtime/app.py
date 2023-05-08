@@ -354,7 +354,7 @@ def list_s3_buckets():
             bucket["Name"]
             # Only get the buckets from your region
             # null location constraint means its us-east-1
-            for bucket in buckets if s3_client.get_bucket_location(Bucket=bucket["Name"]).get("LocationConstraint","us-east-1") == REGION
+            for bucket in buckets if (s3_client.get_bucket_location(Bucket=bucket["Name"]).get("LocationConstraint") or "us-east-1") == REGION
         ]
 
     except Exception as e:

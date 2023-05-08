@@ -1,0 +1,23 @@
+{
+  "Lambda": {
+    "Handler": "LabelBasic.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "LabelBasic",
+      "Description": "This is start code for a simple labeler plugin.",
+      "Class": "Labeler",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "Configuration": {
+        "chunk_noun": "Detection"
+      },
+      "ExecuteLambdaQualifiedARN": ""      
+    }
+  }
+}

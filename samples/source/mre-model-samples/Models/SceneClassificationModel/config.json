@@ -1,0 +1,9 @@
+{
+  "Name": "SceneClassificationModel",
+  "Description": "Doing contextual scene classification for frame images.It could be custom models trained from AWS AI services or from Amazon SageMaker",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "arn:aws:rekognition:AWS_REGION:AWS_ACCOUNT:project/REKCL-PROJECT-NAME/version/REKCL-VERSION-NUMBER"
+}

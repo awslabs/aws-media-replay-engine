@@ -1,0 +1,30 @@
+{
+        "Optimizer": {
+            "Configuration": {},
+            "Name": "OptimizePassThrough"
+        },
+        "ProcessingFrameRate": 10,
+        "ChunkSize": 10,
+        "MaxSegmentLengthSeconds": 10,
+        "Classifier": {
+            "Configuration": {
+                "chunk_to_segment_ratio": "0.5"
+            },
+            "Name": "SegmentPassThrough100"
+        },
+        "Labeler": {
+            "Configuration": {},
+            "Name": "LabelPassThrough"
+        },
+        "Featurers": [
+            {
+                "Configuration": {},
+                "IsPriorityForReplay": true,
+                "Name": "DetectPassThrough100"
+            }
+        ],
+        "ContentGroups": [
+            "All"
+        ],
+        "Name": "AuditPassThroughPlugins"
+    }

@@ -1,0 +1,9 @@
+{
+  "Name": "AudioSpectrumClassificationModel",
+  "Description": "Classify audio spectrum into predefined classes",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "SAGEMAKER_HOSTED_MODEL_ENDPOINT"
+}

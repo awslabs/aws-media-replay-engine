@@ -1,0 +1,20 @@
+{
+  "Lambda": {
+    "Handler": "OptimizePassThrough.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "OptimizePassThrough",
+      "Description": "A way to baseline framework latency with a trivial optimization task.",
+      "Class": "Optimizer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": ""
+    }
+  }
+}

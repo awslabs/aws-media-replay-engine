@@ -16,21 +16,17 @@ import {useHistory} from "react-router-dom";
 export const EventList = () => {
     const history = useHistory();
     const [contentGroup, setContentGroup] = React.useState("ALL")
-    const [fromFilter, setFromFilter] = React.useState(undefined);
     const [toFilter, setToFilter] = React.useState(undefined);
     const [queryParams, setQueryParams] = React.useState(undefined)
 
     React.useEffect(() => {
         let tomorrow = moment().startOf('day').add(1, 'days');
-        let pastWeek = moment().startOf('day').subtract(7, 'days');
 
-        setFromFilter(pastWeek.toDate());
         setToFilter(tomorrow.toDate());
 
         setQueryParams({
             limit: 25,
             ProjectionExpression: "Name, Start, Channel, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id, BootstrapTimeInMinutes, AudioTracks, DurationMinutes, GenerateOptoClips, GenerateOrigClips, TimecodeSource",
-            fromFilter: moment(pastWeek.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
             toFilter: moment(tomorrow.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
         })
 
@@ -102,7 +98,6 @@ export const EventList = () => {
                 filterHandlers: {
                     onContentGroupChange: handleContentGroupChange,
                     selectedContentGroup: contentGroup,
-                    fromFilter: fromFilter,
                     toFilter: toFilter,
                     onTimeFilterChange: handleTimeChange
                 },

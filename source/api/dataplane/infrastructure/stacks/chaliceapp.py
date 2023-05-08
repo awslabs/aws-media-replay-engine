@@ -5,6 +5,7 @@ import os
 import sys
 
 from aws_cdk import (
+    Fn,
     CustomResource,
     RemovalPolicy,
     Stack,
@@ -20,15 +21,16 @@ from aws_cdk import (
 from chalice.cdk import Chalice
 
 CHUNK_STARTPTS_INDEX = "StartPts-index"
-PROGRAM_EVENT_INDEX  = "ProgramEvent_Start-index"
+PROGRAM_EVENT_INDEX = "ProgramEvent_Start-index"
 PROGRAM_EVENT_PLUGIN_INDEX = "ProgramEventPluginName_Start-index"
 PARTITION_KEY_END_INDEX = "PK_End-index"
 PARTITION_KEY_CHUNK_NUMBER_INDEX = "PK_ChunkNumber-index"
 FRAME_PROGRAM_EVENT_INDEX = "ProgramEvent-index"
-CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX  = "ProgramEventTrack-index"
+CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX = "ProgramEventTrack-index"
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = "ProgramEventClassifierStart-index"
 PROGRAM_EVENT_LABEL_INDEX = "ProgramEvent_Label-index"
 NON_OPT_SEG_INDEX = "NonOptoSegments-index"
+REPLAY_RESULT_PROGRAM_EVENT_INDEX = "Program_Event-index"
 
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
@@ -451,6 +453,20 @@ class ChaliceApp(Stack):
             removal_policy=RemovalPolicy.DESTROY
         )
 
+        # ReplayResults Table: ProgramEvent GSI
+        self.replay_results_table.add_global_secondary_index(
+            index_name=REPLAY_RESULT_PROGRAM_EVENT_INDEX,
+            partition_key=ddb.Attribute(
+                name="Program",
+                type=ddb.AttributeType.STRING
+            ),
+            sort_key=ddb.Attribute(
+                name="Event",
+                type=ddb.AttributeType.STRING
+            ),
+            projection_type=ddb.ProjectionType.KEYS_ONLY
+        )
+
         # Get the EventBridge Event Bus name for MRE from SSM Parameter Store
         self.eb_event_bus_name = ssm.StringParameter.value_for_string_parameter(
             self,
@@ -468,6 +484,12 @@ class ChaliceApp(Stack):
             self,
             parameter_name="/MRE/ControlPlane/WorkflowExecutionTableARN"
         )
+
+        # Get the ReplayRequest table ARN from CfnOutput
+        self.replay_request_table_arn = Fn.import_value("mre-replayrequest-table-arn")
+
+        # Get the ReplayRequest table name from CfnOutput
+        self.replay_request_table_name = Fn.import_value("mre-replayrequest-table-name")
 
         # Chalice IAM Role
         self.chalice_role = iam.Role(
@@ -584,7 +606,10 @@ class ChaliceApp(Stack):
                     self.frame_table.table_arn,
                     f"{self.frame_table.table_arn}/index/*",
                     self.chunk_table.table_arn,
-                    self.workflow_execution_table_arn
+                    self.workflow_execution_table_arn,
+                    self.replay_request_table_arn,
+                    self.replay_results_table.table_arn,
+                    f"{self.replay_results_table.table_arn}/index/*",
                 ]
             )
         )
@@ -639,6 +664,9 @@ class ChaliceApp(Stack):
                 "CHUNK_TABLE_NAME": self.chunk_table.table_name,
                 "WORKFLOW_EXECUTION_TABLE_ARN": self.workflow_execution_table_arn,
                 "SEGMENT_CACHE_BUCKET": self.segment_cache_bucket_name,
+                "REPLAY_REQUEST_TABLE_NAME": self.replay_request_table_name,
+                "REPLAY_RESULT_TABLE_NAME": self.replay_results_table.table_name,
+                "REPLAY_RESULT_PROGRAM_EVENT_INDEX": REPLAY_RESULT_PROGRAM_EVENT_INDEX,
             }
         )
 
@@ -675,7 +703,7 @@ class ChaliceApp(Stack):
                     "PROGRAM_EVENT_LABEL_INDEX": PROGRAM_EVENT_LABEL_INDEX,
                     "JOB_TRACKER_TABLE_NAME": self.job_tracking_table.table_name,
                     "NON_OPTO_SEGMENTS_INDEX": NON_OPT_SEG_INDEX,
-                    "PARTITION_KEY_CHUNK_NUMBER_INDEX":PARTITION_KEY_CHUNK_NUMBER_INDEX,
+                    "PARTITION_KEY_CHUNK_NUMBER_INDEX": PARTITION_KEY_CHUNK_NUMBER_INDEX,
                     "MAX_DETECTOR_QUERY_WINDOW_SECS": "60"
                 },
                 "tags": {

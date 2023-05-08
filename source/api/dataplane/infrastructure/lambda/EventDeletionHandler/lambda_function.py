@@ -17,6 +17,9 @@ FRAME_TABLE_NAME = os.environ["FRAME_TABLE_NAME"]
 FRAME_PROGRAM_EVENT_INDEX = os.environ["FRAME_PROGRAM_EVENT_INDEX"]
 CHUNK_TABLE_NAME = os.environ["CHUNK_TABLE_NAME"]
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_ARN"].split(":table/")[-1]
+REPLAY_REQUEST_TABLE_NAME = os.environ["REPLAY_REQUEST_TABLE_NAME"]
+REPLAY_RESULT_TABLE_NAME = os.environ["REPLAY_RESULT_TABLE_NAME"]
+REPLAY_RESULT_PROGRAM_EVENT_INDEX = os.environ["REPLAY_RESULT_PROGRAM_EVENT_INDEX"]
 SEGMENT_CACHE_BUCKET = os.environ["SEGMENT_CACHE_BUCKET"]
 
 BACKOFF_TIME_SECS = 0.2
@@ -34,13 +37,15 @@ def build_request_items(table_name, keys, items):
     requests = []
 
     for item in items:
+        ddb_keys = {}
+
+        for key in keys:
+            ddb_keys[key] = item[key]
+
         requests.append(
             {
                 "DeleteRequest": {
-                    "Key": {
-                        keys[0]: item[keys[0]],
-                        keys[1]: item[keys[1]]
-                    }
+                    "Key": ddb_keys
                 }
             }
         )
@@ -82,17 +87,27 @@ def delete_ddb_items(event, program, table_name, keys, index_name=None, retry_co
 
         # Query and delete items in the table
         if index_name:
-            # Applies only to the PluginResult and Frame tables
-            response = ddb_table.query(
-                IndexName=index_name,
-                KeyConditionExpression=Key("ProgramEvent").eq(f"{program}#{event}"),
-                ProjectionExpression=f"#{keys[0]}, #{keys[1]}",
-                ExpressionAttributeNames={
-                    f"#{keys[0]}": keys[0],
-                    f"#{keys[1]}": keys[1]
-                }
-            )
-        
+            if "ReplayResults" in table_name: # Applies only to the ReplayResults table
+                response = ddb_table.query(
+                    IndexName=index_name,
+                    KeyConditionExpression=Key("Program").eq(program) & Key("Event").eq(event),
+                    ProjectionExpression=f"#{keys[0]}",
+                    ExpressionAttributeNames={
+                        f"#{keys[0]}": keys[0]
+                    }
+                )
+
+            else: # Applies only to the PluginResult and Frame tables
+                response = ddb_table.query(
+                    IndexName=index_name,
+                    KeyConditionExpression=Key("ProgramEvent").eq(f"{program}#{event}"),
+                    ProjectionExpression=f"#{keys[0]}, #{keys[1]}",
+                    ExpressionAttributeNames={
+                        f"#{keys[0]}": keys[0],
+                        f"#{keys[1]}": keys[1]
+                    }
+                )
+
         else:
             response = ddb_table.query(
                 KeyConditionExpression=Key(keys[0]).eq(f"{program}#{event}"),
@@ -115,16 +130,28 @@ def delete_ddb_items(event, program, table_name, keys, index_name=None, retry_co
 
         while "LastEvaluatedKey" in response:
             if index_name:
-                response = ddb_table.query(
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                    IndexName=index_name,
-                    KeyConditionExpression=Key("ProgramEvent").eq(f"{program}#{event}"),
-                    ProjectionExpression=f"#{keys[0]}, #{keys[1]}",
-                    ExpressionAttributeNames={
-                        f"#{keys[0]}": keys[0],
-                        f"#{keys[1]}": keys[1]
-                    }
-                )
+                if "ReplayResults" in table_name:
+                    response = ddb_table.query(
+                        ExclusiveStartKey=response["LastEvaluatedKey"],
+                        IndexName=index_name,
+                        KeyConditionExpression=Key("Program").eq(program) & Key("Event").eq(event),
+                        ProjectionExpression=f"#{keys[0]}",
+                        ExpressionAttributeNames={
+                            f"#{keys[0]}": keys[0]
+                        }
+                    )
+
+                else:
+                    response = ddb_table.query(
+                        ExclusiveStartKey=response["LastEvaluatedKey"],
+                        IndexName=index_name,
+                        KeyConditionExpression=Key("ProgramEvent").eq(f"{program}#{event}"),
+                        ProjectionExpression=f"#{keys[0]}, #{keys[1]}",
+                        ExpressionAttributeNames={
+                            f"#{keys[0]}": keys[0],
+                            f"#{keys[1]}": keys[1]
+                        }
+                    )
 
             else:
                 response = ddb_table.query(
@@ -247,6 +274,12 @@ def lambda_handler(event, context):
 
             print(f"Deleting all the items in '{WORKFLOW_EXECUTION_TABLE_NAME}' table for Event '{p_event}' and Program '{program}'")
             delete_ddb_items(p_event, program, WORKFLOW_EXECUTION_TABLE_NAME, ["PK", "ChunkNumber"], retry_count=0)
+
+            print(f"Deleting all the items in '{REPLAY_REQUEST_TABLE_NAME}' table for Event '{p_event}' and Program '{program}'")
+            delete_ddb_items(p_event, program, REPLAY_REQUEST_TABLE_NAME, ["PK", "ReplayId"], retry_count=0)
+
+            print(f"Deleting all the items in '{REPLAY_RESULT_TABLE_NAME}' table for Event '{p_event}' and Program '{program}'")
+            delete_ddb_items(p_event, program, REPLAY_RESULT_TABLE_NAME, ["ProgramEventReplayId"], index_name=REPLAY_RESULT_PROGRAM_EVENT_INDEX, retry_count=0)
 
             print(f"Deleting all the cached objects in '{SEGMENT_CACHE_BUCKET}' bucket for Event '{p_event}' and Program '{program}'")
             find_and_delete_s3_objects(p_event, program, SEGMENT_CACHE_BUCKET, retry_count=0)

@@ -1,0 +1,9 @@
+{
+  "Name": "PoseKeypointsExtractionModel",
+  "Description": "Detect human figure from the frame images and get pose key points",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "SAGEMAKER_HOSTED_MODEL_ENDPOINT"
+}

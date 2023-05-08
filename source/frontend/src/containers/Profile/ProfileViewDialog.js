@@ -37,9 +37,18 @@ export const ProfileViewDialog = (props) => {
         return response.data;
     }
 
+    const fetchProfileMetadata = async () => {
+        let response = await query('get', 'api', `profile/${props.profileName}/context-variables`, {disableLoader: true}, {ttl: 30000});
+        return response.data?.data || {};
+    }
+
     React.useEffect(() => {
         (async () => {
             let response = await fetchProfileDetails();
+            let profileMetadata = await fetchProfileMetadata();
+            if(profileMetadata){
+                response['Variables'] = profileMetadata;
+            }
             setProfileDetails(response);
         })();
     }, []);

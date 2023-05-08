@@ -32,6 +32,12 @@ deployment/lambda_layer_factory/*.whl
 deployment/lambda_layer_factory/*.zip
 deployment/lambda_layer_factory/requirements.txt
 
+# Samples directory
+samples/source/*/package/
+samples/source/mre-plugin-samples/Plugins/*/mre_plugin_helper/
+samples/source/mre-plugin-samples/Plugins/*/package/
+samples/source/mre-plugin-samples/Plugins/*/mre_plugin_helper.zip
+
 # CDK asset staging directory
 .cdk.staging
 cdk.out

@@ -1,0 +1,29 @@
+{
+  "Lambda": {
+    "Handler": "SegmentByCommercials.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 60
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentByCommercials",
+      "Description": "Using the results from shot detection to segment vidoes",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "MIN_DURATION": 0,
+        "WINDOW_SIZE": 10,
+        "THRESHOLD_VAL": 2,
+        "THRESHOLD_LEN": 3
+      },
+      "DependentPlugins": [
+        "DetectShotsByRekognitionVideo"
+      ]
+    }
+  }
+}

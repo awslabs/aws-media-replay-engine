@@ -1,0 +1,799 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Aws-Mre-Controlplane-Event-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
+    
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/default.css" />
+    <link rel="stylesheet" href="../_static/custom-tabs.css" type="text/css" />
+    
+
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="_static/aws-sdk-2.826.0.min.js"></script>
+    <script type="text/javascript">
+        function _scroll(subjectId) {
+            var subjectElement = $(subjectId);
+            var actualSubjectHeight = subjectElement.height();
+            var startingPosition = subjectElement[0].getBoundingClientRect().top;
+            return function() {
+                var availableHeight = $(window).height() - startingPosition;
+                // Subtract the scroll position to account for sticky movement.
+                availableHeight += Math.min($(window).scrollTop(), 40);
+                var cappedHeight = Math.min(actualSubjectHeight, availableHeight);
+                if (subjectElement.css("height") !== cappedHeight) {
+                    subjectElement.css("height", cappedHeight);
+                }
+            };
+        }
+
+        // Scroll and resize the the columns when scrolled.
+        $(function() {
+            var rightScroll = _scroll("#right-column > .column-body");
+            var scrollFn = function() {
+                rightScroll.call(this, arguments);
+            };
+            scrollFn();
+            $(window).scroll(scrollFn);
+            $(window).resize(scrollFn);
+        });
+
+        // Scroll spy to change highlighted navigation element.
+        $(function() {
+            var section = document.querySelectorAll(".section");
+            var sections = {};
+            var i = 0;
+            Array.prototype.forEach.call(section, function(e) {
+                sections[e.id] = e.offsetTop;
+            });
+            var scrollSpy = function() {
+                var scrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+                for (i in sections) {
+                    if (sections[i] <= scrollPosition) {
+                        $('#right-column .current').removeClass('current');
+                        $("#right-column a[href='#" + i + "']").addClass('current');
+                    }
+                }
+            };
+            $(window).scroll(scrollSpy);
+            scrollSpy();
+        });
+        
+        $(function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+                }
+            );
+        });
+
+        $(function sendAnonVistorId() {
+            FingerprintJS.load().then(fp => {
+                // The FingerprintJS agent is ready.
+                // Get a visitor identifier when you'd like to.
+                fp.get().then(result => {
+                    AWS.config.region = 'us-west-2'; 
+                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: 'us-west-2:a2573bbc-f734-4ef9-84ba-30b702b5b958'});
+                    var pinpoint = new AWS.Pinpoint({apiVersion: '2016-12-01'});
+                    
+                    // This is the anonymous visitor identifier:
+                    const anonVisitorId = result.visitorId;
+                    var param = {
+                    ApplicationId: 'fea7ddb98ab9411787a3cf43d835a0d7',
+                    EventsRequest: {
+                        BatchItem: {}
+                        }
+                    };
+
+                    /* create the event parameter */
+                    var eventParam = {
+                        Endpoint: {
+                            Address: anonVisitorId,
+                            ChannelType: 'CUSTOM',
+                            }
+                        };
+
+                    /* attach the event values */
+                    eventParam['Events'] = [{
+                        EventType: 'mre_docs_page_view',
+                        Timestamp: (new Date()).toISOString()
+                    }];
+
+                    var endpointId = eventParam.Endpoint.Address + 'DOCS'
+                    param.EventsRequest.BatchItem[endpointId] = eventParam; 
+
+                    pinpoint.putEvents(param, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else     console.log(data);
+                    });
+                        });
+                    });
+        });
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"
+        onload="sendAnonVistorId()"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Aws-Mre-Controlplane-Model-Api" href="controlplane-model.html" />
+    <link rel="prev" title="Aws-Mre-Controlplane-Contentgroup-Api" href="controlplane-contentgroup.html" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  </head><body>
+    <header>
+        <div class="header-flex width-wrapper">
+            <div class="site-logo">
+                
+		  <span class="logo-icon"><img src="../_static/img/MRE_Color.png" style="width:55px;height:50px"/></span>
+                </a>
+            </div>
+
+            <ul id="page-navigation">
+                
+                <li class="site-page"><a href="../main.html">Documentation</a></li>
+                
+                <li class="site-search hidden-sm">
+                    <form action="../search.html" method="get">
+                        <input type="hidden" name="check_keywords" value="yes" />
+                        <input type="hidden" name="area" value="default" />
+                        <input class="search-input" autocomplete="off" type="search" name="q" placeholder="Search" />
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </header>
+    
+        
+        
+        <section id="page-container">
+            <div class="width-wrapper flex">
+                <article id="document-body">
+                    
+                    
+  <section class="chalice-app" id="aws-mre-controlplane-event-api">
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Event-Api<a class="headerlink" href="#aws-mre-controlplane-event-api" title="Permalink to this heading">¶</a></h1>
+<section class="chalice-route" id="create-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event</span><a class="headerlink" href="#create-event" title="Permalink to this heading">¶</a></h2>
+<p>Creates a new event in MRE.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Channel&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;StopMediaLiveChannel: boolean</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Name: Name of the Event.</p></li>
+<li><p>Program: Name of the Program.</p></li>
+<li><p>Description: Event Description.</p></li>
+<li><p>Channel: Identifier of the AWS Elemental MediaLive Channel used for the Event</p></li>
+<li><p>ProgramId: A Unique Identifier for the event being broadcasted.</p></li>
+<li><p>SourceVideoUrl: VOD or Live Urls to help MRE to harvest the streams.</p></li>
+<li><p>SourceVideoAuth: A Dict which contains API Authorization payload to help MRE harvest VOD/Live streams.</p></li>
+<li><p>SourceVideoMetadata: A Dict of additional Event Metadata for reporting purposes.</p></li>
+<li><p>BootstrapTimeInMinutes: Default value 0. Duration in Minutes which indicates the time it takes for the Source video process to be initialized.</p></li>
+<li><p>Profile: Name of the MRE Profile to make use of for processing the event.</p></li>
+<li><p>ContentGroup: Name of the Content Group.</p></li>
+<li><p>Start: The Actual start DateTime of the event (in UTC).</p></li>
+<li><p>DurationMinutes: The Total Event Duration.</p></li>
+<li><p>Archive: Backup the Source Video if true.</p></li>
+<li><p>SourceVideoBucket: S3 Bucket where Live or VOD video chunks would land to trigger the Event.</p></li>
+<li><p>GenerateOrigClips: Generate Original segment clips if true (Default is true).</p></li>
+<li><p>GenerateOptoClips: Generate Optimized segment clips if true (Default is true).</p></li>
+<li><p>TimeCodeSource: Source of the embedded TimeCode in the Event video frames (Default is NOT_EMBEDDED).</p></li>
+<li><p>StopMediaLiveChannel: False by default. When MediaLive is the Video chunk source, setting this attribute to True lets MRE stop the channel when the event ends.</p></li>
+</ul>
+</div></blockquote>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+404 - NotFoundError
+409 - ConflictError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-events-all">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all</span><a class="headerlink" href="#list-events-all" title="Permalink to this heading">¶</a></h2>
+<p>List all events in MRE. Supports pagination and filters.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s2">&quot;Items&quot;</span><span class="p">:</span>
+    <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Channel&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;FirstPts&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;FrameRate&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
+            <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup: string,</span>
+            <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+        <span class="p">},</span>
+        <span class="o">...</span>
+    <span class="p">]</span>
+<span class="s2">&quot;LastEvaluatedKey&quot;</span><span class="p">:</span>
+    <span class="p">{</span>
+        <span class="n">Obj</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-events-external">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all/external</span><a class="headerlink" href="#list-events-external" title="Permalink to this heading">¶</a></h2>
+<p>List all the events for integrating with external systems.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="n">Event</span>
+    <span class="p">}</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-events-by-program">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/by/{program}</span><a class="headerlink" href="#list-events-by-program" title="Permalink to this heading">¶</a></h2>
+<p>List all events in MRE for a Program. Supports pagination and filters.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s2">&quot;Items&quot;</span><span class="p">:</span>
+    <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Channel&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;FirstPts&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;FrameRate&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
+            <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup: string,</span>
+            <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+        <span class="p">},</span>
+        <span class="o">...</span>
+    <span class="p">]</span>
+<span class="s2">&quot;LastEvaluatedKey&quot;</span><span class="p">:</span>
+    <span class="p">{</span>
+        <span class="n">Obj</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-events-by-content-group">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span><a class="headerlink" href="#list-events-by-content-group" title="Permalink to this heading">¶</a></h2>
+<p>List all events filtered by content_group with pagination and more filters</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s2">&quot;Items&quot;</span><span class="p">:</span>
+    <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Channel&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+            <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+            <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;FirstPts&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;FrameRate&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
+            <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s2">&quot;ContentGroup: string,</span>
+            <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+        <span class="p">},</span>
+        <span class="o">...</span>
+    <span class="p">]</span>
+<span class="s2">&quot;LastEvaluatedKey&quot;</span><span class="p">:</span>
+    <span class="p">{</span>
+        <span class="n">Obj</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-future-events">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/future/all</span><a class="headerlink" href="#list-future-events" title="Permalink to this heading">¶</a></h2>
+<p>List all the events scheduled in the future in the next 1 Hr.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="n">Event</span>
+    <span class="p">}</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="store-audio-tracks">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/metadata/track/audio</span><a class="headerlink" href="#store-audio-tracks" title="Permalink to this heading">¶</a></h2>
+<p>Store the audio tracks of an event identified after probing the first HLS video segment.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="delete-processed-events-from-control">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/processed/{id}</span><a class="headerlink" href="#delete-processed-events-from-control" title="Permalink to this heading">¶</a></h2>
+<p>Deletes Events from the Control table used to track Event processing status</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="update-edl-for-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/edllocation/update</span><a class="headerlink" href="#update-edl-for-event" title="Permalink to this heading">¶</a></h2>
+<p>Updates EDL S3 location with the event</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="store-event-export-data">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export_data</span><a class="headerlink" href="#store-event-export-data" title="Permalink to this heading">¶</a></h2>
+<p>Store the Export data generated for the Event as a S3 Location</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="update-hls-manifest-for-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/hlslocation/update</span><a class="headerlink" href="#update-hls-manifest-for-event" title="Permalink to this heading">¶</a></h2>
+<p>Updates HLS Manifest S3 location with the event</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-all-queued-events">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/queued/all/limit/{limit}/closestEventFirst/{closestEventFirst}</span><a class="headerlink" href="#get-all-queued-events" title="Permalink to this heading">¶</a></h2>
+<p>Gets all Queued Events for processing.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="n">Event</span>
+    <span class="p">}</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-range-based-events">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/range/{fromDate}/{toDate}</span><a class="headerlink" href="#list-range-based-events" title="Permalink to this heading">¶</a></h2>
+<p>List all the events based on Date Range which is in UTC format</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="n">Event</span>
+    <span class="p">}</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-edl-by-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/edl/program/{program}/track/{audiotrack}</span><a class="headerlink" href="#get-edl-by-event" title="Permalink to this heading">¶</a></h2>
+<p>Returns the EDL format of an MRE Event as a octet-stream</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>EDL format of an MRE Event as a octet-stream</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-event-export-data">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/export/data/program/{program}</span><a class="headerlink" href="#get-event-export-data" title="Permalink to this heading">¶</a></h2>
+<p>Returns the export data for an event as a octet-stream</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Event export data as octet-stream</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-hls-manifest-by-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/eventmanifest/program/{program}/track/{audiotrack}</span><a class="headerlink" href="#get-hls-manifest-by-event" title="Permalink to this heading">¶</a></h2>
+<p>Returns the HLS format of an MRE Event as a octet-stream</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>HLS format of an MRE Event as a octet-stream</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="delete-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#delete-event" title="Permalink to this heading">¶</a></h2>
+<p>Delete an event by name and program.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#get-event" title="Permalink to this heading">¶</a></h2>
+<p>Get an event by name and program.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Channel&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;FirstPts&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+    <span class="s2">&quot;FrameRate&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+    <span class="s2">&quot;AudioTracks&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="s2">&quot;Status&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Id&quot;</span><span class="p">:</span> <span class="n">uuid</span><span class="p">,</span>
+    <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="update-event">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#update-event" title="Permalink to this heading">¶</a></h2>
+<p>Update an event by name and program.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ProgramId&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoUrl&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoAuth&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoMetadata&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+    <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;BootstrapTimeInMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;ContentGroup&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;DurationMinutes&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+    <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+404 - NotFoundError
+409 - ConflictError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="store-frame-rate">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/framerate/{frame_rate}</span><a class="headerlink" href="#store-frame-rate" title="Permalink to this heading">¶</a></h2>
+<p>Store the frame rate identified after probing the first HLS video segment.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="update-event-with-replay">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span><a class="headerlink" href="#update-event-with-replay" title="Permalink to this heading">¶</a></h2>
+<p>Updates an event with a flag to indicate Replay creation.</p>
+<dl class="simple">
+<dt>Parameters:</dt><dd><ul class="simple">
+<li><p>name: Name of the Event.</p></li>
+<li><p>program: Name of the Program.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="get-event-status">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status</span><a class="headerlink" href="#get-event-status" title="Permalink to this heading">¶</a></h2>
+<p>Get the status of an event.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Status of the event</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="put-event-status">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status/{status}</span><a class="headerlink" href="#put-event-status" title="Permalink to this heading">¶</a></h2>
+<p>Update the status of an event.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="store-first-frame-embedded-timecode">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstframe/{embedded_timecode}</span><a class="headerlink" href="#store-first-frame-embedded-timecode" title="Permalink to this heading">¶</a></h2>
+<p>Store the embedded timecode of the first frame of the first HLS video segment.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-first-pts">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts</span><a class="headerlink" href="#get-first-pts" title="Permalink to this heading">¶</a></h2>
+<p>Retrieve the pts timecode of the first frame of the first HLS video segment.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>The pts timecode of the first frame of the first HLS video segment if it exists. Else, None.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="store-first-pts">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts/{first_pts}</span><a class="headerlink" href="#store-first-pts" title="Permalink to this heading">¶</a></h2>
+<p>Store the pts timecode of the first frame of the first HLS video segment.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+                    
+                    <section class="relations">
+                        
+                        <a href="controlplane-contentgroup.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Aws-Mre-Controlplane-Contentgroup-Api</a>
+                        
+                        <a href="controlplane-model.html" title="next chapter" class="next-page clearfix">Aws-Mre-Controlplane-Model-Api →</a>
+                    </section>
+                    
+                </article><aside id="right-column" class="side-column hidden-sm" >
+                    <div class="column-body" style="width: 600px">
+                        <section class="sidebar">
+                            
+                            <section class="next-previous">
+                                
+                                <a href="controlplane-contentgroup.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Prev</a>
+                                
+                                <a href="controlplane-model.html" title="next chapter" class="next-page clearfix">Next →</a>
+                            </section>
+                            
+                            <ul>
+<li><a class="reference internal" href="#">Aws-Mre-Controlplane-Event-Api</a><ul>
+<li><a class="reference internal" href="#create-event"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event</span></a></li>
+<li><a class="reference internal" href="#list-events-all"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all</span></a></li>
+<li><a class="reference internal" href="#list-events-external"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/all/external</span></a></li>
+<li><a class="reference internal" href="#list-events-by-program"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/by/{program}</span></a></li>
+<li><a class="reference internal" href="#list-events-by-content-group"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span></a></li>
+<li><a class="reference internal" href="#list-future-events"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/future/all</span></a></li>
+<li><a class="reference internal" href="#store-audio-tracks"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/metadata/track/audio</span></a></li>
+<li><a class="reference internal" href="#delete-processed-events-from-control"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/processed/{id}</span></a></li>
+<li><a class="reference internal" href="#update-edl-for-event"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/edllocation/update</span></a></li>
+<li><a class="reference internal" href="#store-event-export-data"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/program/export_data</span></a></li>
+<li><a class="reference internal" href="#update-hls-manifest-for-event"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/hlslocation/update</span></a></li>
+<li><a class="reference internal" href="#get-all-queued-events"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/queued/all/limit/{limit}/closestEventFirst/{closestEventFirst}</span></a></li>
+<li><a class="reference internal" href="#list-range-based-events"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/range/{fromDate}/{toDate}</span></a></li>
+<li><a class="reference internal" href="#get-edl-by-event"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/edl/program/{program}/track/{audiotrack}</span></a></li>
+<li><a class="reference internal" href="#get-event-export-data"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/export/data/program/{program}</span></a></li>
+<li><a class="reference internal" href="#get-hls-manifest-by-event"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/eventmanifest/program/{program}/track/{audiotrack}</span></a></li>
+<li><a class="reference internal" href="#delete-event"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span></a></li>
+<li><a class="reference internal" href="#get-event"><p>Duplicate implicit target name: “/event/{name}/program/{program}”.</p>
+</a></li>
+<li><a class="reference internal" href="#update-event"><p>Duplicate implicit target name: “/event/{name}/program/{program}”.</p>
+</a></li>
+<li><a class="reference internal" href="#store-frame-rate"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/framerate/{frame_rate}</span></a></li>
+<li><a class="reference internal" href="#update-event-with-replay"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span></a></li>
+<li><a class="reference internal" href="#get-event-status"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status</span></a></li>
+<li><a class="reference internal" href="#put-event-status"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/status/{status}</span></a></li>
+<li><a class="reference internal" href="#store-first-frame-embedded-timecode"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstframe/{embedded_timecode}</span></a></li>
+<li><a class="reference internal" href="#get-first-pts"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts</span></a></li>
+<li><a class="reference internal" href="#store-first-pts"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/timecode/firstpts/{first_pts}</span></a></li>
+</ul>
+</li>
+</ul>
+
+                        </section>
+                    </div>
+                </aside></div>
+        </section>
+        
+    
+<footer id="footer">
+    <div class="width-wrapper">
+        <div class="copyright">
+            <p>©2023, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
+  </body>
+</html>

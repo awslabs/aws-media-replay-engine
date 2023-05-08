@@ -28,34 +28,37 @@ from requests_aws4auth import AWS4Auth
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+ssm_client = boto3.client(
+    'ssm',
+    region_name=os.environ['AWS_REGION']
+)
+
  ## Init dict for caching params
 _PARAM_CACHE = {}
 
 def get_dataplane_url():
-     return _PARAM_CACHE.get("DATAPLANE_URL")
+     return _PARAM_CACHE.get("/MRE/DataPlane/EndpointURL")
 
-def get_dataplane_endpoint_url_from_ssm():
-    ssm_client = boto3.client(
-        'ssm',
-        region_name=os.environ['AWS_REGION']
-    )
-
-    response = ssm_client.get_parameter(
-        Name='/MRE/DataPlane/EndpointURL',
+def get_endpoint_urls_from_ssm():
+    response = ssm_client.get_parameters(
+        Names=['/MRE/DataPlane/EndpointURL','/MRE/ControlPlane/EndpointURL'],
         WithDecryption=True
     )
 
-    assert "Parameter" in response
+    assert "Parameters" in response
 
-    endpoint_url = response["Parameter"]["Value"]
-    endpoint_url_regex = ".*.execute-api."+os.environ['AWS_REGION']+".amazonaws.com/api/.*"
+    for parameter in response["Parameters"]:
+        endpoint_name = parameter["Name"]
+        endpoint_url = parameter["Value"]
+        
+        endpoint_url_regex = ".*.execute-api."+os.environ['AWS_REGION']+".amazonaws.com/api/.*"
 
-    assert re.match(endpoint_url_regex, endpoint_url)
-    
-    _PARAM_CACHE["DATAPLANE_URL"] = endpoint_url
+        assert re.match(endpoint_url_regex, endpoint_url)
+        
+        _PARAM_CACHE[endpoint_name] = endpoint_url
 
 # Single call per Execution Env of a Lambda
-get_dataplane_endpoint_url_from_ssm()
+get_endpoint_urls_from_ssm()
 
 class Status:
     # Status messages for the workflow
@@ -439,8 +442,9 @@ class DataPlane:
 
         print(f"{method} {path}")
 
-        max_retries = 3
-        backoff_secs = 0.1
+        conn_max_retries = http_max_retries = 5
+        backoff_secs = 0.3
+        http_status_retry_list = [429, 500, 503, 504]
 
         while True:
             try:
@@ -459,14 +463,34 @@ class DataPlane:
             except requests.exceptions.ConnectionError as e:
                 print(f"Encountered a connection error while invoking the data plane api: {str(e)}")
 
-                if max_retries == 0:
+                if conn_max_retries == 0:
                     raise Exception(e)
 
-                backoff = (3 / max_retries) * backoff_secs
+                backoff = backoff_secs * (2 ** (5 - conn_max_retries))
                 print(f"Retrying after {backoff} seconds")
                 sleep(backoff)
-                max_retries -= 1
+                conn_max_retries -= 1
                 continue
+
+            except requests.exceptions.HTTPError as e:
+                print(f"Encountered an HTTP error while invoking the data plane api: {str(e)}")
+
+                status_code = e.response.status_code
+                print("HTTP status code:", status_code)
+
+                if status_code in http_status_retry_list: # Retry only specific status codes
+                    if http_max_retries == 0:
+                        raise Exception(e)
+
+                    backoff = backoff_secs * (2 ** (5 - http_max_retries))
+                    print(f"Retrying after {backoff} seconds")
+                    sleep(backoff)
+                    http_max_retries -= 1
+                    continue
+
+                else:
+                    print("Got a non-retryable HTTP status code")
+                    raise Exception(e)
 
             except requests.exceptions.RequestException as e:
                 print(f"Encountered an unknown error while invoking the data plane api: {str(e)}")
@@ -1370,3 +1394,137 @@ def process_dependent_detector_output(results,dependent_detector_output):
         for dependent_detector in results['DependentDetectorsOutput']:
             dependent_detector_output.append(dependent_detector)
 
+def get_controlplane_url():
+     return _PARAM_CACHE.get("/MRE/ControlPlane/EndpointURL")
+
+class ControlPlane:
+    """
+    Helper Class for interacting with the Control plane
+    """    
+    def __init__(self, event=None):
+        self.endpoint_url = get_controlplane_url()
+        self.auth = AWS4Auth(
+            os.environ['AWS_ACCESS_KEY_ID'],
+            os.environ['AWS_SECRET_ACCESS_KEY'],
+            os.environ['AWS_REGION'],
+            'execute-api',
+            session_token=os.getenv('AWS_SESSION_TOKEN')
+        )
+        
+        if event and "Event" in event:
+            self.program = event["Event"]["Program"]
+            self.event = event["Event"]["Name"]
+
+    def invoke_controlplane_api(self, path, method, headers=None, body=None, params=None):
+        """
+        Method to invoke the Control plane REST API Endpoint.
+
+        :param path: Path to the corresponding API resource
+        :param method: REST API method
+        :param headers: (optional) headers to include in the request
+        :param body: (optional) data to send in the body of the request
+        :param params: (optional) data to send in the request query string
+
+        :return: Control plane API response object
+        """
+
+        print(f"{method} {path}")
+
+        conn_max_retries = http_max_retries = 5
+        backoff_secs = 0.3
+        http_status_retry_list = [429, 500, 503, 504]
+
+        while True:
+            try:
+                response = requests.request(
+                    method=method,
+                    url=self.endpoint_url + path,
+                    params=params,
+                    headers=headers,
+                    data=body,
+                    verify=False,
+                    auth=self.auth
+                )
+
+                response.raise_for_status()
+
+            except requests.exceptions.ConnectionError as e:
+                print(f"Encountered a connection error while invoking the control plane api: {str(e)}")
+
+                if conn_max_retries == 0:
+                    raise Exception(e)
+
+                backoff = backoff_secs * (2 ** (5 - conn_max_retries))
+                print(f"Retrying after {backoff} seconds")
+                sleep(backoff)
+                conn_max_retries -= 1
+                continue
+
+            except requests.exceptions.HTTPError as e:
+                print(f"Encountered an HTTP error while invoking the control plane api: {str(e)}")
+
+                status_code = e.response.status_code
+                print("HTTP status code:", status_code)
+
+                if status_code in http_status_retry_list: # Retry only specific status codes
+                    if http_max_retries == 0:
+                        raise Exception(e)
+
+                    backoff = backoff_secs * (2 ** (5 - http_max_retries))
+                    print(f"Retrying after {backoff} seconds")
+                    sleep(backoff)
+                    http_max_retries -= 1
+                    continue
+
+                else:
+                    print("Got a non-retryable HTTP status code")
+                    raise Exception(e)
+
+            except requests.exceptions.RequestException as e:
+                print(f"Encountered an unknown error while invoking the control plane api: {str(e)}")
+                raise Exception(e)
+
+            else:
+                return response
+
+    def get_event_context_variables(self, program=None, event=None):
+        """
+        Gets event context variables
+
+        :param event: Name of the Event
+        :param program: Name of the Program
+        
+        :return: Event metadata
+        """
+        if not event:
+            event = self.event
+
+        if not program:
+            program = self.program
+
+        path = f"event/{event}/program/{program}/context-variables"
+        method = "GET"
+        api_response = self.invoke_controlplane_api(path, method)
+        return api_response.json()
+    
+    def update_event_context_variables(self, body, program=None, event=None):
+        """
+        Updates entire event context variables
+
+        :param event: Event present in the input payload passed to Lambda
+        :param program: Program present in the input payload passed to Lambda
+        """
+        if not event:
+            event = self.event
+
+        if not program:
+            program = self.program
+
+        path = f"event/{event}/program/{program}/context-variables"
+        method = "PATCH"
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))

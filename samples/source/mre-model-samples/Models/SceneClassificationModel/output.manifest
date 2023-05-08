@@ -1,0 +1,1 @@
+{"source-ref":"s3://${BUCKET_NAME}/PATH/TO/IMAGE.png","auto-label":1,"auto-label-metadata":{"confidence":1,"job-name":"labeling-job/auto-label","class-name":"${LABEL_NAME}","human-annotated":"yes","creation-date":"2021-07-16T17:54:12.719","type":"groundtruth/image-classification"}}

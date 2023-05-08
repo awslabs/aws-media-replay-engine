@@ -141,7 +141,33 @@ By default, all the independent Featurer plugins included in the profile are exe
 	]
 }
 ```
-
 The payload to the **profile** API takes a payload that is described here:
 
 [POST /profile](https://htmlpreview.github.io/?https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/source/output/api/controlplane-profile.html#create-profile)
+
+## Context Variables
+
+Profiles can also include **Context Variables**, key/value pairs which provide additional data to be used by the created Event and read by the plugins used in the workflow. Use cases for this include:
+
+- Custom attributes to coorindate with external processing
+- Common attribute values used across all plugin executions (i.e. time offset, broadcast id, etc.)
+- Sharing data between plugin executions across all chunks (i.e. a value from chunk 1 gets passed to chunk 2, chunk 2 adds more data for chunk 3, etc.)
+
+Context Variables created in the profile act as a template for the events which are later created. For example, creating a profile called *TestProfile* with the Context Variables:
+
+```
+{
+	"TimeOffset": 12,
+	"BroadcastId": <EVENT_PLACEHOLDER>,
+}
+```
+
+When you create the Event, and select *TestProfile* as the profile, you will have the option to modify the Profile Context Variable values & add additional Context Variables as well. The Profile Context Variables serve as the template for which future events will be created when selecting the profile.
+
+```
+{
+	"TimeOffset": 12,
+	"BroadcastId": 12345,
+	"EventData": "New Data"
+}
+```

@@ -1,0 +1,48 @@
+{
+  "Lambda": {
+    "Handler": "DetectShotsByRekognitionVideo.lambda_handler",
+    "MemorySize": 1024,
+    "TimeoutSecs": 900,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "rekognition:GetSegmentDetection",
+          "rekognition:StartSegmentDetection"
+        ],
+        "Resources": [
+          "*"
+        ]
+      },
+      {
+        "Actions": [
+          "s3:PutObject",
+          "s3:GetObject"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ],
+   "Layers": [
+      "ffmpeg"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectShotsByRekognitionVideo",
+      "Description": "This plugin uses Amazon Rekognition Video for Shots Detection",
+      "Class": "Featurer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "Tennis"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "OutputAttributes": {
+        "Label": {
+          "Description": ""
+        }
+      }
+    }
+  }
+}

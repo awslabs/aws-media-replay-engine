@@ -1,0 +1,57 @@
+{
+  "Lambda": {
+    "Handler": "LabelTennisAceDoubleFault.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 120,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "sagemaker:InvokeEndpoint"
+        ],
+        "Resources": [
+          "*"
+        ]
+      },
+      {
+        "Actions": [
+          "s3:GetObject"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "LabelTennisAceDoubleFault",
+      "Description": "This plugin detects ace serve and double fault serve in tennis match.",
+      "Class": "Labeler",
+      "ExecutionType": "SyncModel",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "Tennis"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "ModelEndpoints": [
+        {
+          "Name": "AudioEmbeddingModel"
+        },
+        {
+          "Name": "AudioEmbeddingClassificationModel"
+        }
+      ],
+      "OutputAttributes": {
+        "Ace": {
+          "Description": ""
+        },
+        "DoubleFault": {
+          "Description": ""
+        },
+        "Label": {
+          "Description": ""
+        }
+      }
+    }
+  }
+}

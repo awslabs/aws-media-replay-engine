@@ -1,0 +1,15 @@
+{
+    "Plugins": [
+        "SegmentBySceneChange",
+        "DetectTennisScoreBoxData",
+        "DetectCameraScene",
+        "LabelTennisScore",
+        "DetectAudioPeaks",
+        "SegmentByKeyMoment",
+        "LabelBasic",
+        "OptimizePassThrough",
+        "SegmentPassThrough100",
+        "LabelPassThrough",
+        "DetectPassThrough100"
+    ]
+}

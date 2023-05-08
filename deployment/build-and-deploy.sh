@@ -519,11 +519,12 @@ else
   git clone "codecommit::$region://$(if [ ! -z $profile ]; then echo "$profile@"; fi)mre-frontend"
   rsync -r --exclude 'mre-frontend' --exclude 'node_modules' --exclude 'cdk' . mre-frontend
   cd "$frontend_dir"/mre-frontend
+  git checkout -b master
   git config user.name mre-frontend-user
   git config user.email $ADMIN_EMAIL
   git add .
   git commit -m "Initial commit"
-  git push
+  git push --set-upstream origin master
   rm -rf "$frontend_dir"/mre-frontend
   
   echo "------------------------------------------------------------------------------"

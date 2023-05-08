@@ -160,6 +160,11 @@ export const PROFILE_SUMMARY_FORM = {
         name: "Featurers",
         label: "Featurers",
         type: "pluginBoxMultiple",
+    },
+    Variables: {
+        name: "Variables",
+        label: "Context Variables",
+        type: "keyValuePairs",
     }
 };
 

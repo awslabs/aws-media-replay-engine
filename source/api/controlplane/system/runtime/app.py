@@ -332,6 +332,13 @@ def list_system_configurations():
     else:
         return replace_decimals(configs)
 
+def get_bucket_region(bucket_name: str) -> bool:
+    resp = s3_client.get_bucket_location(Bucket=bucket_name)
+    if resp['LocationConstraint']:
+        return resp['LocationConstraint'] == REGION
+    else:
+        return "us-east-1" == REGION
+
 @app.route('/system/s3/buckets', cors=True, methods=['GET'], authorizer=authorizer)
 def list_s3_buckets():
     """
@@ -350,12 +357,13 @@ def list_s3_buckets():
 
         response = s3_client.list_buckets()
         buckets = response["Buckets"]
-        return [
+        bucket_list =  [
             bucket["Name"]
             # Only get the buckets from your region
             # null location constraint means its us-east-1
-            for bucket in buckets if s3_client.get_bucket_location(Bucket=bucket["Name"]).get("LocationConstraint","us-east-1") == REGION
+            for bucket in buckets if get_bucket_region(bucket['Name'])
         ]
+        return bucket_list
 
     except Exception as e:
         print(f"Unable to list all the S3 buckets: {str(e)}")

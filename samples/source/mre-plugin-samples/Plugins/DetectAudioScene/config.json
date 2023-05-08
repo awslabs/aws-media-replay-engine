@@ -1,0 +1,34 @@
+{
+    "Lambda": {
+        "Handler": "DetectAudioScene.lambda_handler",
+        "MemorySize": 512,
+        "TimeoutSecs": 60,
+        "IAMPolicyDocument": [
+            {"Actions": ["sagemaker:InvokeEndpoint"], "Resources": ["*"]}
+        ],
+        "Layers": ["ffmpeg", "numpy", "audio2numpy"]
+    },
+    "MRE": {
+        "Plugin": {
+            "Name": "DetectAudioScene",
+            "Description": "This plugin detects different types of audion scenes in tennis match.",
+            "Class": "Featurer",
+            "ExecutionType": "SyncModel",
+            "SupportedMediaType": "Video",
+            "ContentGroups": ["All"],
+            "ExecuteLambdaQualifiedARN": "",
+            "ModelEndpoints": [{"Name": "AudioSpectrumClassificationModel"}],
+            "Configuration": {
+                "TrackNumber": "1",
+                "TimeWindowLength": "5",
+                "LowCut": "0.1",
+                "HighCut": "0.2",
+                "bias": "safe range"
+            },
+            "OutputAttributes": {
+                "Label": {"Description": ""},
+                "AudioScene": {"Description": ""}
+            }
+        }
+    }
+}

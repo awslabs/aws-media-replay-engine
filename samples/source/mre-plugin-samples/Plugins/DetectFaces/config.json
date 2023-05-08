@@ -1,0 +1,37 @@
+{
+    "Lambda": {
+        "Handler": "DetectFaces.lambda_handler",
+        "MemorySize": 512,
+        "TimeoutSecs": 300,
+        "IAMPolicyDocument": [
+            {"Actions": ["rekognition:SearchFacesByImage"], "Resources": ["*"]}
+        ],
+        "Layers": ["opencv-python"]
+    },
+    "MRE": {
+        "Plugin": {
+            "Name": "DetectFaces",
+            "Description": "Uses Amazon Rekognition to detect faces from a specified face index",
+            "Class": "Featurer",
+            "ExecutionType": "Sync",
+            "SupportedMediaType": "Video",
+            "ContentGroups": ["All"],
+            "ExecuteLambdaQualifiedARN": "",
+            "Configuration": {
+                "faces_collection_id": "To be provided",
+                "max_faces": "5",
+                "quality_filter": "AUTO",
+                "minimum_confidence": "80",
+                "separate_threshold": "3.0"
+            },
+            "OutputAttributes": {
+                "Label": {
+                    "Description": "The number of faces found that match in the collection"
+                },
+                "Faces_List": {
+                    "Description": "A comma separated list of FaceMatches with the specified ExternalImageId attribute (their name if indexed that way)"
+                }
+            }
+        }
+    }
+}

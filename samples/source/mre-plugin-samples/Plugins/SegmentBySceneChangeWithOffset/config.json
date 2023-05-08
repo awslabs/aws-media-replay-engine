@@ -1,0 +1,28 @@
+{
+  "Lambda": {
+    "Handler": "SegmentBySceneChangeWithOffset.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 60
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentBySceneChangeWithOffset",
+      "Description": "Using camera angles or scene classification values, use pattern sequences to identify the start and end of a segment/clip.",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "start_seq": "[{'offset':2, 'pattern':[['Near_View','Logo_View'],['Far_View','Logo_View']] }, {'offset':1,'pattern':[['Near_View','Far_View']]}]",
+        "end_seq": "[{'offset':2, 'pattern':[['Logo_View','Near_View'],['Logo_View','Far_View']] }, {'offset':1,'pattern':[['Far_View','Near_View']]}]",
+        "padding_seconds": "1"
+      },
+      "DependentPlugins": [
+        "DetectSoccerScene"
+      ]
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "Lambda": {
+    "Handler": "LabelTennisScore.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 60
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "LabelTennisScore",
+      "Description": "This plugin extracts score from the scorebox.",
+      "Class": "Labeler",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "Tennis"
+      ],
+      "Configuration": {
+        "dependent_plugin_name": "DetectTennisScoreBoxData"
+      },
+      "ExecuteLambdaQualifiedARN": "",
+      "OutputAttributes": {
+	"Label": {
+          "Description": ""
+        },
+        "Score": {
+          "Description": ""
+        },
+        "BreakPoint": {
+          "Description": ""
+        },
+        "GamePoint": {
+          "Description": ""
+        },
+        "SetPoint": {
+          "Description": ""
+        },
+        "MatchPoint": {
+          "Description": ""
+        }
+      },
+      "DependentPlugins": [
+        "DetectTennisScoreBoxData"
+      ]
+    }
+  }
+}

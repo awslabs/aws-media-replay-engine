@@ -52,7 +52,7 @@ export const ContentGroupDropdown = (props) => {
                                         <MenuItem key={index} value={contentGroup}>{contentGroup}</MenuItem>
                                     )
                                 }
-                            })}
+                            })
                         }
                     </Select>
             }

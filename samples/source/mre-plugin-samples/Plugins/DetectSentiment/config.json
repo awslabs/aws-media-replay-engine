@@ -1,0 +1,72 @@
+{
+  "Lambda": {
+    "Handler": "DetectSentiment.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 120,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "transcribe:StartTranscriptionJob",
+          "transcribe:GetTranscriptionJob",
+          "comprehend:DetectSentiment"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectSentiment",
+      "Description": "Uses Amazon Transribe to detect pauses in speech for the purpose of optimization",
+      "Class": "Featurer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "text_attribute": "Transcription",
+        "text_language_code": "en",
+        "TrackNumber": 1
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "Boolean result indicating whether speech is present"
+        },
+        "Primary_Sentiment": {
+          "Description": "The primary sentiment"
+        },
+        "positive_score": {
+          "Description": "The level of confidence that Amazon Comprehend has in the accuracy of its detection of the POSITIVE sentiment."
+        },
+        "neutral_score": {
+          "Description": "The level of confidence that Amazon Comprehend has in the accuracy of its detection of the NEUTRAL sentiment."
+        },
+        "negative_score": {
+          "Description": "The level of confidence that Amazon Comprehend has in the accuracy of its detection of the NEGATIVE sentiment."
+        },
+        "mixed_score": {
+          "Description": "The level of confidence that Amazon Comprehend has in the accuracy of its detection of the MIXED sentiment."
+        },
+        "positive_flag": {
+          "Description": "Flag indicating whether the sentiment was > 0.75 confidence."
+        },
+        "neutral_flag": {
+          "Description": "Flag indicating whether the sentiment was > 0.75 confidence."
+        },
+        "negative_flag": {
+          "Description": "Flag indicating whether the sentiment was > 0.75 confidence."
+        },
+        "mixed_flag": {
+          "Description": "Flag indicating whether the sentiment was > 0.75 confidence."
+        }
+      },
+      "DependentPlugins": [
+        "DetectSpeech"
+      ]
+    }
+  }
+}

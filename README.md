@@ -10,9 +10,9 @@ MRE supports the following features:
 * Event and Replay video export in MP4 and HLS formats
 * Event and Replay data export in EDL and JSON formats
 
-This repository contains the core `MRE Framework` which is a set of secure REST APIs that you can interact with directly. It also contains the `MRE Frontend` application built using React if you are someone who prefers the ease-of-use of a graphical user interface (GUI) to interact with the APIs.
+This repository contains the core `MRE Framework` which is a set of secure REST APIs that you can interact with directly. It also contains the [MRE Frontend](source/frontend/) application built using React if you are someone who prefers the ease-of-use of a graphical user interface (GUI) to interact with the APIs.
 
-To get a head start building automated video clipping pipelines using the MRE framework, check out the [MRE Samples](https://github.com/aws-samples/aws-media-replay-engine-samples) repository which contains sample Plugins and ML Model Notebooks for performing feature detection for clip selection and prioritization.
+To get a head start in building automated video clipping pipelines using the MRE framework, check out the [MRE Samples](samples/) repository which contains sample Plugins, Profiles and ML Model Notebooks for performing feature detection for clip selection and prioritization.
 
 # Install
 
@@ -38,7 +38,7 @@ Run the following commands to build and deploy MRE. Be sure to define values for
 
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.6.0
+VERSION=2.7.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -51,7 +51,7 @@ cd deployment
 In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.6.0
+VERSION=2.7.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -64,16 +64,22 @@ MRE uses AWS Amplify which offers a fully managed CI/CD and hosting service to d
 
 To upgrade MRE Frontend to the latest version, follow the below steps. Be sure to define a value for `REGION` which is typically where MRE Frontend is already deployed.
 
-- After cloning the repo from GitHub, navigate to **aws-media-replay-engine/source/frontend/cdk** folder.  
-- Run the following command to update the Amplify Environment variables and/or Custom headers.
-	```python
+- After cloning the repo from GitHub, navigate to **aws-media-replay-engine/source/frontend/cdk** folder.
+- Run the following commands to update the Amplify Environment variables and/or Custom headers.
+	```
+	python3 -m venv venv
+	source venv/bin/activate
+	pip install -r requirements.txt
 	python3 init-amplify.py $REGION Update [$AWS_PROFILE]
 	```
-- Clone the existing **mre-frontend** repository from AWS CodeCommit.
-- Copy all the files and subfolders (except **node_modules/** and **cdk/** subfolders) from **aws-media-replay-engine/source/frontend** folder to the **mre-frontend** folder.
-- Commit and push the changes in **mre-frontend** folder to AWS CodeCommit.
-
-AWS Amplify CI/CD pipeline automatically builds and deploys the updated MRE Frontend.
+	> **NOTE:** The warning message about redeploying the frontend application after running the above command can be ignored as we will be doing that shortly.
+- Navigate to **aws-media-replay-engine/source/frontend** folder and clone the existing **mre-frontend** repository from AWS CodeCommit.
+- Copy all the files and subfolders (except **node_modules/** and **cdk/** subfolders) from **aws-media-replay-engine/source/frontend** folder to the **mre-frontend** folder using the below command.
+	```
+	rsync -r --exclude 'mre-frontend' --exclude 'node_modules' --exclude 'cdk' . mre-frontend
+	```
+- Finally, navigate to **aws-media-replay-engine/source/frontend/mre-frontend** folder, commit and push the changes to AWS CodeCommit.
+- AWS Amplify CI/CD pipeline should now automatically build and deploy the updated MRE Frontend application.
 
 ## Outputs
 
@@ -109,6 +115,7 @@ The data plane is an API Gateway endpoint that includes APIs using which the Plu
 | deployment/lambda_layer_factory/docker-entrypoint.sh | shell script to build and package the Lambda layers as zip files within the container |
 | deployment/lambda_layer_factory/build-lambda-layer.sh | shell script to run docker for building and packaging the Lambda layers |
 | docs/	| shell scripts and code to build and deploy the API docs from source |
+| samples/ | folder containing sample plugins, profiles, and ML model notebooks |
 | source/ | source code folder |
 | source/frontend/ | source code folder for the Frontend application |
 | source/api/controlplane/ | source code folder for the control plane |
@@ -143,7 +150,7 @@ Check out `Create automated intelligent highlights and replays` in [AWS M&E Demo
 
 # Developers
 
-To know more about how MRE works and for instructions on how to build a  video clipping application with MRE, refer to the [Developer Guide](MRE-Developer-Guide.md).
+To know more about how MRE works and for instructions on how to build a video clipping application with MRE, refer to the [Developer Guide](MRE-Developer-Guide.md).
 
 ## Security
 
@@ -425,7 +432,6 @@ If you have a restrictive bucket policy that would explicitly prevent bucket acc
 ```
 
 
-
 # Contributing
 
 See the [CONTRIBUTING](CONTRIBUTING.md) file for how to contribute.
@@ -433,7 +439,7 @@ See the [CONTRIBUTING](CONTRIBUTING.md) file for how to contribute.
 
 # License
 
-See the [LICENSE](LICENSE) file for our project's licensing.
+The [MRE Samples](samples/) is licensed under [MIT-0 license](samples/LICENSE) while the rest of the project is licensed under [Apache-2.0 license](LICENSE).
 
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 

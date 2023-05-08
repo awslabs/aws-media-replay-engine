@@ -1,0 +1,28 @@
+{
+  "Lambda": {
+    "Handler": "DetectPassThrough1.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 120
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectPassThrough1",
+      "Description": "Simple pass through detector to baseline MRE performance. With one output attribute.",
+      "Class": "Featurer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "OutputAttributes": {
+        "Label": {
+          "Description": "N/A"
+        },
+        "Attribute1": {
+          "Description": "A dummy attribute"
+        }
+      }
+    }
+  }
+}

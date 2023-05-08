@@ -1,0 +1,35 @@
+{
+    "Lambda": {
+        "Handler": "DetectExternalData.lambda_handler",
+        "MemorySize": 512,
+        "TimeoutSecs": 30,
+        "IAMPolicyDocument": [{"Actions": ["dynamodb:Query"], "Resources": ["*"]}]
+    },
+    "MRE": {
+        "Plugin": {
+            "Name": "DetectExternalData",
+            "Description": "This plugin looks up data from an external (to MRE) data source in DynamoDB for each chunk processed. It is provided as a sample to be modified for your needs.",
+            "Class": "Featurer",
+            "ExecutionType": "Sync",
+            "SupportedMediaType": "Video",
+            "ContentGroups": ["All"],
+            "ExecuteLambdaQualifiedARN": "",
+            "Configuration": {
+                "lookup_ddb_table": "To be provided",
+                "game_id": "To be provided"
+            },
+            "OutputAttributes": {
+                "Label": {"Description": ""},
+                "touchdown": {"Description": ""},
+                "extra_point": {"Description": ""},
+                "field_goal": {"Description": ""},
+                "rush_below_10_yards": {"Description": ""},
+                "rush_between_10_and_20_yards": {"Description": ""},
+                "rush_above_20_yards": {"Description": ""},
+                "pass_completion_below_10_yards": {"Description": ""},
+                "pass_completion_between_10_and_20_yards": {"Description": ""},
+                "pass_completion_above_20_yards": {"Description": ""}
+            }
+        }
+    }
+}

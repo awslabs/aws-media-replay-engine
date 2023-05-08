@@ -1,0 +1,9 @@
+{
+  "Name": "AudioEmbeddingClassificationModel",
+  "Description": "Classify audio embeddings into predefined classes",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "SAGEMAKER_HOSTED_MODEL_ENDPOINT"
+}

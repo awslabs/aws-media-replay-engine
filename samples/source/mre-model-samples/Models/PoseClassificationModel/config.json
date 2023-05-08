@@ -1,0 +1,9 @@
+{
+  "Name": "PoseClassificationModel",
+  "Description": "Human pose Classifier",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "SAGEMAKER_HOSTED_MODEL_ENDPOINT"
+}

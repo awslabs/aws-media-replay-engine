@@ -505,7 +505,6 @@ export const ListRenderer = (props) => {
                                 onContentGroupChange={props.header.filterHandlers.onContentGroupChange}
                                 afterFilterChange={initTable}
                                 selectedContentGroup={props.header.filterHandlers.selectedContentGroup}
-                                fromFilter={props.header.filterHandlers.fromFilter}
                                 toFilter={props.header.filterHandlers.toFilter}
                                 onTimeFilterChange={props.header.filterHandlers.onTimeFilterChange}
                             />

@@ -1,0 +1,111 @@
+{
+    "Name": string,
+    "Description": string,
+    "ContentGroups": list,
+    "ChunkSize": number,
+    "MaxSegmentLengthSeconds": number,
+    "ProcessingFrameRate": number,
+    "Classifier": {
+        "Name": string,
+        "ModelEndpoint": {
+            "Name": string,
+            "Version": string
+        },
+        "Configuration" : {
+            "configuration1": "value1",
+            ...
+        },
+        "DependentPlugins": [
+            {
+                "Name": string,
+                "ModelEndpoint": {
+                    "Name": string,
+                    "Version": string
+                },
+                "Configuration" : {
+                    "configuration1": "value1",
+                    ...
+                }
+            },
+            ...
+        ]
+    },
+    "Optimizer": {
+        "Name": string,
+        "ModelEndpoint": {
+            "Name": string,
+            "Version": string
+        },
+        "Configuration" : {
+            "configuration1": "value1",
+            ...
+        },
+        "DependentPlugins": [
+            {
+                "Name": string,
+                "ModelEndpoint": {
+                    "Name": string,
+                    "Version": string
+                },
+                "Configuration" : {
+                    "configuration1": "value1",
+                    ...
+                }
+            },
+            ...
+        ]
+    },
+    "Labeler": {
+        "Name": string,
+        "ModelEndpoint": {
+            "Name": string,
+            "Version": string
+        },
+        "Configuration" : {
+            "configuration1": "value1",
+            ...
+        },
+        "DependentPlugins": [
+            {
+                "Name": string,
+                "ModelEndpoint": {
+                    "Name": string,
+                    "Version": string
+                },
+                "Configuration" : {
+                    "configuration1": "value1",
+                    ...
+                }
+            },
+            ...
+        ]
+    },
+    "Featurers": [
+        {
+            "Name": string,
+            "ModelEndpoint": {
+                "Name": string,
+                "Version": string
+            },
+            "Configuration" : {
+                "configuration1": "value1",
+                ...
+            },
+            "DependentPlugins": [
+                {
+                    "Name": string,
+                    "ModelEndpoint": {
+                        "Name": string,
+                        "Version": string
+                    },
+                    "Configuration" : {
+                        "configuration1": "value1",
+                        ...
+                    }
+                },
+                ...
+            ]
+        },
+        ...
+    ]
+}

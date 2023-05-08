@@ -1,0 +1,37 @@
+    {
+        "ChunkSize": 10,
+        "ProcessingFrameRate": 1,
+        "MaxSegmentLengthSeconds": 10,
+        "Classifier": {
+            "Configuration": {
+                "chunk_to_segment_ratio": "1"
+            },
+            "DependentPlugins": [
+                {
+                    "DependentFor": [
+                        "SegmentByKeyMoment"
+                    ],
+                    "Configuration": {
+                        "bin_size_seconds": "5",
+                        "look_back_bin_cnt": "1",
+                        "filter_highcut": "4000",
+                        "filter_lowcut": "1000",
+                        "TrackNumber": "1",
+                        "num_stddevs_filter": "1"
+                    },
+                    "Name": "DetectAudioPeaks"
+                }
+            ],
+            "Name": "SegmentByKeyMoment"
+        },
+        "Labeler": {
+            "Configuration": {
+                "chunk_noun": "Crowd goes wild"
+            },
+            "Name": "LabelBasic"
+        },
+        "ContentGroups": [
+            "Soccer"
+        ],
+        "Name": "BasicSoccer2"
+    }

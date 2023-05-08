@@ -1,0 +1,51 @@
+{
+  "Lambda": {
+    "Handler": "DetectTennisVolley.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 120,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "rekognition:DetectCustomLabels",
+          "rekognition:DetectLabels"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectTennisVolley",
+      "Description": "This plugin detects volley plays in tennis match.",
+      "Class": "Featurer",
+      "ExecutionType": "SyncModel",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "ModelEndpoints": [
+        {
+          "Name": "SceneClassificationModel"
+        }
+      ],
+      "Configuration": {
+        "minimum_confidence": "80",
+        "vl": "0.25",
+        "vr": "0.75",
+        "vt": "0.4",
+        "vb": "0.7"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "Boolean result indicating whether speech is present"
+        },
+        "Volley": {
+          "Description": ""
+        }
+      }
+    }
+  }
+}

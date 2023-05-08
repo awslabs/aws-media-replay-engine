@@ -38,6 +38,8 @@ class ChaliceApp(Stack):
         self.model_table_name = Fn.import_value("mre-model-table-name")
         self.plugin_table_arn = Fn.import_value("mre-plugin-table-arn")
         self.plugin_table_name = Fn.import_value("mre-plugin-table-name")
+        self.metadata_table_arn = Fn.import_value("mre-metadata-table-arn")
+        self.metadata_table_name = Fn.import_value("mre-metadata-table-name")
 
         # Get Layers
         self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
@@ -439,7 +441,9 @@ class ChaliceApp(Stack):
                     f"{self.plugin_table_arn}/index/*",
                     self.profile_table_arn,
                     self.model_table_arn,
-                    f"{self.model_table_arn}/index/*"
+                    f"{self.model_table_arn}/index/*",
+                    self.metadata_table_arn,
+                    f"{self.metadata_table_arn}/index/*",
                 ]
             )
         )
@@ -490,7 +494,8 @@ class ChaliceApp(Stack):
                     "WORKFLOW_ERROR_HANDLER_LAMBDA_ARN": self.workflow_error_handler_lambda.function_arn,
                     "MODEL_TABLE_NAME": self.model_table_name,
                     "PLUGIN_TABLE_NAME": self.plugin_table_name,
-                    "CLIP_GENERATION_STATE_MACHINE_ARN": Fn.import_value("mre-clip-gen-arn")
+                    "CLIP_GENERATION_STATE_MACHINE_ARN": Fn.import_value("mre-clip-gen-arn"),
+                    "METADATA_TABLE_NAME": self.metadata_table_name
                 },
                 "tags": {
                     "Project": "MRE"

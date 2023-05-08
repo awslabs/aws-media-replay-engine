@@ -1,0 +1,23 @@
+{
+  "Lambda": {
+    "Handler": "SegmentPassThrough100.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentPassThrough100",
+      "Description": "This plugin is used to test MRE in a simple way by creating segments for each chunk based on time.",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "chunk_to_segment_ratio": "0.5"
+      }
+    }
+  }
+}

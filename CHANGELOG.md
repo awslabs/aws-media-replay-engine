@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2023-05-01
+- MRE framework and Samples GitHub repositories are now merged to provide a unified codebase for deploying the MRE framework and optionally, sample plugins, profiles and ML model notebooks.
+- Feature: Context variable support for MRE Events - MRE now supports adding context variables (key-value pairs) during Profile creation which can then be included (and optionally updated) during Event creation. When included, these event-level variables can be accessed and modified through MRE plugin helper functions in one or more Plugin lambdas thereby providing the ability to share event specific data across multiple plugins and step function invocations.
+- Feature: Reworked the timestamp-based event filter component in the MRE List Events UI to list all the events starting prior to a given timestamp in a paginated fashion.
+
+- Fixed:
+    - Deleting an event does not automatically delete the related replay metadata.
+    - Source S3 bucket drop-down does not list any buckets when creating a new event through the UI.
+    - Occasional chunk processing failures caused by Gateway timeout error in the MRE helper layers.
+    - List Replays control plane API (/replay/all) does not paginate to retrieve all the available data.
+    - Replay engine not considering an empty Optimizer list (in Profile config) as a valid value when generating replays.
+
+
 ## [2.6.0] - 2023-01-31
 - Feature: Event life cycle management - 
     - MRE automates event life cycle using EventBridge schedules. MRE now emits events to EventBridge whenever an event Starts, Ends and the status is marked "Complete".

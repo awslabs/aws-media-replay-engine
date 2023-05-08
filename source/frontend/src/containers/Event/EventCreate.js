@@ -45,6 +45,7 @@ export const EventCreate = () => {
     const [bucketOptions, setBucketOptions] = React.useState([]);
     const [timeCodeOptions, setTimeCodeOptions] = React.useState(Object.values(timeCodes));
     const [sourceOptions, setSourceOptions] = React.useState(Object.values(sourceTypes));
+    const [eventMetadata, setEventMetadata] = React.useState([]);
 
     const {query, isLoading, setIsLoading} = APIHandler();
 
@@ -68,6 +69,11 @@ export const EventCreate = () => {
         let response = await query('get', 'api', 'program/all',{disableLoader: true});
         return _.map(response.data, "Name");
     };
+
+    const fetchProfileMetadata = async (profile) => {
+        let response = await query('get', 'api', `profile/${profile}/context-variables`, {disableLoader: true}, {ttl: 30000});
+        return response.data?.data;
+    }
 
 
     React.useEffect(() => {
@@ -104,6 +110,11 @@ export const EventCreate = () => {
     const onProgramAdd = async () => {
         let updatedContentGroups = await fetchPrograms();
         setProgramOptions(updatedContentGroups);
+    }
+
+    const onProfileChange = async (profile) => {
+        let profileMetadata = await fetchProfileMetadata(profile);
+        setEventMetadata(profileMetadata);
     }
 
     const isJsonString = (str) => {
@@ -165,6 +176,9 @@ export const EventCreate = () => {
             type: "select",
             isRequired: true,
             options: profileOptions,
+            onChange: (e) => {
+                onProfileChange(e?.target?.value);
+            }
         },
         ContentGroup: {
             name: "ContentGroup",
@@ -339,8 +353,15 @@ export const EventCreate = () => {
             name: "GenerateOptoClips",
             label: "Generate Optimized Segment Clips",
             type: "checkbox",
+        },
+        Variables: {
+            name: "Variables",
+            label: "Context Variables",
+            type: "keyValuePairs",
+            keyValues:eventMetadata,
+            defaultLocked: true,
+            addButtonLabel: "Variable"
         }
-        
     }
 
     return (

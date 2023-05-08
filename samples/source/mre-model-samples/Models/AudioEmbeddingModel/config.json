@@ -1,0 +1,9 @@
+{
+  "Name": "AudioEmbeddingModel",
+  "Description": "Embed the audio signal with OpenL3 library",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "SAGEMAKER_HOSTED_MODEL_ENDPOINT"
+}

@@ -1,0 +1,55 @@
+{
+  "Lambda": {
+    "Handler": "DetectTennisScoreBoxData.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 120,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "rekognition:DetectCustomLabels",
+          "rekognition:DetectText"
+          
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ],
+    "Layers": [
+      "numpy",
+      "opencv-python"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectTennisScoreBoxData",
+      "Description": "This plugin detects scorebox in the frame.",
+      "Class": "Featurer",
+      "ExecutionType": "SyncModel",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "ModelEndpoints": [
+        {
+          "Name": "ScoreBoxDetectionModel"
+        }
+      ],
+      "Configuration": {
+        "minimum_confidence": "50"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": ""
+        },
+        "Server": {
+          "Description": ""
+        },
+        "Score": {
+          "Description": ""
+        }
+      }
+    }
+  }
+}

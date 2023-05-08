@@ -1,0 +1,53 @@
+{
+  "Lambda": {
+    "Handler": "DetectCameraScene.lambda_handler",
+    "MemorySize": 1024,
+    "TimeoutSecs": 120,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "rekognition:DetectCustomLabels"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ],
+   "Layers": [
+      "numpy",
+      "opencv-python"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectCameraScene",
+      "Description": "This plugin uses a tennis scene classification model to determine what the camera scene is.",
+      "Class": "Featurer",
+      "ExecutionType": "SyncModel",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "Tennis"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "ModelEndpoints": [
+        {
+          "Name": "SceneClassificationModel"
+        }
+      ],
+      "Configuration": {
+        "minimum_confidence": "40"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": ""
+        },
+        "Confidence": {
+          "Description": "ML inference confidence returned"
+        },
+        "frameId": {
+          "Description": "used for debug"
+        }
+      }
+    }
+  }
+}

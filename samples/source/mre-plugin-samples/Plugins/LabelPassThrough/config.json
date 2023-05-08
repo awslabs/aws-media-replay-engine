@@ -1,0 +1,20 @@
+{
+  "Lambda": {
+    "Handler": "LabelPassThrough.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "LabelPassThrough",
+      "Description": "A way to baseline framework latency with a trivial labeling task.",
+      "Class": "Labeler",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": ""      
+    }
+  }
+}

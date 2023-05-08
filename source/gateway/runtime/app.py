@@ -168,6 +168,18 @@ def post_payload():
     """
     return invoke_destination_api("POST", app.current_request.uri_params['proxy'], api_body=app.current_request.raw_body)
 
+@app.route('/{proxy+}', cors=True, methods=['PATCH'], authorizer=authorizer)
+def post_payload():
+    """
+    Invokes the ControlPlane APIs with a PATCH request. Supports IAM Authentication.
+
+    Returns:
+
+        Controlplane API result.
+            
+    """
+    return invoke_destination_api("PATCH", app.current_request.uri_params['proxy'], api_body=app.current_request.raw_body)
+
 
 def get_api_url_by_route(uri_params):
     """
@@ -223,7 +235,7 @@ def invoke_destination_api(api_method, uri_params, api_headers=None, api_body=No
                                             status_code=200,
                                             headers={'Content-Type': 'application/octet-stream'})
 
-            elif api_method in ['PUT', 'POST']:
+            elif api_method in ['PUT', 'POST', 'PATCH']:
                 res = requests.request(
                     method=api_method,
                     url=f"{dest_url}{uri_params}",

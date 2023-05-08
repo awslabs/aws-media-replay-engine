@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  - /*
+  -  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  -  * SPDX-License-Identifier: MIT-0
+  -  */
+  -->
+
+<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>golf_gradiant</title>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#FF9400" offset="0%"></stop>
+            <stop stop-color="#FF8FFF" offset="79.7542138%"></stop>
+            <stop stop-color="#7B91F5" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="golf_gradiant" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M75,16.6666667 L141.666667,49.3333333 L91.6666667,74.8333333 L91.6666667,150.25 C115.333333,151.583333 133.333333,158.416667 133.333333,166.666667 C133.333333,175.833333 110.916667,183.333333 83.3333333,183.333333 C55.75,183.333333 33.3333333,175.833333 33.3333333,166.666667 C33.3333333,160.5 43.4166667,155.166667 58.3333333,152.25 L58.3333333,152.25 L58.3333333,166.666667 L75,166.666667 L75,16.6666667 Z M162.5,150 C169.403559,150 175,155.596441 175,162.5 C175,169.403559 169.403559,175 162.5,175 C155.596441,175 150,169.403559 150,162.5 C150,155.596441 155.596441,150 162.5,150 Z" fill="url(#linearGradient-1)" fill-rule="nonzero"></path>
+    </g>
+</svg>

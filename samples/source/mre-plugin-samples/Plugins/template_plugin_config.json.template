@@ -1,0 +1,54 @@
+{
+  "Lambda": {
+    "Handler": "lambda_function.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 60,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "lambda:InvokeFunction"
+        ],
+        "Resources": [
+          "arn:aws:lambda:region:account-id:function:some-function"
+        ]
+      },
+      {
+        "...": "..."
+      }
+    ],
+    "Layers": [
+      "opencv-python... for example"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "",
+      "Description": "",
+      "Class": "Featurer, Segmenter, Labeler or Optimizer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video or Audio",
+      "ContentGroups": [
+        "some optional group"
+      ],
+      "ExecuteLambdaQualifiedARN": "<auto-populated from CDK output>",
+      "ModelEndpoints": [{
+        "Name": "model1",
+        "Version": "1 or leave as empty string to pick up the latest"
+      }],
+      "Configuration": {
+        "configuration1": "value1"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "The primary label output"
+        },
+        "NextAttribute": {
+          "Description": "a description"
+        }
+      },
+      "DependentPlugins": [
+        "optional plugins referenced by name"
+      ]
+    }
+  }
+}

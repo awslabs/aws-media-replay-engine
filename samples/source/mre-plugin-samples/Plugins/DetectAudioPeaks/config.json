@@ -1,0 +1,30 @@
+{
+    "Lambda": {
+        "Handler": "DetectAudioPeaks.lambda_handler",
+        "MemorySize": 2048,
+        "TimeoutSecs": 30,
+        "Layers": ["ffmpeg", "numpy", "scipy"]
+    },
+    "MRE": {
+        "Plugin": {
+            "Name": "DetectAudioPeaks",
+            "Description": "This plugin attempts to detect where peaks in audio are occuring in an audio track by calculating the rolling average and standard deviation of audio amplitudes.",
+            "Class": "Featurer",
+            "ExecutionType": "Sync",
+            "SupportedMediaType": "Video",
+            "ContentGroups": ["All"],
+            "ExecuteLambdaQualifiedARN": "",
+            "Configuration": {
+                "TrackNumber": "1",
+                "bin_size_seconds": "5",
+                "look_back_bin_cnt": "1",
+                "num_stddevs_filter": "1",
+                "filter_lowcut": "1000",
+                "filter_highcut": "4000"
+            },
+            "OutputAttributes": {
+                "Label": {"Description": ""}
+            }
+        }
+    }
+}

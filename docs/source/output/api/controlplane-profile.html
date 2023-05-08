@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="en">
@@ -898,6 +897,26 @@ to also return the “Disabled” processing profiles, include the query paramet
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-profile-metadata">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/{name}/context-variables</span><a class="headerlink" href="#get-profile-metadata" title="Permalink to this heading">¶</a></h2>
+<p>Get context variables of profile by name.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;KEY1&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;KEY2&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="o">...</span>
+    <span class="s2">&quot;KEY10&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="update-profile-status">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/profile/{name}/status</span><a class="headerlink" href="#update-profile-status" title="Permalink to this heading">¶</a></h2>
 <p>Enable or Disable a processing profile by name.</p>
@@ -950,6 +969,7 @@ to also return the “Disabled” processing profiles, include the query paramet
 </a></li>
 <li><a class="reference internal" href="#update-profile"><p>Duplicate implicit target name: “/profile/{name}”.</p>
 </a></li>
+<li><a class="reference internal" href="#get-profile-metadata"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/profile/{name}/context-variables</span></a></li>
 <li><a class="reference internal" href="#update-profile-status"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/profile/{name}/status</span></a></li>
 </ul>
 </li>

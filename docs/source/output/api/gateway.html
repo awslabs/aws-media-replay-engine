@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="en">
@@ -219,7 +218,15 @@ that send Bearer JWT tokens for authentication.</p>
 </div></blockquote>
 </section>
 <section class="chalice-route" id="id3">
-<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h2>
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method patch property">PATCH</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h2>
+<p>Invokes the ControlPlane APIs with a PATCH request. Supports IAM Authentication.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>Controlplane API result.</p>
+</div></blockquote>
+</section>
+<section class="chalice-route" id="id4">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/{proxy+}</span><a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h2>
 <p>Invokes the ControlPlane APIs with a PUT request. Supports IAM Authentication.</p>
 <p>Returns:</p>
 <blockquote>
@@ -263,7 +270,9 @@ that send Bearer JWT tokens for authentication.</p>
 </a></li>
 <li><a class="reference internal" href="#id2"><p>Duplicate implicit target name: “post_payload”.</p>
 </a></li>
-<li><a class="reference internal" href="#id3"><p>Duplicate implicit target name: “put_payload”.</p>
+<li><a class="reference internal" href="#id3"><p>Duplicate implicit target name: “post_payload”.</p>
+</a></li>
+<li><a class="reference internal" href="#id4"><p>Duplicate implicit target name: “put_payload”.</p>
 </a></li>
 </ul>
 </li>

@@ -30,6 +30,7 @@ export const KeyValueRow = (props) => {
             <Grid item sm={5}>
                 <FormControl fullWidth variant="outlined">
                     <TextField
+                        disabled = {props.paramLockKey || false}
                         id="key-field"
                         className={classes.field}
                         size="small"
@@ -57,9 +58,10 @@ export const KeyValueRow = (props) => {
             </Grid>
             <Grid item sm={1}>
                 <Box pt={1}>
-                    <Button color="primary" variant="outlined" onClick={() => props.onRowDelete(props.rowIndex)}>
+                    {!props.paramLockKey && <Button color="primary" variant="outlined" onClick={() => props.onRowDelete(props.rowIndex)}>
                         Remove
                     </Button>
+                    }
                 </Box>
             </Grid>
         </Grid>

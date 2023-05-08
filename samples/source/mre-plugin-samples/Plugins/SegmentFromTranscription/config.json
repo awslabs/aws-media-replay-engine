@@ -1,0 +1,26 @@
+{
+  "Lambda": {
+    "Handler": "SegmentFromTranscription.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentFromTranscription",
+      "Description": "This plugin creates segments based on spoken phrases identified from transcribed text.",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+
+      },
+      "DependentPlugins": [
+        "DetectSpeech"
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "Lambda": {
+    "Handler": "OptimizeSegment.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "OptimizeSegment",
+      "Description": "A more professional segment/clip can be achieved by applying an optimization of the in/out placements. This plugin requires one or many featurer plugins to be configured as dependencies.",
+      "Class": "Optimizer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "optimization_search_window_sec": "5"
+      },
+      "DependentPlugins": [
+        "DetectSceneChange"
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "Name": "ScoreBoxDetectionModel",
+  "Description": "Detect score box from the frame images",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "arn:aws:rekognition:AWS_REGION:AWS_ACCOUNT:project/REKCL-PROJECT-NAME/version/REKCL-VERSION-NUMBER"
+}

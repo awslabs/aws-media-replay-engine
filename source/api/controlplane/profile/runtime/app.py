@@ -36,6 +36,8 @@ SFN_ROLE_ARN = os.environ['SFN_ROLE_ARN']
 CONTENT_GROUP_TABLE_NAME = os.environ['CONTENT_GROUP_TABLE_NAME']
 PROFILE_TABLE_NAME = os.environ['PROFILE_TABLE_NAME']
 
+METADATA_TABLE_NAME = os.environ['METADATA_TABLE_NAME']
+metadata_table = ddb_resource.Table(METADATA_TABLE_NAME)
 
 @app.route('/profile', cors=True, methods=['POST'], authorizer=authorizer)
 def create_profile():
@@ -262,6 +264,14 @@ def create_profile():
                 "#Name": "Name"
             }
         )
+
+        if 'Variables' in profile and profile['Variables']:
+            metadata_table.put_item(
+                Item={
+                'pk': f'PROFILE#{name}',
+                'data': profile['Variables']
+                }
+            )
 
     except NotFoundError as e:
         print(f"Got chalice NotFoundError: {str(e)}")
@@ -1108,6 +1118,28 @@ def update_profile(name):
                 ":LastModified": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
             }
         )
+        
+        if 'Variables' in profile and profile['Variables']:
+            expression_attribute_names ={"#data": "data"}
+            expression_attribute_values={}
+            update_expression = []
+
+            ## Iterate through items
+            for key, value in profile['Variables'].items():
+                expression_attribute_names[f'#k{key}'] = key
+                expression_attribute_values[f':v{value}'] = value
+                update_expression.append(f"#data.#k{key} = :v{value}")
+
+            if update_expression:
+            ## Send update expression
+                metadata_table.update_item(
+                        Key={
+                            'pk': f'PROFILE#{name}',
+                        },
+                        ExpressionAttributeNames=expression_attribute_names,
+                        ExpressionAttributeValues=expression_attribute_values,
+                        UpdateExpression=f"SET {', '.join(update_expression)}"
+                )
 
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
@@ -1234,6 +1266,12 @@ def delete_profile(name):
             stateMachineArn=state_machine_arn
         )
 
+        response = metadata_table.delete_item(
+            Key={
+                "pk": f'PROFILE#{name}'
+            }
+        )
+
     except NotFoundError as e:
         print(f"Got chalice NotFoundError: {str(e)}")
         raise
@@ -1245,3 +1283,46 @@ def delete_profile(name):
     else:
         print(f"Deletion of profile '{name}' successful")
         return {}
+
+@app.route('/profile/{name}/context-variables', cors=True, methods=['GET'], authorizer=authorizer)
+def get_profile_metadata(name):
+    """
+    Get context variables of profile by name.
+
+    Returns:
+
+        .. code-block:: python
+
+            {
+                "KEY1": string,
+                "KEY2": string,
+                ...
+                "KEY10": string
+            }
+
+    Raises:
+        404 - NotFoundError
+        500 - ChaliceViewError
+    """
+    try:
+        name = urllib.parse.unquote(name)
+
+        print(f"Getting the profile context variables for '{name}'")
+
+        response = metadata_table.get_item(
+            Key={
+                "pk": f'PROFILE#{name}'
+            },
+            ConsistentRead=True
+        )
+
+        ## We don't want to return an ERROR if there is no metadata
+        if "Item" not in response:
+            return {}
+
+    except Exception as e:
+        print(f"Unable to get the processing profile '{name}': {str(e)}")
+        raise ChaliceViewError(f"Unable to get the processing profile '{name}': {str(e)}")
+
+    else:
+        return replace_decimals(response["Item"])

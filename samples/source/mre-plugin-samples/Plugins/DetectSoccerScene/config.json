@@ -1,0 +1,53 @@
+{
+  "Lambda": {
+    "Handler": "DetectSoccerScene.lambda_handler",
+    "MemorySize": 1024,
+    "TimeoutSecs": 180,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "rekognition:DetectCustomLabels"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ],
+   "Layers": [
+      "scipy",
+      "opencv-python"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectSoccerScene",
+      "Description": "This plugin uses a soccer scene classification model to determine what the camera scene is.",
+      "Class": "Featurer",
+      "ExecutionType": "SyncModel",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "Soccer"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "ModelEndpoints": [
+        {
+          "Name": "SceneClassificationModel"
+        }
+      ],
+      "Configuration": {
+        "minimum_confidence": "50"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "Add a desc"
+        },
+        "FreeKick": {
+          "Description": "Add a desc"
+        },
+        "CornerKick": {
+          "Description": "Add a desc"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+    {
+        "ChunkSize": 10,
+        "ProcessingFrameRate": 1,
+        "MaxSegmentLengthSeconds": 10,
+        "Classifier": {
+            "Configuration": {
+                "start_seq": "[['near','far'],['topview','far']]",
+                "padding_seconds": "1",
+                "end_seq": "[['far','near'],['far','topview']]"
+            },
+            "DependentPlugins": [
+                {
+                    "ModelEndpoint": {
+                        "Version": "v0",
+                        "Name": "SceneClassificationModel"
+                    },
+                    "DependentFor": [
+                        "SegmentBySceneChange"
+                    ],
+                    "Configuration": {
+                        "minimum_confidence": "30"
+                    },
+                    "Name": "DetectCameraScene"
+                }
+            ],
+            "Name": "SegmentBySceneChange"
+        },
+        "Labeler": {
+            "Configuration": {
+                "chunk_noun": "Scene change"
+            },
+            "Name": "LabelBasic"
+        },
+        "ContentGroups": [
+            "Tennis"
+        ],
+        "Name": "BasicTennis1"
+    }

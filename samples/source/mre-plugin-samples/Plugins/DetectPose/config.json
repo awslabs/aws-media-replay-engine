@@ -1,0 +1,54 @@
+{
+  "Lambda": {
+    "Handler": "DetectPose.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 90,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "sagemaker:InvokeEndpoint"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ],
+    "Layers": [
+      "scipy",
+      "opencv-python"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectPose",
+      "Description": "This plugin classify human pose keypoints into predefined classes.",
+      "Class": "Featurer",
+      "ExecutionType": "SyncModel",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "Soccer"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "ModelEndpoints": [
+        {
+          "Name": "PoseClassificationModel"
+        }
+      ],
+      "Configuration": {
+        "minimum_confidence": "0.7",
+        "Keypoints_List": [0,5,6,9,10,11,12,15,16]
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "Add a desc"
+        },
+        "PoseDetection": {
+          "Description": "Add a desc"
+        }
+      },
+      "DependentPlugins": [
+        "DetectPoseKeypoints"
+      ]
+    }
+  }
+}

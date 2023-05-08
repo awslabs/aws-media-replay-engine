@@ -101,6 +101,10 @@ export const EventView = () => {
     React.useEffect(() => {
         (async () => {
             let res = await fetchData();
+            let metadata = await fetchEventMetadata();
+            if (metadata){
+                eventData['Variables'] = metadata;
+            }
             setAllClips(res)
         })();
     }, [shouldRefresh]);
@@ -152,6 +156,11 @@ export const EventView = () => {
             }
         }
     };
+
+    const fetchEventMetadata = async () => {
+        let response = await query('get', 'api', `event/${eventData.Name}/program/${eventData.Program}/context-variables`, {disableLoader: true}, {ttl: 30000});
+        return response.data?.data || undefined;
+    }
 
     const handleRefresh = async () => {
         setShouldRefresh(!shouldRefresh);
@@ -509,6 +518,15 @@ export const EventView = () => {
                                                 <Typography variant="subtitle2">Embedded Timecode Src:</Typography>
                                                 <Typography>{eventData.TimecodeSource === undefined ? "NOT_EMBEDDED" : eventData.TimecodeSource}</Typography>
                                             </Grid>
+                                            {eventData.Variables && 
+                                            <Grid container item direction="column">
+                                            <Typography variant="subtitle2">Context Variables:</Typography>
+                                                    {_.map(eventData.Variables || {}, (value, key) => {
+                                                        return <Grid item>
+                                                            <Typography variant={"body1"}>{key}:{value}</Typography>
+                                                        </Grid>
+                                                    })}
+                                            </Grid>}
                                         </Grid>
                                     </CardContent>
                                 </Card>

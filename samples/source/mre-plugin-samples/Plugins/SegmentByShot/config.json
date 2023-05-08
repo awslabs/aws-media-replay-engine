@@ -1,0 +1,26 @@
+{
+  "Lambda": {
+    "Handler": "SegmentByShot.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 60
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentByShot",
+      "Description": "Using the results from shot detection to segment vidoes",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+	      "MIN_DURATION": 0
+      },
+      "DependentPlugins": [
+        "DetectShotsByRekognitionVideo"
+      ]
+    }
+  }
+}

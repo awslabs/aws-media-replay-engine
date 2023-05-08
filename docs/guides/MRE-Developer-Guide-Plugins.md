@@ -181,7 +181,6 @@ def lambda_handler(event, context):
         raise
 
 ```
-
 ## Registering a plugin with MRE
 
 Each plugin you want to use with MRE needs to be registered using the **plugin** API described here:
@@ -198,3 +197,16 @@ Plugin registration provides the follow:
 Each plugin require an AWS Lambda ARN to be provided. Plugin versioning is maintained by MRE every time a registration call is made for a plugin with the same **name** attribute value.
 
 Note that when the **SupportedMediaType** attribute is set to **Audio**, MRE will process each available audio track in parallel.
+
+
+## Context Variables
+
+Events can include **Context Variables**, key/value pairs which provide additional data to be read by the plugins used in the workflow. Use cases for this include:
+
+- Custom attributes to coorindate with external processing
+- Common attribute values used across all plugin executions (i.e. time offset, broadcast id, etc.)
+- Sharing data between plugin executions across all chunks (i.e. a value from chunk 1 gets passed to chunk 2, chunk 2 adds more data for chunk 3, etc.)
+
+Using the Plugin Helper layer, you have the ability to read/update the Context Variables related to the event to get the respective key/value pairs to share data across plugin executions. This can be accomplished by either:
+-  get_event_context_variables(program,event)
+-  update_event_context_variables(body, program, event)

@@ -112,6 +112,15 @@ export const FormHandler = (postForm, initialFormValues, inputFieldsMap) => {
             valuesFiltered["OutputAttributes"] = outputAttributes;
         }
 
+        // This will convert the Metadata we have to a map (i.e. removes key & value)
+        if (valuesFiltered["Variables"]) {
+            let metadataMap = {}
+            _.forEach(valuesFiltered['Variables'], (item) => {
+                metadataMap[item.key] = item.value;
+            });
+            valuesFiltered["Variables"] = metadataMap;
+        }
+
         // fields to be removed
         valuesFiltered = _.omit(valuesFiltered, "MediaLive");
 
@@ -201,10 +210,10 @@ export const FormHandler = (postForm, initialFormValues, inputFieldsMap) => {
         validate({[componentName]: value});
     };
 
-    const onKeyValueRowChange = (rows) => {
+    const onKeyValueRowChange = (rows, key='Configuration') => {
         setValues({
             ...values,
-            ['Configuration']: rows
+            [key]: rows
         });
     };
 

@@ -31,6 +31,8 @@ class ChaliceApp(Stack):
         self.event_table_name = Fn.import_value("mre-event-table-name")
         self.profile_table_arn = Fn.import_value("mre-profile-table-arn")
         self.current_event_table_arn = Fn.import_value("mre-current-event-table-arn")
+        self.metadata_table_arn = Fn.import_value("mre-metadata-table-arn")
+        self.metadata_table_name = Fn.import_value("mre-metadata-table-name")
         
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
@@ -86,7 +88,9 @@ class ChaliceApp(Stack):
                     self.event_table_arn,
                     f"{self.event_table_arn}/index/*",
                     self.profile_table_arn,
-                    self.current_event_table_arn
+                    self.current_event_table_arn,
+                    self.metadata_table_arn,
+                    f"{self.metadata_table_arn}/index/*",
                 ]
             )
         )
@@ -236,7 +240,8 @@ class ChaliceApp(Stack):
                     "MEDIASOURCE_S3_BUCKET": Fn.import_value("mre-media-source-bucket-name"),
                     "SQS_QUEUE_URL": Fn.import_value("mre-event-deletion-queue-name"),
                     "TRIGGER_LAMBDA_ARN": Fn.import_value("mre-trigger-workflow-lambda-arn"),
-                    "EB_SCHEDULE_ROLE_ARN":self.eb_schedule_role_arn
+                    "EB_SCHEDULE_ROLE_ARN":self.eb_schedule_role_arn,
+                    "METADATA_TABLE_NAME": self.metadata_table_name
                 },
                 "tags": {
                     "Project": "MRE"

@@ -1,0 +1,245 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Documentation &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="_static/bootstrap-reboot.css" type="text/css" />
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/default.css" />
+    <link rel="stylesheet" href="_static/custom-tabs.css" type="text/css" />
+    
+    <link rel="stylesheet" href="_static/asciinema-player.css" type="text/css" />
+    
+
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/aws-sdk-2.826.0.min.js"></script>
+    <script type="text/javascript">
+        function _scroll(subjectId) {
+            var subjectElement = $(subjectId);
+            var actualSubjectHeight = subjectElement.height();
+            var startingPosition = subjectElement[0].getBoundingClientRect().top;
+            return function() {
+                var availableHeight = $(window).height() - startingPosition;
+                // Subtract the scroll position to account for sticky movement.
+                availableHeight += Math.min($(window).scrollTop(), 40);
+                var cappedHeight = Math.min(actualSubjectHeight, availableHeight);
+                if (subjectElement.css("height") !== cappedHeight) {
+                    subjectElement.css("height", cappedHeight);
+                }
+            };
+        }
+
+        // Scroll and resize the the columns when scrolled.
+        $(function() {
+            var rightScroll = _scroll("#right-column > .column-body");
+            var scrollFn = function() {
+                rightScroll.call(this, arguments);
+            };
+            scrollFn();
+            $(window).scroll(scrollFn);
+            $(window).resize(scrollFn);
+        });
+
+        // Scroll spy to change highlighted navigation element.
+        $(function() {
+            var section = document.querySelectorAll(".section");
+            var sections = {};
+            var i = 0;
+            Array.prototype.forEach.call(section, function(e) {
+                sections[e.id] = e.offsetTop;
+            });
+            var scrollSpy = function() {
+                var scrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+                for (i in sections) {
+                    if (sections[i] <= scrollPosition) {
+                        $('#right-column .current').removeClass('current');
+                        $("#right-column a[href='#" + i + "']").addClass('current');
+                    }
+                }
+            };
+            $(window).scroll(scrollSpy);
+            scrollSpy();
+        });
+        
+        $(function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+                }
+            );
+        });
+
+        $(function sendAnonVistorId() {
+            FingerprintJS.load().then(fp => {
+                // The FingerprintJS agent is ready.
+                // Get a visitor identifier when you'd like to.
+                fp.get().then(result => {
+                    AWS.config.region = 'us-west-2'; 
+                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: 'us-west-2:a2573bbc-f734-4ef9-84ba-30b702b5b958'});
+                    var pinpoint = new AWS.Pinpoint({apiVersion: '2016-12-01'});
+                    
+                    // This is the anonymous visitor identifier:
+                    const anonVisitorId = result.visitorId;
+                    var param = {
+                    ApplicationId: 'fea7ddb98ab9411787a3cf43d835a0d7',
+                    EventsRequest: {
+                        BatchItem: {}
+                        }
+                    };
+
+                    /* create the event parameter */
+                    var eventParam = {
+                        Endpoint: {
+                            Address: anonVisitorId,
+                            ChannelType: 'CUSTOM',
+                            }
+                        };
+
+                    /* attach the event values */
+                    eventParam['Events'] = [{
+                        EventType: 'mre_docs_page_view',
+                        Timestamp: (new Date()).toISOString()
+                    }];
+
+                    var endpointId = eventParam.Endpoint.Address + 'DOCS'
+                    param.EventsRequest.BatchItem[endpointId] = eventParam; 
+
+                    pinpoint.putEvents(param, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else     console.log(data);
+                    });
+                        });
+                    });
+        });
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"
+        onload="sendAnonVistorId()"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Aws-Mre-Gateway-Api" href="api/gateway.html" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  </head><body>
+    <header>
+        <div class="header-flex width-wrapper">
+            <div class="site-logo">
+                
+		  <span class="logo-icon"><img src="_static/img/MRE_Color.png" style="width:55px;height:50px"/></span>
+                </a>
+            </div>
+
+            <ul id="page-navigation">
+                
+                <li class="site-page"><a href="main.html">Documentation</a></li>
+                
+                <li class="site-search hidden-sm">
+                    <form action="search.html" method="get">
+                        <input type="hidden" name="check_keywords" value="yes" />
+                        <input type="hidden" name="area" value="default" />
+                        <input class="search-input" autocomplete="off" type="search" name="q" placeholder="Search" />
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </header>
+    
+        <section id="landing-container">
+
+    <div id="splash">
+        <div class="width-wrapper">
+            <div class="splash-row">
+                <div class="splash-column">
+		    <img id="splash-logo" src="_static/img/MRE_Color.png" alt="Media Replay Engine" style="width:350px;height:300px;align-self: center;" />
+                    <div class="headline">
+                        MRE, a framework for identifying segments in live and VOD broadcast content using machine learning.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="width-wrapper">
+        <div class="splash-row">
+	    <img class="lp-image" src="_static/img/coding.png" alt="Coding" />
+            <div class="splash-column">
+                <h2>Focus on adding plugins and ML Models</h2>
+                <p>Leverage community provided plugins or build your own for your video/audio content.</p>
+            </div>
+	    <img class="lp-image" src="_static/img/programming.png" alt="Coding" />
+            <div class="splash-column">
+                <h2>Familiar REST APIs</h2>
+                <p>MRE provides familiar REST APIs for interacting with workflows and
+                    machine learning derived metadata. Skip the learning curve and get up and
+                    running quickly.</p>
+            </div>
+	    <img class="lp-image" src="_static/img/maintenance.png" alt="Coding" />
+            <div class="splash-column">
+                <h2>Deployed via AWS CDK</h2>
+                <p>You can get started with MRE by 
+                executing the build script on the project GitHub page.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="width-wrapper">
+	<h2>Features</h2>
+        <div class="splash-row">
+            <div class="splash-column">
+                <h2>IAM Authentication</h2>
+                <p class="feature-desc">Built-in support for IAM Authentication.
+                </p>
+	        </div>
+            <div class="splash-column">
+                <h2>Configurable profiles</h2>
+                <p class="feature-desc">
+                    Configure profiles for each content type that describe how an event will be processed.
+                </p>
+	        </div>
+            <div class="splash-column">
+                <h2>Raw video chunking</h2>
+                <p class="feature-desc">
+                    Automatically handles raw video chunking to maintain context.
+                </p>
+	        </div>
+        </div>
+        <div class="splash-row">
+            <div class="splash-column">
+                <h2>Supports multi-track audio </h2>
+                <p class="feature-desc">Processes multi-track audio to support regional audience needs.
+                </p>
+	        </div>
+            <div class="splash-column">
+                <h2>Clip and Metadata Generation</h2>
+                <p class="feature-desc">Generates clip segments and related data for export in popular formats.
+                </p>
+	        </div>
+            <div class="splash-column">
+                <h2>Replay Generation</h2>
+                <p class="feature-desc">
+                    Automatically selects segments for replay/highlights based on target needs.
+                </p>
+	        </div>
+        </div>
+    </div>
+    
+    
+</section>
+        
+        
+    
+<footer id="footer">
+    <div class="width-wrapper">
+        <div class="copyright">
+            <p>©2023, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
+  </body>
+</html>

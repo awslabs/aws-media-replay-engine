@@ -46,6 +46,9 @@ EB_EVENT_BUS_ARN = os.environ['EB_EVENT_BUS_ARN']
 CURRENT_EVENTS_TABLE_NAME = os.environ['CURRENT_EVENTS_TABLE_NAME']
 EB_SCHEDULE_ROLE_ARN = os.environ['EB_SCHEDULE_ROLE_ARN']
 
+METADATA_TABLE_NAME = os.environ['METADATA_TABLE_NAME']
+metadata_table = ddb_resource.Table(METADATA_TABLE_NAME)
+
 @app.route('/event', cors=True, methods=['POST'], authorizer=authorizer)
 def create_event():
     """
@@ -218,6 +221,15 @@ def create_event():
                 "#Program": "Program"
             }
         )
+
+        # If we have variables in the event, persist in the metadata table
+        if 'Variables' in event and event['Variables']:
+            metadata_table.put_item(
+                Item={
+                'pk': f'EVENT#{program}#{name}',
+                'data': event['Variables']
+                }
+            )
 
     except NotFoundError as e:
         print(f"Got chalice NotFoundError: {str(e)}")
@@ -458,10 +470,6 @@ def list_events(path_params):
                 last_evaluated_key = query_params.get("LastEvaluatedKey")
             if "ProjectionExpression" in query_params:
                 projection_expression = query_params.get("ProjectionExpression")
-            if "fromFilter" in query_params:
-                start = query_params.get("fromFilter")
-                filter_expression = Attr("StartFilter").gte(start) if \
-                    not filter_expression else filter_expression & Attr("StartFilter").gte(start)
             if "toFilter" in query_params:
                 end = query_params.get("toFilter")
                 filter_expression = Attr("StartFilter").lte(end) if \
@@ -640,10 +648,6 @@ def list_events_by_program(program):
                 last_evaluated_key = query_params.get("LastEvaluatedKey")
             if "ProjectionExpression" in query_params:
                 projection_expression = query_params.get("ProjectionExpression")
-            if "fromFilter" in query_params:
-                start = query_params.get("fromFilter")
-                filter_expression = Attr("StartFilter").gte(start) if \
-                    not filter_expression else filter_expression & Attr("StartFilter").gte(start)
             if "toFilter" in query_params:
                 end = query_params.get("toFilter")
                 filter_expression = Attr("StartFilter").lte(end) if \
@@ -1040,6 +1044,28 @@ def update_event(name, program):
             ExpressionAttributeValues=expression_attribute_values
         )
 
+        if 'Variables' in event and event['Variables']:
+            expression_attribute_names ={"#data": "data"}
+            expression_attribute_values={}
+            update_expression = []
+
+            ## Iterate through items
+            for key, value in event['Variables'].items():
+                expression_attribute_names[f'#k{key}'] = key
+                expression_attribute_values[f':v{value}'] = value
+                update_expression.append(f"#data.#k{key} = :v{value}")
+
+            if update_expression:
+            ## Send update expression
+                metadata_table.update_item(
+                        Key={
+                            'pk': f'EVENT#{program}#{name}',
+                        },
+                        ExpressionAttributeNames=expression_attribute_names,
+                        ExpressionAttributeValues=expression_attribute_values,
+                        UpdateExpression=f"SET {', '.join(update_expression)}"
+                )
+
     except ValidationError as e:
         print(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
@@ -1228,8 +1254,11 @@ def delete_event(name, program):
             }
         )
 
-        
-
+        response = metadata_table.delete_item(
+            Key={
+                "pk": f'EVENT#{program}#{name}'
+            }
+        )
 
         # Send a message to the Event Deletion SQS Queue to trigger the deletion of processing data in DynamoDB for the Event
         helpers.notify_event_deletion_queue(name, program, profile)
@@ -2214,3 +2243,107 @@ def get_hls_manifest_by_event(program, name, audiotrack):
     return {
         "BlobContent": "No Content found"
     }
+
+@app.route('/event/{name}/program/{program}/context-variables', cors=True, methods=['GET'],
+           authorizer=authorizer)
+def get_event_context_variables(program, name):
+    """
+    Get a metadata of event by name.
+
+    Returns:
+
+        .. code-block:: python
+
+            {
+                "KEY1": string,
+                "KEY2": string,
+                ...
+                "KEY10": string
+            }
+
+    Raises:
+        404 - NotFoundError
+        500 - ChaliceViewError
+    """
+    try:
+        name = urllib.parse.unquote(name)
+        program = urllib.parse.unquote(program)
+
+        print(f"Getting the event context variables for '{name}'")
+
+        response = metadata_table.get_item(
+            Key={
+                "pk": f'EVENT#{program}#{name}'
+            },
+            ConsistentRead=True
+        )
+        
+        ## We don't want to return an ERROR if there is no metadata
+        if "Item" not in response:
+            return {}
+
+    except Exception as e:
+        print(f"Unable to get event context variables '{name}': {str(e)}")
+        raise ChaliceViewError(f"Unable to get the event context variables '{name}': {str(e)}")
+
+    else:
+        return replace_decimals(response["Item"])
+    
+
+@app.route('/event/{name}/program/{program}/context-variables', cors=True, methods=['PATCH'],
+           authorizer=authorizer)
+def update_event_context_variables(program, name):
+    """
+    Replace a key/value pair of context variables of event by name.
+
+    Returns:
+
+        .. code-block:: python
+
+            {
+                "KEY1": string,
+                "KEY2": string,
+                ...
+                "KEY10": string
+            }
+
+    Raises:
+        404 - NotFoundError
+        500 - ChaliceViewError
+    """
+    try:
+        name = urllib.parse.unquote(name)
+        program = urllib.parse.unquote(program)
+
+        event_metadata = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
+
+        print(f"Updating the event context variables for '{name}'")
+
+        ## Create key/value pairs for update expression
+        expression_attribute_names ={"#data": "data"}
+        expression_attribute_values={}
+        update_expression = []
+
+        ## Iterate through items
+        for key, value in event_metadata.items():
+            expression_attribute_names[f'#k{key}'] = key
+            expression_attribute_values[f':v{value}'] = value
+            update_expression.append(f"#data.#k{key} = :v{value}")
+
+        if update_expression:
+        ## Send update expression
+            metadata_table.update_item(
+                    Key={
+                        'pk': f'EVENT#{program}#{name}',
+                    },
+                    ExpressionAttributeNames=expression_attribute_names,
+                    ExpressionAttributeValues=expression_attribute_values,
+                    UpdateExpression=f"SET {', '.join(update_expression)}"
+            )
+
+    except Exception as e:
+        print(f"Unable to update event context variables '{name}': {str(e)}")
+        raise ChaliceViewError(f"Unable to update the event context variables '{name}': {str(e)}")
+
+    else:
+        return {}

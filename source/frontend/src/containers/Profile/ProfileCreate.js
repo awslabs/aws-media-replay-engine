@@ -197,6 +197,12 @@ export const ProfileCreate = () => {
                 isMultiple: true,
                 IsPriorityForReplay: true
             },
+        },
+        Variables: {
+            name: "Variables",
+            label: "Context Variables",
+            type: "keyValuePairs",
+            addButtonLabel: "Variable"
         }
     }
 

@@ -1,0 +1,53 @@
+    {
+        "ChunkSize": 10,
+        "ProcessingFrameRate": 1,
+        "MaxSegmentLengthSeconds": 10,
+        "Classifier": {
+            "Configuration": {
+                "start_seq": "[['near','far'],['topview','far']]",
+                "padding_seconds": "1",
+                "end_seq": "[['far','near'],['far','topview']]"
+            },
+            "DependentPlugins": [
+                {
+                    "ModelEndpoint": {
+                      "Version": "v0",
+                      "Name": "SceneClassificationModel"
+                    },
+                    "DependentFor": [
+                        "SegmentBySceneChange"
+                    ],
+                    "Configuration": {
+                        "minimum_confidence": "40"
+                    },
+                    "Name": "DetectCameraScene"
+                }
+            ],
+            "Name": "SegmentBySceneChange"
+        },
+        "Labeler": {
+            "Configuration": {
+                "dependent_plugin_name": "DetectTennisScoreBoxData"
+            },
+            "DependentPlugins": [
+                {
+                    "ModelEndpoint": {
+                      "Version": "v0",
+                      "Name": "ScoreBoxDetectionModel"
+                    },
+                    "DependentFor": [
+                        "LabelTennisScore"
+                    ],
+                    "Configuration": {
+                        "minimum_confidence": "50"
+                    },
+                    "Name": "DetectTennisScoreBoxData"
+                }
+            ],
+            "Name": "LabelTennisScore"
+        },
+        "ContentGroups": [
+            "Tennis"
+        ],
+        "Name": "BasicTennis2"
+    }

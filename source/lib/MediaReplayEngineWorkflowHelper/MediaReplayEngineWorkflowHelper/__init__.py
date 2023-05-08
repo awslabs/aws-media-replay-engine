@@ -78,8 +78,9 @@ class ControlPlane:
 
         print(f"{method} {path}")
 
-        max_retries = 3
-        backoff_secs = 0.1
+        conn_max_retries = http_max_retries = 5
+        backoff_secs = 0.3
+        http_status_retry_list = [429, 500, 503, 504]
 
         while True:
             try:
@@ -98,14 +99,34 @@ class ControlPlane:
             except requests.exceptions.ConnectionError as e:
                 print(f"Encountered a connection error while invoking the control plane api: {str(e)}")
 
-                if max_retries == 0:
+                if conn_max_retries == 0:
                     raise Exception(e)
 
-                backoff = (3 / max_retries) * backoff_secs
+                backoff = backoff_secs * (2 ** (5 - conn_max_retries))
                 print(f"Retrying after {backoff} seconds")
                 sleep(backoff)
-                max_retries -= 1
+                conn_max_retries -= 1
                 continue
+
+            except requests.exceptions.HTTPError as e:
+                print(f"Encountered an HTTP error while invoking the control plane api: {str(e)}")
+
+                status_code = e.response.status_code
+                print("HTTP status code:", status_code)
+
+                if status_code in http_status_retry_list: # Retry only specific status codes
+                    if http_max_retries == 0:
+                        raise Exception(e)
+
+                    backoff = backoff_secs * (2 ** (5 - http_max_retries))
+                    print(f"Retrying after {backoff} seconds")
+                    sleep(backoff)
+                    http_max_retries -= 1
+                    continue
+
+                else:
+                    print("Got a non-retryable HTTP status code")
+                    raise Exception(e)
 
             except requests.exceptions.RequestException as e:
                 print(f"Encountered an unknown error while invoking the control plane api: {str(e)}")
@@ -695,7 +716,6 @@ class ControlPlane:
         self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))
 
 
-    
     def get_transitions_config(self, transition_name):
         """
         Gets Replay Transitions configuration

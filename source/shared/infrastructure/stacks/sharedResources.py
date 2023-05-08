@@ -52,6 +52,7 @@ class MreSharedResources(Stack):
         self.create_system_table()
         self.create_sqs_queues()
         self.create_cloudfront_distro()
+        self.create_metadata_table()
 
     def create_cloudfront_distro(self):
         # Cloudfront Distro for Media Output
@@ -842,6 +843,22 @@ class MreSharedResources(Stack):
                 )
             ]
         )
+    def create_metadata_table(self):
+        self.metadata_table = ddb.Table(
+            self,
+            "Metadata",
+            partition_key=ddb.Attribute(
+                name="pk",
+                type=ddb.AttributeType.STRING
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY
+        )
 
+        CfnOutput(self, "mre-metadata-table-arn", value=self.metadata_table.table_arn,
+                      description="Arn of the MRE Metadata table", export_name="mre-metadata-table-arn")
+        
+        CfnOutput(self, "mre-metadata-table-name", value=self.metadata_table.table_name,
+                      description="Name of the MRE Metadata table", export_name="mre-metadata-table-name")
 
         

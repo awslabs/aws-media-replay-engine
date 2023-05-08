@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="en">
@@ -638,6 +637,46 @@
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-event-context-variables">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/context-variables</span><a class="headerlink" href="#get-event-context-variables" title="Permalink to this heading">¶</a></h2>
+<p>Get a metadata of event by name.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;KEY1&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;KEY2&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="o">...</span>
+    <span class="s2">&quot;KEY10&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="update-event-context-variables">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method patch property">PATCH</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/context-variables</span><a class="headerlink" href="#update-event-context-variables" title="Permalink to this heading">¶</a></h2>
+<p>Replace a key/value pair of context variables of event by name.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;KEY1&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;KEY2&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="o">...</span>
+    <span class="s2">&quot;KEY10&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
 <section class="chalice-route" id="store-frame-rate">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/framerate/{frame_rate}</span><a class="headerlink" href="#store-frame-rate" title="Permalink to this heading">¶</a></h2>
 <p>Store the frame rate identified after probing the first HLS video segment.</p>
@@ -770,6 +809,9 @@
 <li><a class="reference internal" href="#get-event"><p>Duplicate implicit target name: “/event/{name}/program/{program}”.</p>
 </a></li>
 <li><a class="reference internal" href="#update-event"><p>Duplicate implicit target name: “/event/{name}/program/{program}”.</p>
+</a></li>
+<li><a class="reference internal" href="#get-event-context-variables"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/context-variables</span></a></li>
+<li><a class="reference internal" href="#update-event-context-variables"><p>Duplicate implicit target name: “/event/{name}/program/{program}/context-variables”.</p>
 </a></li>
 <li><a class="reference internal" href="#store-frame-rate"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/framerate/{frame_rate}</span></a></li>
 <li><a class="reference internal" href="#update-event-with-replay"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}/hasreplays</span></a></li>

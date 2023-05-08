@@ -14,16 +14,16 @@ setuptools.setup(
     description="Helper library to aid the development of custom plugins for the Media Replay Engine",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/aws-solutions/aws-media-replay-engine",
+    url="https://github.com/awslabs/aws-media-replay-engine",
     packages=setuptools.find_packages(),
     install_requires=[
         'urllib3',
-	'requests',
+        'requests',
         'requests-aws4auth'
-      ],
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
-	"License :: Other/Proprietary License",
+        "License :: Other/Proprietary License",
         "Operating System :: OS Independent",
     ],
 )

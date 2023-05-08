@@ -1,0 +1,32 @@
+{
+    "Lambda": {
+      "Handler": "SegmentByKeyMoment.lambda_handler",
+      "MemorySize": 128,
+      "TimeoutSecs": 3
+    },
+    "MRE": {
+      "Plugin": {
+        "Name": "SegmentByKeyMoment",
+        "Description": "This plugin attempts to detect key moments in footage, such as when a score is made",
+        "Class": "Classifier",
+        "ExecutionType": "Sync",
+        "SupportedMediaType": "Video",
+        "ContentGroups": [
+          "All"
+        ],
+        "ExecuteLambdaQualifiedARN": "",
+        "Configuration": {
+           "chunk_to_segment_ratio": "1"
+        },
+        "OutputAttributes": {
+          "Label": {
+            "Description": ""
+          }
+        },
+        "DependentPlugins": [
+          "DetectAudioPeaks"
+        ]
+      }
+    }
+  }
+  

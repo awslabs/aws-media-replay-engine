@@ -135,7 +135,7 @@ def main(region, mode, profile=None):
     put_default_transition_config(transition_clip_bucket_name, region)
     print("Hydrating Transition Config table ...Done")
 
-    print("IMPORTANT !!! You will need to  redeploy the frontend application in the Amplify Console. Choose the mre-frontend app, click on the Master branch and click on Redeploy this version for the latest changes to take effect.")
+    print("IMPORTANT!!! You will need to redeploy the frontend application in the Amplify Console. Choose the 'mre-frontend' app, click on the 'master' branch and then click on 'Redeploy this version' for the latest changes to take effect.")
 
     return 1
 

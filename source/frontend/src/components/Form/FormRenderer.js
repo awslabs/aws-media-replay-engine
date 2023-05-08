@@ -243,13 +243,16 @@ export const FormRenderer = (props) => {
                                                         </Grid> : inputFieldValue.type === "keyValuePairs" ?
                                                         <Grid item sm={10} key={`${inputFieldValue.type}-${index}`}>
                                                             <FormLabel
-                                                                className={classes.labelSpace}> {inputFieldValue.name}
+                                                                className={classes.labelSpace}> {inputFieldValue.label}
                                                             </FormLabel>
                                                             <Box pt={2}>
                                                                 <KeysValuesForm
-                                                                    versionValues={props.keyValues}
+                                                                    versionValues={inputFieldValue.keyValues}
                                                                     onRowChange={onKeyValueRowChange}
+                                                                    defaultKey ={inputFieldValue.name}
                                                                     defaultValue={inputFieldValue.isConfigDefault}
+                                                                    defaultLocked={inputFieldValue.defaultLocked || false}
+                                                                    addButtonLabel={inputFieldValue.addButtonLabel}
                                                                 />
                                                             </Box>
                                                         </Grid> : inputFieldValue.type === "timePicker" ?

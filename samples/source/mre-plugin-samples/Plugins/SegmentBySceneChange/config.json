@@ -1,0 +1,28 @@
+{
+  "Lambda": {
+    "Handler": "SegmentBySceneChange.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 60
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentBySceneChange",
+      "Description": "Using camera angles or scene classification values, use pattern sequences to identify the start and end of a segment/clip.",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "start_seq": "[['near','far'],['topview','far']]",
+        "end_seq": "[['far','near'],['far','topview']]",
+        "padding_seconds": "1"
+      },
+      "DependentPlugins": [
+        "DetectCameraScene"
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+   "Name": "string",
+   "Description": "string",
+   "ContentGroups": "list",
+   "Endpoint": "string",
+   "PluginClass": ["Classifier"|"Optimizer"|"Featurer"|"Labeler"]
+}

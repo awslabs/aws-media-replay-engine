@@ -240,7 +240,7 @@ class MrePluginsStack(Stack):
 
                 # Create the Lambda function for the plugin
 
-                if os.path.isfile(f"../plugins/{plugin_name}/Dockerfile"):
+                if os.path.isfile(f"../Plugins/{plugin_name}/Dockerfile"):
                     self.plugin_function = self._create_docker_lambda(
                         plugin_config,
                         plugin_config_name,
@@ -454,7 +454,7 @@ class MrePluginsStack(Stack):
             description=plugin_config["MRE"]["Plugin"].get("Description"),
             function_name=function_name,
             code=_lambda.DockerImageCode.from_image_asset(
-                f"../plugins/{plugin_name}",
+                f"../Plugins/{plugin_name}",
                 build_args={
                     "PLUGIN_NAME": function_name,
                 },
@@ -480,7 +480,7 @@ class MrePluginsStack(Stack):
             description=plugin_config["MRE"]["Plugin"].get("Description"),
             function_name=plugin_name,
             runtime=_lambda.Runtime.PYTHON_3_8,
-            code=_lambda.Code.from_asset(f"../plugins/{plugin_name}/package"),
+            code=_lambda.Code.from_asset(f"../Plugins/{plugin_name}/package"),
             handler=plugin_config["Lambda"].get(
                 "Handler", f"{plugin_name}.lambda_handler"
             ),

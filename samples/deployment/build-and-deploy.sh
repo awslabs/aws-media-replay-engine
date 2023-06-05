@@ -272,7 +272,7 @@ if [ "$app" = "plugin-samples" ]; then
         echo "Dockerfile found - skipping packaging"
 
         # download mre_helper_layer to include in Lambda docker deployment
-        URL=$(aws lambda get-layer-version-by-arn --arn $helper_layer_arn --query Content.Location --output text)
+        URL=$(aws lambda get-layer-version-by-arn --arn $helper_layer_arn --query Content.Location --output text $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
         curl -s -o "${d}mre_plugin_helper.zip" "$URL"
         unzip -qq "${d}mre_plugin_helper.zip" -d "${d}mre_plugin_helper/"
     fi

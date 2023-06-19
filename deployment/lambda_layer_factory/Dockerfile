@@ -1,4 +1,4 @@
-FROM amazonlinux
+FROM amazonlinux:2
 
 WORKDIR /
 RUN yum update -y

@@ -391,7 +391,7 @@ class ControlPlane:
         method = "GET"
 
         api_response = self.invoke_controlplane_api(path, method)
-            
+  
         return api_response.text
 
     #--------------- Replay Engine Changes Starts ----------------------------------------------------
@@ -446,6 +446,25 @@ class ControlPlane:
 
         api_response = self.invoke_controlplane_api(path, method)
             
+        return api_response.json()
+
+    def get_custom_priorities_engine(self, name):
+        """
+        Gets Custom Priorities Engine based on name
+
+        :param name: Name of Custom Priorities Engine
+
+        :return: Control plane response
+        """
+
+        path = f"/custompriorities/{name}"
+        method = "GET"
+
+        api_response = self.invoke_controlplane_api(path, method)
+        
+        if api_response.status_code > 299:
+            return None
+        
         return api_response.json()
 
     def get_plugin_by_name(self, plugin_name):

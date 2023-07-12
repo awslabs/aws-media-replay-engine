@@ -29,6 +29,7 @@ MRE refers to several elements of the solution using terms that may be familiar.
 - **Profiles**: A profile in MRE is defined for a specific type of media content that will be processed. The profile is a set of **plugins** and **models** that are applied to the **event** video as it is received and processed by the solution. Different profiles can be created to achieve different results based on business needs.  
 - **Events**: Events in the MRE context are the scheduled programs that will be processed at a specific time with video chunk content arriving on a specified AWS Elemental Media Live Channel or in a S3 bucket. The events are the same as EPG programs and can have a broadcast ID to uniquely identify them.  
 - **Replays**: A replay in MRE is a request to summarize all the **segments** from an **event** be selecting only those that match your criteria. Another term that is synonymous with replays is **highlights**. Options exist to filter the segments based on total duration and weightings applied to key data. Multiple replays can be applied to an event.
+- **CustomPriorities**: A Custom Priority Engine in MRE is an API and its corresponding details that the Replay Clip Generation process can invoke during runtime to get significance associated to **segments** instead of using static weights defined in **Replay**
 
 
 **Development with MRE involves the following topics:**

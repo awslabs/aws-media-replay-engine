@@ -71,6 +71,12 @@ def add_replay():
                 "ToleranceMaxLimitInSecs": number
             },
             "Priorities":{
+                "CustomPrioritiesEngine": {
+                    "CustomPrioritiesEngineEnabled": boolean,
+                    "CustomPrioritiesEngineEndpointSsmParam": string,
+                    "CustomPrioritiesEngineApiKeyArn": string,
+                    "CustomPrioritiesEngineEndpointPathVariables": map
+                },
                 "Clips": [
                     {
                         "Name": string,
@@ -94,7 +100,8 @@ def add_replay():
                 "FadeOutMs": number,
             },
             "IgnoreDislikedSegments": boolean,
-            "IncludeLikedSegments": boolean
+            "IncludeLikedSegments": boolean,
+            "DisregardZeroWeightSegments": boolean
         }
 
     Parameters:
@@ -105,7 +112,8 @@ def add_replay():
         - Description: Description of the Replay being created
         - Requester: Requester of the Replay
         - DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs. ToleranceMaxLimitInSecs is defaulted to 30 Secs if not specified.
-        - Priorities: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay
+        - Priorities.CustomPrioritiesEngine: Details of the Custom Priorities Engine API endpoint, Secret ARN and a dict of path variables and their corresponding values.
+        - Priorities.Clips: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay
         - ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.
         - Catchup: True if a CatchUp replay is to be created, False otherwise.
         - CreateHls: True if HLS replay output is to be created
@@ -115,6 +123,7 @@ def add_replay():
         - TransitionOverride: Optional. Objects represents additional Transition configuration that can be overwritten during Replay creation.
         - IgnoreDislikedSegments: Optional. Ignores segments which have been disliked (thumbs down) when reviewing the Segment clip. Default False.
         - IncludeLikedSegments: Optional. If True, segments which have been liked (thumbs up) when reviewing the Segment clip will be included in Replay. Default False.
+        - DisregardZeroWeightSegments: Optional. If True, Segments with total feature weights of 0 are disregarded for replay clip
 
     Returns:
 

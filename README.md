@@ -245,6 +245,9 @@ cdk destroy [--profile <aws-profile>]
 cd aws-media-replay-engine/source/api/controlplane/program/infrastructure
 cdk destroy [--profile <aws-profile>]
 
+cd aws-media-replay-engine/source/api/custompriorities/program/infrastructure
+cdk destroy [--profile <aws-profile>]
+
 # Delete the remaining stacks
 
 cd aws-media-replay-engine/source/backend/workflow_trigger/infrastructure

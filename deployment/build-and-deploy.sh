@@ -463,6 +463,9 @@ deploy_cdk_app "Event" "$api_dir/controlplane/event"
 # Replay stack
 deploy_cdk_app "Replay" "$api_dir/controlplane/replay"
 
+# Custom Priorities stack
+deploy_cdk_app "CustomPriorities" "$api_dir/controlplane/custompriorities"
+
 echo "------------------------------------------------------------------------------"
 echo "Dataplane API stack"
 echo "------------------------------------------------------------------------------"

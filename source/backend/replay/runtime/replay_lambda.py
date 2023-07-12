@@ -164,6 +164,7 @@ def GetEligibleReplays(event, context):
             # Process the newly created Replay Request given that the event is Complete
             #replay = ReplayEngine.get_replay(event_name, program_name, replay_id)
             replay = controlplane.get_replay_request(event_name, program_name, replay_id)
+            enhance_replay_with_custom_priorities_engine_data(replay)
 
             all_replays.append(replay)
 
@@ -194,6 +195,7 @@ def GetEligibleReplays(event, context):
 
         for audioTrack in response['AudioTracks']: 
             replays = controlplane.get_all_replay_requests_for_event_opto_segment_end(program_name, event_name, int(audioTrack))
+            enhance_replay_with_custom_priorities_engine_data(replays)
             all_replays.extend(replays)
 
         return { "AllReplays": all_replays }
@@ -202,6 +204,7 @@ def GetEligibleReplays(event, context):
 
         replay = ReplayEngine(event)
         replays = replay._get_all_replays_for_opto_segment_end()
+        enhance_replay_with_custom_priorities_engine_data(replays)
     
         if len(replays) == 0:
             logger.info('No Reply requests found for the Program/Event/AudioTrack/Status Combo')
@@ -215,6 +218,7 @@ def GetEligibleReplays(event, context):
         event_name = event['detail']['Segment']['Event']
         program_name = event['detail']['Segment']['Program']
         replays = controlplane.get_all_replays_for_segment_end(event_name, program_name)
+        enhance_replay_with_custom_priorities_engine_data(replays)
     
         if len(replays) == 0:
             logger.info('No Reply requests found for the Program/Event/Status Combo')
@@ -223,6 +227,26 @@ def GetEligibleReplays(event, context):
                 "AllReplays": replays
         }
 
+def enhance_replay_with_custom_priorities_engine_data(replay):
+    if isinstance(replay, list):
+        for replay_item in replay:
+            add_custom_priorities_engine_data(replay_item)
+    else:
+        add_custom_priorities_engine_data(replay)
+                
+def add_custom_priorities_engine_data(replay):
+    if 'CustomPrioritiesEngine' in replay['Priorities']:
+        if 'CustomPrioritiesEngineName' not in replay['Priorities']['CustomPrioritiesEngine']:
+            raise (Exception('Custom Priorities configured with no engine name'))
+            
+        name = replay['Priorities']['CustomPrioritiesEngine']['CustomPrioritiesEngineName']
+        custom_priorities_engine = controlplane.get_custom_priorities_engine(name)
+        
+        logger.info(f'Control plane response for Custom Priorities Engine {name}: {custom_priorities_engine}')
+        if custom_priorities_engine is None or not custom_priorities_engine['Enabled']:
+            raise (Exception(f'Error in getting Custom Priorities Engine {name} or is disabled'))
+            
+        replay['Priorities']['CustomPrioritiesEngine'].update(custom_priorities_engine)
 
 def get_event(event_name, program_name):
     return controlplane.get_event(event_name, program_name)

@@ -17,7 +17,7 @@ setuptools.setup(
     url="https://github.com/awslabs/aws-media-replay-engine",
     packages=setuptools.find_packages(),
     install_requires=[
-        'urllib3',
+        'urllib3<2',
         'requests',
         'requests-aws4auth'
     ],

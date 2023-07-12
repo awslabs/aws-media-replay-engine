@@ -26,6 +26,7 @@ SERVICE_ROUTER = {
      "ProgramUrl": os.environ["PROGRAM_URL"],
      "WorkflowUrl": os.environ["WORKFLOW_URL"],
      "ReplayUrl": os.environ["REPLAY_URL"],
+     "CustomPrioritiesUrl": os.environ["CUSTOM_PRIORITIES_URL"],
  }
 
 def get_iam_auth():
@@ -204,6 +205,8 @@ def get_api_url_by_route(uri_params):
         return SERVICE_ROUTER["WorkflowUrl"]
     elif params.startswith("/replay") or params.startswith("replay"):
         return SERVICE_ROUTER["ReplayUrl"]
+    elif params.startswith("/custompriorities") or params.startswith("custompriorities"):
+        return SERVICE_ROUTER["CustomPrioritiesUrl"]
     else:
         return ""
 

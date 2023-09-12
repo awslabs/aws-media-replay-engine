@@ -31,6 +31,7 @@ MRE refers to several elements of the solution using terms that may be familiar.
 - **Replays**: A replay in MRE is a request to summarize all the **segments** from an **event** be selecting only those that match your criteria. Another term that is synonymous with replays is **highlights**. Options exist to filter the segments based on total duration and weightings applied to key data. Multiple replays can be applied to an event.
 
 
+
 **Development with MRE involves the following topics:**
 - [Plugin Development](docs/guides/MRE-Developer-Guide-Plugins.md)
 - [ML Model Development](docs/guides/MRE-Developer-Guide-Models.md)

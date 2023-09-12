@@ -1,0 +1,9 @@
+{
+    "Name": "TestSuite-InvalidPluginClassModel",
+    "Description": "TestSuite Invalid Plugin class Model",
+    "PluginClass": "RandomPluginClass", 
+    "ContentGroups": [
+      "Tennis"
+    ],
+    "Endpoint": "Test"
+}

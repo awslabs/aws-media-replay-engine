@@ -42,3 +42,6 @@ samples/source/mre-plugin-samples/Plugins/*/mre_plugin_helper.zip
 .cdk.staging
 cdk.out
 cdk-outputs.json
+
+MediaReplayEnginePluginHelper.zip
+MediaReplayEngineWorkflowHelper.zip

@@ -41,4 +41,5 @@ API Reference
    Replay <api/controlplane-replay>
    System <api/controlplane-system>
    Workflow <api/controlplane-workflow>
+   CustomPriorities <api/controlplane-custompriorities>
 

@@ -1,0 +1,9 @@
+{
+    "Name": "InvalidEndpointModel",
+    "Description": "Invalid Endpoint Model",
+    "PluginClass": "Featurer", 
+    "ContentGroups": [
+      "Baseball"
+    ],
+    "Endpoint": "https"
+}

@@ -1,0 +1,17 @@
+{
+    "Name": "TS1",
+    "Program": "Regression",
+    "Description": "Event scheduled for Regression testing",
+    "Channel": "",
+    "ProgramId": "NA",
+    "BootstrapTimeInMinutes": 3,
+    "Profile": "",
+    "ContentGroup": "All",
+    "Start": "",
+    "DurationMinutes": 2,
+    "Archive": false,
+    "GenerateOrigClips": true,
+    "GenerateOptoClips": true,
+    "TimecodeSource": "NOT_EMBEDDED",
+    "StopMediaLiveChannel": true
+}

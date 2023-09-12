@@ -1,3 +1,7 @@
+#  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
+
 #!/usr/bin/env bash
 ###############################################################################
 # PURPOSE:
@@ -35,7 +39,7 @@ fi
 VENV=$(mktemp -d)
 python3 -m venv $VENV
 source $VENV/bin/activate
-pip3 install sphinx boto3 chalice chalicedoc autodoc jsonschema PyJWT==2.1.0 rsa==4.7.2 requests-aws4auth==1.1.1
+pip3 install -r requirements.txt
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to install required Python libraries."

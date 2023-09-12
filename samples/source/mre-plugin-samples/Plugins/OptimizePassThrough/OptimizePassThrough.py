@@ -37,6 +37,7 @@ def lambda_handler(event, context):
             new_result['OptoStart'] = segment['Segment']['Start']
             new_result['OptoEnd'] = segment['Segment']['End']
             new_result['OptoStartCode'] = 'Opto succeeded'
+            new_result['OptoEndCode'] = 'Opto succeeded'
 
             results.append(new_result)
 

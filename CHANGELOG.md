@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 
+- Feature: **Replay CustomPriorities**: This version of MRE includes support for custom priority relay engine. It is now possible to integrate the replay engine with external systems (via an API for example) and influence the segments that are chosen to be a part of the replay.
+- Feature: **MRE Test Suite** - Collection of Integration tests to assert MRE Framework's functional behavior. These tests enable you to perform regression / adhoc testing.
+
+- Fixed:
+    - [Git Issue] [#10](https://github.com/awslabs/aws-media-replay-engine/issues/10) - Replay generation fails due to missing temporary json file
+    - Profiles are sorted in drop downs to provide a consistent user experience.
+    - Docker definitions have been changed to use Amazon Linux 2 when building lambda layers
+    - Deployment script changed to include the passed AWS profile while executing CLI commands
+
 ## [2.7.0] - 2023-05-08
 - MRE framework and Samples GitHub repositories are now merged to provide a unified codebase for deploying the MRE framework and optionally, sample plugins, profiles and ML model notebooks.
 - Feature: Context variable support for MRE Events - MRE now supports adding context variables (key-value pairs) during Profile creation which can then be included (and optionally updated) during Event creation. When included, these event-level variables can be accessed and modified through MRE plugin helper functions in one or more Plugin lambdas thereby providing the ability to share event specific data across multiple plugins and step function invocations. More information on this can be found [here](docs/guides/MRE-Developer-Guide-Profiles.md#context-variables).

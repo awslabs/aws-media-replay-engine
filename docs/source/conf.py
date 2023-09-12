@@ -1,3 +1,6 @@
+#  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -132,6 +135,5 @@ os.environ["EVENT_BYOB_NAME_INDEX"] = "EVENT_BYOB_NAME_INDEX"
 os.environ["EB_SCHEDULE_ROLE_ARN"] = "EB_SCHEDULE_ROLE_ARN"
 os.environ["MEDIA_OUTPUT_BUCKET_NAME"] = "MEDIA_OUTPUT_BUCKET_NAME"
 os.environ["EB_EVENT_BUS_ARN"] = "EB_EVENT_BUS_ARN"
-
-
-
+os.environ["CUSTOM_PRIORITIES_URL"] = "CUSTOM_PRIORITIES_URL"
+os.environ["CUSTOM_PRIORITIES_TABLE_NAME"] = "CUSTOM_PRIORITIES_TABLE_NAME"

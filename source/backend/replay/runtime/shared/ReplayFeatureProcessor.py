@@ -4,18 +4,19 @@
 from inspect import isclass
 import os
 import json
-import string
 import boto3
+import copy
 from botocore.client import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 import threading
-import sys
 from queue import Queue
 import datetime
 from time import sleep
 from pathlib import Path
 from aws_lambda_powertools import Logger
+from shared.CustomPrioritiesProcessor import CustomPrioritiesProcessor
+
 logger = Logger()
 
 
@@ -32,7 +33,6 @@ MAX_NUMBER_OF_THREADS = int(os.environ['MAX_NUMBER_OF_THREADS'])
 
 ENABLE_CUSTOM_METRICS = os.environ['ENABLE_CUSTOM_METRICS']
 client = boto3.client('cloudwatch')
-
 
 class ReplayFeatureProcessor:
     def __init__(self, features: list, is_catchup_replay: bool, segments_ignore_file_list: list, audioTrack: str, event, program, replay_id, dataplane, ignore_disliked_segments, include_liked_segments, clip_preview_feedback, replay_to_be_processed):
@@ -53,7 +53,8 @@ class ReplayFeatureProcessor:
         self._ignore_disliked_segments = ignore_disliked_segments
         self._include_liked_segments = include_liked_segments
         self._replay_to_be_processed = replay_to_be_processed
-            
+        self.custom_priorities_processor = CustomPrioritiesProcessor(self._replay_to_be_processed['Priorities'])
+        self.disregard_zero_weight_segments = self._replay_to_be_processed['DisregardZeroWeightSegments'] if 'DisregardZeroWeightSegments' in self._replay_to_be_processed else False
     
 
     def __sort_cache_files(self, cache_files, asc=True):
@@ -138,7 +139,7 @@ class ReplayFeatureProcessor:
         self.__segment_mapping_file_names = final_cached_files
         logger.info(f"CatchUp - {str(self.isCatchupReplay)} Final Subset of Cache files which will be sent to the Multi-threaded process = {self.__segment_mapping_file_names}")
 
-    def __find_features_in_segments(self, file_name):
+    def __find_features_in_segments(self, file_name, custom_priorities_engine_results):
 
         segment_feature_file = open(f"/tmp/{self.replay_id}/{file_name}")
         segment_mapping_as_json = json.load(segment_feature_file)
@@ -200,33 +201,45 @@ class ReplayFeatureProcessor:
         '''
 
         # Check if the ReplayRequest features are in any of the segments from the Cache and Map it out
-        self.__map_segment_with_features(segmentinfo, segment_mapping_as_json)
+        self.__map_segment_with_features(segmentinfo, segment_mapping_as_json, custom_priorities_engine_results)
 
         # Only if we have some features found, push it to the Queue
         if len(segmentinfo['Features']) > 0:
             self.__queue.put(segmentinfo)
 
-    def __match_feature(self, feature, feature_data_point, segmentinfo):
-        # Make sure that The Feature is Available in Cache and that the Weight is more than ZERO
-        if 'Weight' in feature: #For ClipBased settings i n Replay, no weight attribute exists
-            if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
-                # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
-                # Ex. SegmentBySceneAndSR | score_change | true
-                # Ex. DetectSentiment | Sentiment | false
+    def __match_feature(self, feature, feature_data_point, segmentinfo, custom_priorities_engine_results):
+        if len(custom_priorities_engine_results) > 0:
+            if feature['AttribName'] in feature_data_point:
                 feature_condition = feature['Name'].split("|")[-1]
                 if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
-                    segmentinfo['Features'].append(feature)
-                    return True
+                    if 'custom_priorities_engine_correlation_id' in feature_data_point and feature_data_point['custom_priorities_engine_correlation_id'] in custom_priorities_engine_results:
+                        logger.info(f'Setting significance index to {custom_priorities_engine_results[feature_data_point["custom_priorities_engine_correlation_id"]]} for feature_data_point {feature_data_point}')
+                        # Need to do a deep copy of the feature as the weight assigned can change across segments for the same feature
+                        deepcopy_feature = copy.deepcopy(feature)
+                        deepcopy_feature['Weight'] = custom_priorities_engine_results[feature_data_point['custom_priorities_engine_correlation_id']]
+                        segmentinfo['Features'].append(deepcopy_feature)
+                        return True
         else:
-            # Make sure that The Feature is Available in Cache
-            if feature['AttribName'] in feature_data_point and feature['Include']:
-                # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
-                # Ex. SegmentBySceneAndSR | score_change | true
-                # Ex. DetectSentiment | Sentiment | false
-                feature_condition = feature['Name'].split("|")[-1]
-                if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
-                    segmentinfo['Features'].append(feature)
-                    return True
+            # Make sure that The Feature is Available in Cache and that the Weight is more than ZERO
+            if 'Weight' in feature: #For ClipBased settings i n Replay, no weight attribute exists
+                if feature['AttribName'] in feature_data_point and feature['Weight'] > 0:
+                    # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
+                    # Ex. SegmentBySceneAndSR | score_change | true
+                    # Ex. DetectSentiment | Sentiment | false
+                    feature_condition = feature['Name'].split("|")[-1]
+                    if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                        segmentinfo['Features'].append(feature)
+                        return True
+            else:
+                # Make sure that The Feature is Available in Cache
+                if feature['AttribName'] in feature_data_point and feature['Include']:
+                    # Check if we have a Feature value which is Bool. feature['Name'] is as shown below
+                    # Ex. SegmentBySceneAndSR | score_change | true
+                    # Ex. DetectSentiment | Sentiment | false
+                    feature_condition = feature['Name'].split("|")[-1]
+                    if feature_data_point[feature['AttribName']] == True if feature_condition.lower().strip() == "true" else False:
+                        segmentinfo['Features'].append(feature)
+                        return True
         return False
 
     def should_segment_be_force_included(self, segment_start_time, segment):
@@ -251,7 +264,7 @@ class ReplayFeatureProcessor:
                             return False
         return False
 
-    def __map_segment_with_features(self, segmentinfo, segment_mapping_as_json):
+    def __map_segment_with_features(self, segmentinfo, segment_mapping_as_json, custom_priorities_engine_results):
         '''
             Maps out the Features present in a given Segment Cache file with the Features in Replay Request
             If a Segment has been marked for force Inclusion, we dont check if the Segment Cache File 
@@ -271,15 +284,24 @@ class ReplayFeatureProcessor:
                         # Check Video based Feature data
                         for feature_data_point in segment_mapping_as_json['FeaturesDataPoints']["0"]:
                             if feature['AttribName'] not in unique_features:
-                                if self.__match_feature(feature, feature_data_point, segmentinfo):
+                                if self.__match_feature(feature, feature_data_point, segmentinfo, custom_priorities_engine_results):
                                     unique_features.append(feature['AttribName'])
 
                     # Check Audio based Feature data based on the current Audio Track
                     if str(self.audio_track) in segment_mapping_as_json['FeaturesDataPoints']:
                         for feature_data_point in segment_mapping_as_json['FeaturesDataPoints'][str(self.audio_track)]:
                             if feature['AttribName'] not in unique_features:
-                                if self.__match_feature(feature, feature_data_point, segmentinfo):
+                                if self.__match_feature(feature, feature_data_point, segmentinfo, custom_priorities_engine_results):
                                     unique_features.append(feature['AttribName'])
+
+            # If segments with Zero weight need to be disregarded
+            if self.disregard_zero_weight_segments and 'Features' in segmentinfo:
+                total_weight = 0
+                for feature in segmentinfo['Features']:
+                    total_weight += feature['Weight'] if 'Weight' in feature else 0
+                if total_weight == 0:
+                    logger.info(f'Emptying features for segment with start {segmentinfo["Start"]} as the total weight of all features in the segment is 0')
+                    segmentinfo['Features'] = []
         else:
             # Since this Segment is to be Force Included we dont care about the features in it
             # We also add a Flag to Indicate that this Segment was Force Included
@@ -291,8 +313,10 @@ class ReplayFeatureProcessor:
             logger.info(f"CLIP FORCE INCLUDED - Considering segment for replay with StartTime {segment_mapping_as_json['Start']}")
 
     def __configure_threads(self, cached_file_names):
+        custom_priorities_engine_results = self.custom_priorities_processor.get_custom_priorities_engine_results()
+            
         for file_name in cached_file_names:
-            self.threads.append(threading.Thread(target=self.__find_features_in_segments, args=(file_name,)))
+            self.threads.append(threading.Thread(target=self.__find_features_in_segments, args=(file_name,custom_priorities_engine_results,)))
                 
 
     def __start_threads(self):

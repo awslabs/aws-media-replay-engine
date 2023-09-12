@@ -881,6 +881,7 @@ def update_event(name, program):
         if "Item" not in response:
             raise NotFoundError(f"Event '{name}' in Program '{program}' not found")
 
+        response['Item'] = replace_decimals(response['Item'])
         print(f"Updating the event '{name}' in program '{program}'")
 
         if "ProgramId" in event and event["ProgramId"]:
@@ -893,7 +894,7 @@ def update_event(name, program):
                     KeyConditionExpression=Key("ProgramId").eq(program_id)
                 )
 
-                events = response["Items"]
+                events = replace_decimals(response["Items"])
 
                 while "LastEvaluatedKey" in response:
                     response = event_table.query(
@@ -902,7 +903,7 @@ def update_event(name, program):
                         KeyConditionExpression=Key("ProgramId").eq(program_id)
                     )
 
-                    events.extend(response["Items"])
+                    events.extend(replace_decimals(response["Items"]))
 
                 if len(events) > 0:
                     raise ConflictError(f"ProgramId '{program_id}' already exists in another event")

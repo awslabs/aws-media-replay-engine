@@ -120,6 +120,7 @@ class ChaliceApp(Stack):
                     "REPLAY_URL" : Fn.import_value("mre-replay-api-url"),
                     "SYSTEM_URL" : Fn.import_value("mre-system-api-url"),
                     "WORKFLOW_URL" : Fn.import_value("mre-workflow-api-url"),
+                    "CUSTOM_PRIORITIES_URL": Fn.import_value("mre-custompriorities-api-url"),
                     "API_AUTH_SECRET_KEY_NAME": "mre_hsa_api_auth_secret"
                 },
                 "tags": {

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="en">
@@ -175,6 +176,12 @@
         <span class="s2">&quot;ToleranceMaxLimitInSecs&quot;</span><span class="p">:</span> <span class="n">number</span>
     <span class="p">},</span>
     <span class="s2">&quot;Priorities&quot;</span><span class="p">:{</span>
+        <span class="s2">&quot;CustomPrioritiesEngine&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;CustomPrioritiesEngineEnabled&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;CustomPrioritiesEngineEndpointSsmParam&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;CustomPrioritiesEngineApiKeyArn&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+            <span class="s2">&quot;CustomPrioritiesEngineEndpointPathVariables&quot;</span><span class="p">:</span> <span class="nb">map</span>
+        <span class="p">},</span>
         <span class="s2">&quot;Clips&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="p">{</span>
                 <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
@@ -198,7 +205,8 @@
         <span class="s2">&quot;FadeOutMs&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
     <span class="p">},</span>
     <span class="s2">&quot;IgnoreDislikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
-    <span class="s2">&quot;IncludeLikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+    <span class="s2">&quot;IncludeLikedSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;DisregardZeroWeightSegments&quot;</span><span class="p">:</span> <span class="n">boolean</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -211,7 +219,8 @@
 <li><p>Description: Description of the Replay being created</p></li>
 <li><p>Requester: Requester of the Replay</p></li>
 <li><p>DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs. ToleranceMaxLimitInSecs is defaulted to 30 Secs if not specified.</p></li>
-<li><p>Priorities: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay</p></li>
+<li><p>Priorities.CustomPrioritiesEngine: Details of the Custom Priorities Engine API endpoint, Secret ARN and a dict of path variables and their corresponding values.</p></li>
+<li><p>Priorities.Clips: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay</p></li>
 <li><p>ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.</p></li>
 <li><p>Catchup: True if a CatchUp replay is to be created, False otherwise.</p></li>
 <li><p>CreateHls: True if HLS replay output is to be created</p></li>
@@ -221,6 +230,7 @@
 <li><p>TransitionOverride: Optional. Objects represents additional Transition configuration that can be overwritten during Replay creation.</p></li>
 <li><p>IgnoreDislikedSegments: Optional. Ignores segments which have been disliked (thumbs down) when reviewing the Segment clip. Default False.</p></li>
 <li><p>IncludeLikedSegments: Optional. If True, segments which have been liked (thumbs up) when reviewing the Segment clip will be included in Replay. Default False.</p></li>
+<li><p>DisregardZeroWeightSegments: Optional. If True, Segments with total feature weights of 0 are disregarded for replay clip</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>

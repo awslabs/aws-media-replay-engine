@@ -69,6 +69,23 @@
       "type": "object",
       "title": "The Priorities Schema",
       "properties": {
+          "CustomPrioritiesEngine":{
+            "$id": "#/properties/Priorities/CustomPrioritiesEngine",
+            "type": "object",
+            "title": "The Custom Priorities Engine Schema",
+            "properties": {
+              "CustomPrioritiesEngineName": {
+                "$id": "#/properties/Priorities/CustomPrioritiesEngine/CustomPrioritiesEngineEnabled",
+                "type": "string",
+                "title": "Name of CustomPrioritiesEngine Schema"
+              },
+              "CustomPrioritiesEngineEndpointPathVariables":{
+                "$id": "#/properties/Priorities/CustomPrioritiesEngine/CustomPrioritiesEngineEndpointPathVariables",
+                "type": "object",
+                "title": "Path Variables to replace in Custom Priorities Engine Resource Schema"
+              }
+            }
+          },
         "Clips": {
           "$id": "#/properties/Priorities/Clips",
           "type": "array",
@@ -225,6 +242,11 @@
         },
         "additionalProperties": false,
         "required": ["ChannelName", "AdInsertionConfig", "PositionAtBeginning", "AdSetting"]
+      },
+      "DisregardZeroWeightSegments": {
+        "$id": "#/properties/DisregardZeroWeightSegments",
+        "type": "boolean",
+        "title": "Flag to supress segments with zero total feature weights in replay"
     }
   },
     "additionalProperties": false,

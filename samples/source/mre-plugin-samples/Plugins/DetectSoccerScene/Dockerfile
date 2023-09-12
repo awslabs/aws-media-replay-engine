@@ -1,4 +1,4 @@
-FROM  public.ecr.aws/lambda/python:3.8 as app
+FROM  public.ecr.aws/lambda/python:3.8-x86_64 as app
 
 RUN yum -y install \
     libsndfile \

@@ -1,0 +1,30 @@
+{
+        "Optimizer": {
+            "Configuration": {},
+            "Name": "TestSuite-ProfileTest-OptimizePassThrough"
+        },
+        "ProcessingFrameRate": 10,
+        "ChunkSize": 10,
+        "MaxSegmentLengthSeconds": 10,
+        "Classifier": {
+            "Configuration": {
+                "chunk_to_segment_ratio": "0.5"
+            },
+            "Name": "TestSuite-ProfileTest-SegmentPassThrough100"
+        },
+        "Labeler": {
+            "Configuration": {},
+            "Name": "TestSuite-ProfileTest-LabelPassThrough"
+        },
+        "Featurers": [
+            {
+                "Configuration": {},
+                "IsPriorityForReplay": true,
+                "Name": "TestSuite-ProfileTest-DetectPassThrough100"
+            }
+        ],
+        "ContentGroups": [
+            "All"
+        ],
+        "Name": "TestSuite-ProfileTest-PassThroughPlugins"
+    }

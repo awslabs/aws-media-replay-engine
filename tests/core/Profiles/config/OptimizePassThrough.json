@@ -1,0 +1,11 @@
+{
+      "Name": "TestSuite-ProfileTest-OptimizePassThrough",
+      "Description": "A way to baseline framework latency with a trivial optimization task.",
+      "Class": "Optimizer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:OptimizePassThrough:$LATEST"
+}

@@ -62,12 +62,15 @@ export const EventCreate = () => {
 
     const fetchProfile = async () => {
         let response = await query('get', 'api', 'profile/all', {disableLoader: true});
-        return response.data;
+        //Sort based on Profile Name
+        return _.sortBy(response.data, item => {
+            return _.lowerCase(item.Name);
+        });
     };
 
     const fetchPrograms = async () => {
         let response = await query('get', 'api', 'program/all',{disableLoader: true});
-        return _.map(response.data, "Name");
+        return _.map(response.data, "Name").sort();
     };
 
     const fetchProfileMetadata = async (profile) => {

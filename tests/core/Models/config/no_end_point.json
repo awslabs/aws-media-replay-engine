@@ -1,0 +1,8 @@
+{
+    "Name": "TestSuite-NoEndpointModel",
+    "Description": "TestSuite No Endpoint Model",
+    "PluginClass": "Featurer", 
+    "ContentGroups": [
+      "Tennis"
+    ]
+}

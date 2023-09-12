@@ -1,0 +1,14 @@
+{
+      "Name": "TestSuite-EventTest-SegmentPassThrough100",
+      "Description": "This plugin is used to test MRE in a simple way by creating segments for each chunk based on time.",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:SegmentPassThrough100:$LATEST",
+      "Configuration": {
+        "chunk_to_segment_ratio": "0.5"
+      }
+}

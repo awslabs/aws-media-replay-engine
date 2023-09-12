@@ -1,0 +1,30 @@
+{
+        "Optimizer": {
+            "Configuration": {},
+            "Name": "TestSuite-EventTest-OptimizePassThrough"
+        },
+        "ProcessingFrameRate": 10,
+        "ChunkSize": 10,
+        "MaxSegmentLengthSeconds": 10,
+        "Classifier": {
+            "Configuration": {
+                "chunk_to_segment_ratio": "0.5"
+            },
+            "Name": "TestSuite-EventTest-SegmentPassThrough100"
+        },
+        "Labeler": {
+            "Configuration": {},
+            "Name": "TestSuite-EventTest-LabelPassThrough"
+        },
+        "Featurers": [
+            {
+                "Configuration": {},
+                "IsPriorityForReplay": true,
+                "Name": "TestSuite-EventTest-DetectPassThrough100"
+            }
+        ],
+        "ContentGroups": [
+            "All"
+        ],
+        "Name": "TestSuite-EventTestPassThroughProfile"
+}

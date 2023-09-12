@@ -53,6 +53,7 @@ class MreSharedResources(Stack):
         self.create_sqs_queues()
         self.create_cloudfront_distro()
         self.create_metadata_table()
+        self.create_custom_priorities_table()
 
     def create_cloudfront_distro(self):
         # Cloudfront Distro for Media Output
@@ -124,9 +125,9 @@ class MreSharedResources(Stack):
             removal_policy=RemovalPolicy.DESTROY
         )
 
-        CfnOutput(self, "mre-system-table-arn", value=self.content_group_table.table_arn,
+        CfnOutput(self, "mre-system-table-arn", value=self.system_table.table_arn,
                       description="Arn of the MRE System table", export_name="mre-system-table-arn")
-        CfnOutput(self, "mre-system-table-name", value=self.content_group_table.table_name,
+        CfnOutput(self, "mre-system-table-name", value=self.system_table.table_name,
                       description="Name of the MRE System table", export_name="mre-system-table-name")
 
     def create_content_group_table(self):
@@ -862,3 +863,19 @@ class MreSharedResources(Stack):
                       description="Name of the MRE Metadata table", export_name="mre-metadata-table-name")
 
         
+    def create_custom_priorities_table(self):
+        # Custom Priorities Table
+        self.custom_priorities_table = ddb.Table(
+            self,
+            "CustomPriorities",
+            partition_key=ddb.Attribute(
+                name="Name",
+                type=ddb.AttributeType.STRING
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+        CfnOutput(self, "mre-custom-priorities-table-arn", value=self.custom_priorities_table.table_arn,
+                      description="Arn of the MRE Custom Priorities table", export_name="mre-custom-priorities-table-arn")
+        CfnOutput(self, "mre-custom-priorities-table-name", value=self.custom_priorities_table.table_name,
+                      description="Name of the MRE Custom Priorities table", export_name="mre-custom-priorities-table-name")

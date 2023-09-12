@@ -140,7 +140,7 @@ class CacheSyncManager:
     def __start_subprocess(self, final_s3_key_prefixes_to_sync: list):
         sync_commands = []
         for prefix in final_s3_key_prefixes_to_sync:
-            sync_commands.append(f"/opt/awscli/aws s3 sync s3://{MRE_CACHE_BUCKET}/{prefix} /tmp/{self.replay_id}/")
+            sync_commands.append(f"/opt/awscli/aws s3 sync 's3://{MRE_CACHE_BUCKET}/{prefix}' /tmp/{self.replay_id}/")
 
         processes = [Popen(cmd, shell=True) for cmd in sync_commands]
         for p in processes: 

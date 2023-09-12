@@ -1,0 +1,9 @@
+{
+    "Name": "TestSuite-ValidEndpointModel",
+    "Description": "TestSuite Valid Endpoint Model",
+    "PluginClass": "Featurer", 
+    "ContentGroups": [
+      "Tennis"
+    ],
+    "Endpoint": "asasd 2"
+}

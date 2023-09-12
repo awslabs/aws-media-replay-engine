@@ -1,0 +1,37 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "create_custom_priorities_engine",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Name": {
+            "$id": "#/properties/Name",
+            "type": "string",
+            "title": "The Name Schema",
+            "pattern": "^(.*)$"
+        },
+        "Description": {
+            "$id": "#/properties/Description",
+            "type": "string",
+            "title": "The Description Schema",
+            "pattern": "^(.*)$"
+        },
+        "EndpointSsmParam": {
+            "$id": "#/properties/EndpointSsmParam",
+            "type": "string",
+            "title": "The EndpointSsmParam Schema"
+        },
+        "SecretsManagerApiKeyArn": {
+            "$id": "#/properties/SecretsManagerApiKeyArn",
+            "type": "string",
+            "title": "The SecretsManagerApiKeyArn Schema"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Name",
+        "EndpointSsmParam",
+        "SecretsManagerApiKeyArn"
+    ]
+}

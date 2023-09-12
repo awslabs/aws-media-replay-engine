@@ -1,0 +1,355 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Aws-Mre-Controlplane-Custompriorities-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
+    
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/default.css" />
+    <link rel="stylesheet" href="../_static/custom-tabs.css" type="text/css" />
+    
+
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="_static/aws-sdk-2.826.0.min.js"></script>
+    <script type="text/javascript">
+        function _scroll(subjectId) {
+            var subjectElement = $(subjectId);
+            var actualSubjectHeight = subjectElement.height();
+            var startingPosition = subjectElement[0].getBoundingClientRect().top;
+            return function() {
+                var availableHeight = $(window).height() - startingPosition;
+                // Subtract the scroll position to account for sticky movement.
+                availableHeight += Math.min($(window).scrollTop(), 40);
+                var cappedHeight = Math.min(actualSubjectHeight, availableHeight);
+                if (subjectElement.css("height") !== cappedHeight) {
+                    subjectElement.css("height", cappedHeight);
+                }
+            };
+        }
+
+        // Scroll and resize the the columns when scrolled.
+        $(function() {
+            var rightScroll = _scroll("#right-column > .column-body");
+            var scrollFn = function() {
+                rightScroll.call(this, arguments);
+            };
+            scrollFn();
+            $(window).scroll(scrollFn);
+            $(window).resize(scrollFn);
+        });
+
+        // Scroll spy to change highlighted navigation element.
+        $(function() {
+            var section = document.querySelectorAll(".section");
+            var sections = {};
+            var i = 0;
+            Array.prototype.forEach.call(section, function(e) {
+                sections[e.id] = e.offsetTop;
+            });
+            var scrollSpy = function() {
+                var scrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+                for (i in sections) {
+                    if (sections[i] <= scrollPosition) {
+                        $('#right-column .current').removeClass('current');
+                        $("#right-column a[href='#" + i + "']").addClass('current');
+                    }
+                }
+            };
+            $(window).scroll(scrollSpy);
+            scrollSpy();
+        });
+        
+        $(function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+                }
+            );
+        });
+
+        $(function sendAnonVistorId() {
+            FingerprintJS.load().then(fp => {
+                // The FingerprintJS agent is ready.
+                // Get a visitor identifier when you'd like to.
+                fp.get().then(result => {
+                    AWS.config.region = 'us-west-2'; 
+                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: 'us-west-2:a2573bbc-f734-4ef9-84ba-30b702b5b958'});
+                    var pinpoint = new AWS.Pinpoint({apiVersion: '2016-12-01'});
+                    
+                    // This is the anonymous visitor identifier:
+                    const anonVisitorId = result.visitorId;
+                    var param = {
+                    ApplicationId: 'fea7ddb98ab9411787a3cf43d835a0d7',
+                    EventsRequest: {
+                        BatchItem: {}
+                        }
+                    };
+
+                    /* create the event parameter */
+                    var eventParam = {
+                        Endpoint: {
+                            Address: anonVisitorId,
+                            ChannelType: 'CUSTOM',
+                            }
+                        };
+
+                    /* attach the event values */
+                    eventParam['Events'] = [{
+                        EventType: 'mre_docs_page_view',
+                        Timestamp: (new Date()).toISOString()
+                    }];
+
+                    var endpointId = eventParam.Endpoint.Address + 'DOCS'
+                    param.EventsRequest.BatchItem[endpointId] = eventParam; 
+
+                    pinpoint.putEvents(param, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else     console.log(data);
+                    });
+                        });
+                    });
+        });
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"
+        onload="sendAnonVistorId()"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Aws-Mre-Controlplane-Workflow-Api" href="controlplane-workflow.html" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  </head><body>
+    <header>
+        <div class="header-flex width-wrapper">
+            <div class="site-logo">
+                
+		  <span class="logo-icon"><img src="../_static/img/MRE_Color.png" style="width:55px;height:50px"/></span>
+                </a>
+            </div>
+
+            <ul id="page-navigation">
+                
+                <li class="site-page"><a href="../main.html">Documentation</a></li>
+                
+                <li class="site-search hidden-sm">
+                    <form action="../search.html" method="get">
+                        <input type="hidden" name="check_keywords" value="yes" />
+                        <input type="hidden" name="area" value="default" />
+                        <input class="search-input" autocomplete="off" type="search" name="q" placeholder="Search" />
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </header>
+    
+        
+        
+        <section id="page-container">
+            <div class="width-wrapper flex">
+                <article id="document-body">
+                    
+                    
+  <section class="chalice-app" id="aws-mre-controlplane-custompriorities-api">
+<h1 class="chalice-appname">Aws-Mre-Controlplane-Custompriorities-Api<a class="headerlink" href="#aws-mre-controlplane-custompriorities-api" title="Permalink to this heading">¶</a></h1>
+<section class="chalice-route" id="create-custom-priorities-engine">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/custompriorities</span><a class="headerlink" href="#create-custom-priorities-engine" title="Permalink to this heading">¶</a></h2>
+<p>Create a new Custom Priorities Engine configuration. A Custom Priorities Engine configuration is a collection of attributes
+that define’s the required elements to integrate with an external API that provides segment level significance or weights
+for replay generation</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;EndpointSsmParam&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SecretsManagerApiKeyArn&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Name: Name of the Custom Priorities Engine configuration</p></li>
+<li><p>Description: Description of the Custom Priorities Engine configuration</p></li>
+<li><p>EndpointSsmParam: Name of the SSM Parameter that holds the API endpoint</p></li>
+<li><p>SecretsManagerApiKeyArn: ARN of the Secret in Secrets manager that holds the API key to Access the Custom Priorities Engine API</p></li>
+</ul>
+</div></blockquote>
+<p>Returns:</p>
+<blockquote>
+<div><p>A dict containing the Name of the Custom Priorities Engine</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="list-custompriorities">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/custompriorities/all</span><a class="headerlink" href="#list-custompriorities" title="Permalink to this heading">¶</a></h2>
+<p>List all the custom priorities engine configurations.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<dl>
+<dt>[</dt><dd><dl class="simple">
+<dt>{</dt><dd><p>“Name”: string,
+“Description”: string,
+“EndpointSsmParam”: string,
+“SecretsManagerApiKeyArn”: string
+“Created”: timestamp,
+“LastModified”: timestamp</p>
+</dd>
+</dl>
+<p>}</p>
+</dd>
+</dl>
+<p>]</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="delete-custom-priorities-engine">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/custompriorities/{name}</span><a class="headerlink" href="#delete-custom-priorities-engine" title="Permalink to this heading">¶</a></h2>
+<p>Delete a custom priorities engine configuration by name.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="get-custompriorities">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/custompriorities/{name}</span><a class="headerlink" href="#get-custompriorities" title="Permalink to this heading">¶</a></h2>
+<p>Get a custom priorities engine configuration by name.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>{</dt><dd><p>“Name”: string,
+“Description”: string,
+“EndpointSsmParam”: string,
+“SecretsManagerApiKeyArn”: string,
+“Enabled”: boolean,
+“Created”: timestamp,
+“LastModified”: timestamp</p>
+</dd>
+</dl>
+<p>}</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="update-custom-priorities-engine">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/custompriorities/{name}</span><a class="headerlink" href="#update-custom-priorities-engine" title="Permalink to this heading">¶</a></h2>
+<p>Update a custom priorities engine configuration by name.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;EndpointSsmParam&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;SecretsManagerApiKeyArn&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="update-custom-priorities-engine-status">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/custompriorities/{name}/status</span><a class="headerlink" href="#update-custom-priorities-engine-status" title="Permalink to this heading">¶</a></h2>
+<p>Enable or Disable custom priorities engine by name.</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Enabled&quot;</span><span class="p">:</span> <span class="n">boolean</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - BadRequestError
+404 - NotFoundError
+500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+                    
+                    <section class="relations">
+                        
+                        <a href="controlplane-workflow.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Aws-Mre-Controlplane-Workflow-Api</a>
+                        
+                    </section>
+                    
+                </article><aside id="right-column" class="side-column hidden-sm" >
+                    <div class="column-body" style="width: 600px">
+                        <section class="sidebar">
+                            
+                            <section class="next-previous">
+                                
+                                <a href="controlplane-workflow.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Prev</a>
+                                
+                            </section>
+                            
+                            <ul>
+<li><a class="reference internal" href="#">Aws-Mre-Controlplane-Custompriorities-Api</a><ul>
+<li><a class="reference internal" href="#create-custom-priorities-engine"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/custompriorities</span></a></li>
+<li><a class="reference internal" href="#list-custompriorities"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/custompriorities/all</span></a></li>
+<li><a class="reference internal" href="#delete-custom-priorities-engine"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/custompriorities/{name}</span></a></li>
+<li><a class="reference internal" href="#get-custompriorities"><p>Duplicate implicit target name: “/custompriorities/{name}”.</p>
+</a></li>
+<li><a class="reference internal" href="#update-custom-priorities-engine"><p>Duplicate implicit target name: “/custompriorities/{name}”.</p>
+</a></li>
+<li><a class="reference internal" href="#update-custom-priorities-engine-status"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/custompriorities/{name}/status</span></a></li>
+</ul>
+</li>
+</ul>
+
+                        </section>
+                    </div>
+                </aside></div>
+        </section>
+        
+    
+<footer id="footer">
+    <div class="width-wrapper">
+        <div class="copyright">
+            <p>©2023, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
+  </body>
+</html>

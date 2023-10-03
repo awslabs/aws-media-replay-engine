@@ -49,7 +49,7 @@ sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.6
 sphinxcontrib-serializinghtml==1.1.9
 typing_extensions==4.7.1
-urllib3==1.26.16
+urllib3==1.26.17
 waitress==2.1.2
 wcwidth==0.2.6
 WebOb==1.8.7

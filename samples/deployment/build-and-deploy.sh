@@ -121,10 +121,10 @@ if ! [[ "$app" =~ ^(plugin-samples|model-samples|fan-experience-frontend|hls-har
 fi
 
 # Verify Python min version
-resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor >= 8 else "Invalid Version")')"
+resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor == 11 else "Invalid Version")')"
 if [[ $resp =~ "Invalid Version" ]]; then
   echo "ERROR: Invalid Python version:"
-  echo "ERROR: Minimal required version: 3.8"
+  echo "ERROR: Required version: 3.11"
   echo "ERROR: Please install it and rerun this script"
   exit 1
 fi
@@ -194,7 +194,12 @@ fi
 echo "Using python virtual environment:"
 VENV=$(mktemp -d) && echo "$VENV"
 python3 -m venv "$VENV"
-source "$VENV"/bin/activate # source "$VENV"/Scripts/activate # for Windows
+# Check the operating system
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    source "$VENV"/Scripts/activate
+else
+    source "$VENV"/bin/activate
+fi
 pip3 install wheel
 pip3 install -q urllib3 requests requests-aws4auth
 if [ $? -ne 0 ]; then

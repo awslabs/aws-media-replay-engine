@@ -8,13 +8,13 @@ import {TableCell,} from "@material-ui/core";
 import {PLUGIN_SUMMARY_FORM} from "../../common/Constants";
 import Link from "@material-ui/core/Link";
 import {ListRenderer} from "../../components/ListRenderer/ListRenderer";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import Button from "@material-ui/core/Button";
 import _ from "lodash";
 
 
 export const PluginList = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const sortTableByName = (tableData) => {
         return _.sortBy(tableData, item => {
@@ -44,9 +44,8 @@ export const PluginList = () => {
     };
 
     const handleDetailsView = (row) => {
-        history.push({
-            pathname: "/viewPlugin",
-            state: {
+        navigate("/viewPlugin",
+            {state: {
                 back: {
                     name: "Plugins List",
                     link: "/listPlugins"

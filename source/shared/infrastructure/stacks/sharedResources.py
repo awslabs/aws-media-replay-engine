@@ -19,6 +19,7 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins
 )
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../')
@@ -55,10 +56,102 @@ class MreSharedResources(Stack):
         self.create_metadata_table()
         self.create_custom_priorities_table()
 
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-DDB3",
+                    "reason": "DynamoDB Point-in-time Recovery not required in the default deployment mode. Customers can turn it on if required"
+                },
+                {
+                    "id": "AwsSolutions-S1",
+                    "reason": "Logging can be enabled if reqd in higher environments"
+                },
+                {
+                    "id": "AwsSolutions-SQS3",
+                    "reason": "DLQ is deemed not required for lower environments. Can be changed to include it for higher environments"
+                },
+                {
+                    "id": "AwsSolutions-SQS4",
+                    "reason": "TLS can be enforced for Green field Deployments"
+                },
+                {
+                    "id": "AwsSolutions-CFR3",
+                    "reason": "Logging is not deemed important for lower environments."
+                },
+                {
+                    "id": "AwsSolutions-CFR4",
+                    "reason": "Custom certificate required for enabling this rule.  Can be enabled in Higher environments",
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "AWS managed policies allowed",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        "Action::s3:GetObject*",
+                        "Action::s3:GetBucket*",
+                        "Action::s3:Describe*",
+                        "Action::s3:List*",
+                        "Action::s3:DeleteObject*",
+                        "Action::s3:Abort*",
+                        "Action::s3:Put*",
+                        "Action::s3:Get*",
+                        "Action::autoscaling:Describe*",
+                        "Resource::*",
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:<AWS::Partition>:s3:::cdk-*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::<MreTransitionsClipBucket*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<LambdaLayerBucket*.+Arn>:*/"
+                        }
+                        
+                    ]
+                },
+            ]
+        )
+
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-shared-resources/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C256MiB/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "Custom Resource lambda function does not require the latest runtime version"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-shared-resources/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C512MiB/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "Custom Resource lambda function does not require the latest runtime version"
+                }
+            ]
+        )
+
     def create_cloudfront_distro(self):
         # Cloudfront Distro for Media Output
         self.mre_media_output_distro=cloudfront.Distribution(
             self, "mre-media-output",
+            minimum_protocol_version=cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021, # TLSv1.2
             default_behavior = cloudfront.BehaviorOptions(
                 origin=origins.S3Origin(self.mre_media_output_bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -125,10 +218,22 @@ class MreSharedResources(Stack):
             removal_policy=RemovalPolicy.DESTROY
         )
 
-        CfnOutput(self, "mre-system-table-arn", value=self.system_table.table_arn,
-                      description="Arn of the MRE System table", export_name="mre-system-table-arn")
-        CfnOutput(self, "mre-system-table-name", value=self.system_table.table_name,
-                      description="Name of the MRE System table", export_name="mre-system-table-name")
+        ssm.StringParameter(
+            self,
+            "MRESystemTableArn",
+            string_value=self.system_table.table_arn,
+            parameter_name="/MRE/ControlPlane/SystemTableArn",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Arn of the MRE System table"
+        )
+        ssm.StringParameter(
+            self,
+            "MRESystemTableName",
+            string_value=self.system_table.table_name,
+            parameter_name="/MRE/ControlPlane/SystemTableName",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Name of the MRE System table"
+        )
 
     def create_content_group_table(self):
         # ContentGroup Table
@@ -287,10 +392,8 @@ class MreSharedResources(Stack):
                 conditions=
                     {
                         "StringEquals": {
-                            "aws:SourceAccount": f"{Aws.ACCOUNT_ID}"
-                        },
-                        "StringLike": {
-                            "aws:SourceArn": f"arn:aws:scheduler:{Aws.REGION}:{Aws.ACCOUNT_ID}:schedule/default/mre*"
+                            "aws:SourceAccount": f"{Aws.ACCOUNT_ID}",
+                            "aws:SourceArn": f"arn:aws:scheduler:{Aws.REGION}:{Aws.ACCOUNT_ID}:schedule-group/default"
                         }
                     }
             ),
@@ -475,9 +578,7 @@ class MreSharedResources(Stack):
                 key="timecode/timecode.zip"
             ),
             compatible_runtimes=[
-                _lambda.Runtime.PYTHON_3_6,
-                _lambda.Runtime.PYTHON_3_7,
-                _lambda.Runtime.PYTHON_3_8
+                _lambda.Runtime.PYTHON_3_11
             ]
         )
 
@@ -495,9 +596,7 @@ class MreSharedResources(Stack):
                 key="ffmpeg/ffmpeg.zip"
             ),
             compatible_runtimes=[
-                _lambda.Runtime.PYTHON_3_6,
-                _lambda.Runtime.PYTHON_3_7,
-                _lambda.Runtime.PYTHON_3_8
+                _lambda.Runtime.PYTHON_3_11
             ]
         )
 
@@ -515,9 +614,7 @@ class MreSharedResources(Stack):
                 key="ffprobe/ffprobe.zip"
             ),
             compatible_runtimes=[
-                _lambda.Runtime.PYTHON_3_6,
-                _lambda.Runtime.PYTHON_3_7,
-                _lambda.Runtime.PYTHON_3_8
+                _lambda.Runtime.PYTHON_3_11
             ]
         )
 
@@ -537,7 +634,7 @@ class MreSharedResources(Stack):
                 key="MediaReplayEngineWorkflowHelper/MediaReplayEngineWorkflowHelper.zip"
             ),
             compatible_runtimes=[
-                _lambda.Runtime.PYTHON_3_8
+                _lambda.Runtime.PYTHON_3_11
             ]
         )
 
@@ -555,25 +652,53 @@ class MreSharedResources(Stack):
                 key="MediaReplayEnginePluginHelper/MediaReplayEnginePluginHelper.zip"
             ),
             compatible_runtimes=[
-                _lambda.Runtime.PYTHON_3_8
+                _lambda.Runtime.PYTHON_3_11
             ]
         )
 
         # Deploy MediaReplayEnginePluginHelper after layers_deploy
         self.mre_plugin_helper_layer.node.add_dependency(self.layer_deploy)
 
-        CfnOutput(self, "mre-timecode-layer", value=self.timecode_layer.layer_version_arn,
-                      description="contains the Arn for TimeCode Lambda Layer", export_name="mre-timecode-layer-arn")
-        CfnOutput(self, "mre-ffmpeg-layer", value=self.ffmpeg_layer.layer_version_arn,
-                      description="contains the Arn for ffmpeg Lambda Layer", export_name="mre-ffmpeg-layer-arn")
-        CfnOutput(self, "mre-ffprobe-layer", value=self.ffprobe_layer.layer_version_arn,
-                      description="contains the Arn for ffprobe Lambda Layer", export_name="mre-ffprobe-layer-arn")
-        CfnOutput(self, "mre-workflow-helper-layer", value=self.mre_workflow_helper_layer.layer_version_arn,
-                      description="contains the Arn for mre_workflow_helper Lambda Layer",
-                      export_name="mre-workflow-helper-layer-arn")
-        CfnOutput(self, "mre-plugin-helper-layer", value=self.mre_plugin_helper_layer.layer_version_arn,
-                      description="contains the Arn for mre_plugin_helper Lambda Layer",
-                      export_name="mre-plugin-helper-layer-arn")
+        ssm.StringParameter(
+            self,
+            "MRETimecodeLambdaLayerArn",
+            string_value=self.timecode_layer.layer_version_arn,
+            parameter_name="/MRE/TimecodeLambdaLayerArn",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Arn for timecode Lambda Layer"
+        )
+        ssm.StringParameter(
+            self,
+            "MREFfmpegLambdaLayerArn",
+            string_value=self.ffmpeg_layer.layer_version_arn,
+            parameter_name="/MRE/FfmpegLambdaLayerArn",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Arn for ffmpeg Lambda Layer"
+        )
+        ssm.StringParameter(
+            self,
+            "MREFfprobeLambdaLayerArn",
+            string_value=self.ffprobe_layer.layer_version_arn,
+            parameter_name="/MRE/FfprobeLambdaLayerArn",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Arn for ffprobe Lambda Layer"
+        )
+        ssm.StringParameter(
+            self,
+            "MREWorkflowHelperLambdaLayerArn",
+            string_value=self.mre_workflow_helper_layer.layer_version_arn,
+            parameter_name="/MRE/WorkflowHelperLambdaLayerArn",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Arn for MediaReplayEngineWorkflowHelper Lambda Layer"
+        )
+        ssm.StringParameter(
+            self,
+            "MREPluginHelperLambdaLayerArn",
+            string_value=self.mre_plugin_helper_layer.layer_version_arn,
+            parameter_name="/MRE/PluginHelperLambdaLayerArn",
+            tier=ssm.ParameterTier.INTELLIGENT_TIERING,
+            description="[DO NOT DELETE] Parameter contains the Arn for MediaReplayEnginePluginHelper Lambda Layer"
+        )
 
         ##### END: LAMBDA LAYERS #####
 
@@ -879,3 +1004,6 @@ class MreSharedResources(Stack):
                       description="Arn of the MRE Custom Priorities table", export_name="mre-custom-priorities-table-arn")
         CfnOutput(self, "mre-custom-priorities-table-name", value=self.custom_priorities_table.table_name,
                       description="Name of the MRE Custom Priorities table", export_name="mre-custom-priorities-table-name")
+        
+
+

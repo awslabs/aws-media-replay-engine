@@ -1,6 +1,5 @@
 import os
 import sys
-
 from aws_cdk import (
     CfnOutput,
     Aws,
@@ -11,6 +10,7 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_s3_notifications as s3n
 )
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../')
@@ -47,7 +47,7 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"]
             )
         )
 
@@ -57,9 +57,10 @@ class ChaliceApp(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -71,7 +72,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -83,7 +84,7 @@ class ChaliceApp(Stack):
                     "states:StartExecution"
                 ],
                 resources=[
-                    "arn:aws:states:*:*:stateMachine:*"
+                    f"arn:aws:states:{Stack.of(self).region}:{Stack.of(self).account}:stateMachine:*"
                 ]
             )
         )
@@ -93,7 +94,7 @@ class ChaliceApp(Stack):
             self,
             "TriggerMREWorkflow",
             description="Execute MRE StepFunction workflow for every HLS video segment (.ts) file stored in S3",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda"),
             handler="lambda_function.lambda_handler",
             role=self.trigger_mre_lambda_role,
@@ -125,3 +126,39 @@ class ChaliceApp(Stack):
                       export_name="mre-trigger-workflow-lambda-arn")
 
         ### END: TriggerMREWorkflow LAMBDA ###
+
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "AWS managed policies allowed",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
+                        "Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:stateMachine:*",
+                        "Resource::*"
+                    ]
+                },
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-workflow-trigger/TriggerMREWorkflow/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "TriggerMREWorkflow lambda function does not require the latest runtime version"
+                }
+            ]
+        )

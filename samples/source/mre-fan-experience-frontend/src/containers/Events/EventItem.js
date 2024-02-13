@@ -7,12 +7,13 @@
 
 import React from 'react';
 import {makeStyles} from "@material-ui/core/styles";
-import {API} from "aws-amplify";
+import {get} from "aws-amplify/api";
 import _ from "lodash";
 import Box from "@material-ui/core/Box";
 import Grid from "@material-ui/core/Grid";
 import Typography from "@material-ui/core/Typography";
 import {Card, CardActionArea, CardMedia, CircularProgress} from "@material-ui/core";
+import {APIHandler} from "../../common/APIHandler/APIHandler";
 import moment from "moment";
 import {truncateText} from "../../common/utils/utils";
 import {CATEGORIES} from "../../common/Constants";
@@ -57,9 +58,9 @@ export const EventItem = (props) => {
     const classes = useStyles();
     const [eventDetails, setEventDetails] = React.useState([]);
     const [imageHover, setImageHover] = React.useState(false);
-    const [isLoading, setIsLoading] = React.useState(undefined);
     const [image, setImage] = React.useState(undefined);
     const categoryImage = _.find(CATEGORIES, {"title": _.get(props, 'event.ContentGroup')}).image;
+    const {query, isLoading} = APIHandler();
 
     const handleMouseOver = () => {
         setImageHover(true);
@@ -72,26 +73,20 @@ export const EventItem = (props) => {
     React.useEffect(() => {
 
         (async () => {
-            try {
-                setIsLoading(true);
-                let profileRes = await API.get('api', `profile/${props.event.Profile}`);
-                let profileClassifier = _.get(profileRes, 'Classifier.Name');
+            let profileRes = await query('get', 'api', `profile/${props.event.Profile}`);
+            let profileClassifier = _.get(profileRes.data, 'Classifier.Name');
 
-                if (profileClassifier) {
-                    let response = await API.get('api-data-plane', `event/${props.event.Name}/program/${props.event.Program}/profileClassifier/${profileClassifier}/track/1/segments`);
-                    let eventsUpdated = {
-                        ...props.event,
-                        ...(_.get(response, 'Segments[0]'))
-                    }
-                    setEventDetails(eventsUpdated);
-
-                    eventsUpdated.OriginalThumbnailLocation ?
-                        setImage(eventsUpdated.OriginalThumbnailLocation) :
-                        setImage(categoryImage);
+            if (profileClassifier) {
+                let response = await query('get', 'api-data-plane', `event/${props.event.Name}/program/${props.event.Program}/profileClassifier/${profileClassifier}/track/1/segments`);
+                let eventsUpdated = {
+                    ...props.event,
+                    ...(_.get(response.data, 'Segments[0]'))
                 }
-            }
-            finally {
-                setIsLoading(false);
+                setEventDetails(eventsUpdated);
+
+                eventsUpdated.OriginalThumbnailLocation ?
+                    setImage(eventsUpdated.OriginalThumbnailLocation) :
+                    setImage(categoryImage);
             }
         })();
     }, []);

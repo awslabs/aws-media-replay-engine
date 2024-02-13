@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 
 import os
+import tempfile
 import boto3
 
 from dateutil import parser
@@ -62,6 +63,7 @@ def get_latest_image():
 
 def get_user_data():
     current_dir = os.path.dirname(__file__)
+    tmp_dir = tempfile.mkdtemp(dir='/tmp')
     replace_tokens = {
         "%%AWS_REGION%%":str(MRE_REGION),
         "%%SQS_QUEUE_URL%%":str(SQS_QUEUE_URL),
@@ -71,7 +73,7 @@ def get_user_data():
         "%%DESTINATION_S3_BUCKET%%":str(DESTINATION_S3_BUCKET)
     } 
     
-    with open(current_dir + "/user_data.txt", 'r') as fi, open("/tmp/user_data_final.txt", 'w') as fo:
+    with open(current_dir + "/user_data.txt", 'r') as fi, open(os.path.join(tmp_dir, "user_data_final.txt"), 'w') as fo:
         for line in fi:
             for token in replace_tokens:
                 print(replace_tokens[token])
@@ -80,7 +82,7 @@ def get_user_data():
             fo.write(line)
 
     contents = ""
-    with open("/tmp/user_data_final.txt") as userdata_file:
+    with open(os.path.join(tmp_dir, "user_data_final.txt")) as userdata_file:
         contents = userdata_file.read()
     
 

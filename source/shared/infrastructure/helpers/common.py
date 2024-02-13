@@ -100,27 +100,47 @@ class MreCdkCommon():
 
     @staticmethod    
     def get_powertools_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "PowerToolsLayerFromArn", f"arn:aws:lambda:{Aws.REGION}:017000801446:layer:AWSLambdaPowertoolsPythonV2:12")
+        return _lambda.LayerVersion.from_layer_version_arn(this, "PowerToolsLayerFromArn", f"arn:aws:lambda:{Aws.REGION}:017000801446:layer:AWSLambdaPowertoolsPythonV2:58")
 
     @staticmethod    
     def get_timecode_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "TimeCodeLayerFromArn", Fn.import_value("mre-timecode-layer-arn"))
+        timecode_layer_arn = ssm.StringParameter.value_for_string_parameter(
+            this,
+            parameter_name="/MRE/TimecodeLambdaLayerArn"
+        )
+        return _lambda.LayerVersion.from_layer_version_arn(this, "TimeCodeLayerFromArn", timecode_layer_arn)
 
     @staticmethod
     def get_ffmpeg_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "ffmpegLayerFromArn", Fn.import_value("mre-ffmpeg-layer-arn"))    
+        ffmpeg_layer_arn = ssm.StringParameter.value_for_string_parameter(
+            this,
+            parameter_name="/MRE/FfmpegLambdaLayerArn"
+        )
+        return _lambda.LayerVersion.from_layer_version_arn(this, "ffmpegLayerFromArn", ffmpeg_layer_arn)
 
     @staticmethod
     def get_ffprobe_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "ffprobeLayerFromArn", Fn.import_value("mre-ffprobe-layer-arn"))
+        ffprobe_layer_arn = ssm.StringParameter.value_for_string_parameter(
+            this,
+            parameter_name="/MRE/FfprobeLambdaLayerArn"
+        )
+        return _lambda.LayerVersion.from_layer_version_arn(this, "ffprobeLayerFromArn", ffprobe_layer_arn)
 
     @staticmethod
     def get_mre_workflow_helper_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "workflowHelperLayerFromArn", Fn.import_value("mre-workflow-helper-layer-arn"))
+        mre_workflow_helper_layer_arn = ssm.StringParameter.value_for_string_parameter(
+            this,
+            parameter_name="/MRE/WorkflowHelperLambdaLayerArn"
+        )
+        return _lambda.LayerVersion.from_layer_version_arn(this, "workflowHelperLayerFromArn", mre_workflow_helper_layer_arn)
 
     @staticmethod
     def get_mre_plugin_helper_layer_from_arn(this) -> ILayerVersion:
-        return _lambda.LayerVersion.from_layer_version_arn(this, "pluginHelperLayerFromArn", Fn.import_value("mre-plugin-helper-layer-arn"))
+        mre_plugin_helper_layer_arn = ssm.StringParameter.value_for_string_parameter(
+            this,
+            parameter_name="/MRE/PluginHelperLambdaLayerArn"
+        )
+        return _lambda.LayerVersion.from_layer_version_arn(this, "pluginHelperLayerFromArn", mre_plugin_helper_layer_arn)
 
     @staticmethod
     def get_media_convert_role_arn():

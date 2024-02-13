@@ -5,7 +5,7 @@
 
 import React from 'react';
 import _ from 'lodash';
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {
     Backdrop,
     CircularProgress,
@@ -31,9 +31,10 @@ export const PLUGIN_TYPES = {
 };
 
 export const ProfileCreate = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
+    const {state} = useLocation();
     const classes = useStyles();
-    const stateParams = _.get(history, 'location.state.latestVersion');
+    const stateParams = state.latestVersion;
 
     const {query, isLoading, setIsLoading} = APIHandler();
 

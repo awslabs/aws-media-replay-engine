@@ -11,13 +11,14 @@ import {makeStyles} from "@material-ui/core/styles";
 import Grid from "@material-ui/core/Grid";
 import Typography from "@material-ui/core/Typography";
 import Box from "@material-ui/core/Box";
-import {API} from "aws-amplify";
+import {get} from "aws-amplify/api";
 import _ from "lodash";
 import {EventItem} from "./EventItem";
 import {GridList, GridListTile} from "@material-ui/core";
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import IconButton from "@material-ui/core/IconButton";
+import {APIHandler} from "../../common/APIHandler/APIHandler";
 
 const EVENTS_LIMIT = 25;
 const EVENTS_VIEWER_SIZE = 5;
@@ -57,6 +58,7 @@ export const EventList = (props) => {
     const [events, setEvents] = React.useState(undefined);
     const [eventsViewerIndex, setEventsViewerIndex] = React.useState(0);
     const [currentViewEvents, setCurrentViewEvents] = React.useState([]);
+    const {query, isLoading} = APIHandler();
 
     React.useEffect(() => {
         (async () => {
@@ -67,11 +69,8 @@ export const EventList = (props) => {
                 ProjectionExpression: "Name, Start, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id"
             }
 
-            let eventsResponse = await API.get('api', `event/contentgroup/${props.contentGroup}/all`,
-                {queryStringParameters}
-            );
-
-            setEvents(eventsResponse["Items"]);
+            let eventsResponse = await query('get', 'api', `event/contentgroup/${props.contentGroup}/all`, queryStringParameters)
+            setEvents(eventsResponse.data);
         })();
     }, []);
 

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 
 # import packages ##
+import os
 import base64
 import json
 import mxnet as mx
@@ -9,6 +10,7 @@ import ffmpeg
 import numpy as np
 import audio2numpy as a2n
 import openl3
+import tempfile
 from os.path import isfile, join, getsize
 #import boto3, botocore
 
@@ -29,6 +31,9 @@ def model_fn(model_dir):
 
 ## SageMaker loading function ##
 def transform_fn(net, data, input_content_type, output_content_type):
+    # temporary directory to store files
+    tmpdir = tempfile.mkdtemp(dir='/tmp')
+    v_output = os.path.join(tmpdir, 'test.mp3')
 
     ## retrive model and contxt from the first parameter, net
     model, ctx = net
@@ -41,11 +46,10 @@ def transform_fn(net, data, input_content_type, output_content_type):
         img = mx.nd.array(parsed)
     # for batch transform jobs
     else:
-        with open('/tmp/test.mp3','wb') as writer:
+        with open(v_output,'wb') as writer:
             writer.write(data)
-    print('file saved',isfile('/tmp/test.mp3'))
+    print('file saved',isfile(v_output))
     
-    v_output = '/tmp/test.mp3'    
     x,sr = a2n.open_audio(v_output)
     nwin = int(len(x)/sr)
     x_input = []

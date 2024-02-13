@@ -5,8 +5,16 @@
 
 import React from 'react';
 import {FormControl, FormLabel} from "@material-ui/core";
-import DateTimePicker from 'react-datetime-picker/dist/entry.nostyle'
+import DateTimePicker from 'react-datetime-picker'
 import '../../../common/DateTimePicker.css';
+
+const debounce = (func, timeout = 300) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { func.apply(this, args); }, timeout);
+  };
+}
 
 export const TimeFilter = (props) => {
     return (
@@ -14,12 +22,13 @@ export const TimeFilter = (props) => {
             <FormLabel>{props.label}</FormLabel>
             <div>
                 <DateTimePicker style={{}}
-                    onChange={(date) => {
+                    onChange={debounce((date) => {
+                        console.log(date)
                         if (!date) {
                             props.onClearClick();
                         }
                         props.onChange(date);
-                    }}
+                    })}
                     value={props.dateTime}
                     required
                     disableClock

@@ -5,18 +5,18 @@
  *
  */
 
-import Typography from '@material-ui/core/Typography';
+import React from 'react';
+import Typography from "@material-ui/core/Typography";
+import Box from "@material-ui/core/Box";
 
-//@todo add logo, tie to light/dark theme
-
-function Copyright() {
+export const Copyright = () => {
     return (
-        <Typography variant="body2">
+        <Box pr={4}>
+            <Typography variant="body1">
                 {'Copyright © '}
                 {new Date().getFullYear()}
-            {' Amazon Web Services, Inc. or its affiliates. All rights reserved.'}
+                {' Amazon Web Services, Inc. or its affiliates. All rights reserved'}
             </Typography>
+        </Box>
     );
-}
-
-export default Copyright;
+};

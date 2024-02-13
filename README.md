@@ -18,17 +18,18 @@ To get a head start in building automated video clipping pipelines using the MRE
 
 ## Prerequisites
 
-* python >= 3.8
+* python == 3.11
 * aws-cli
 * aws-cdk >= 2.24.1
 * docker
-* node >= 14.15.0
-* npm >= 5.6
+* node >= 20.10.0
+* npm >= 10.2.3
 * git
 
-> **NOTE:** If using an AWS Cloud9 environment to install MRE:  
-    - Resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).  
-    - Ensure the installed version of Python is 3.8 or newer.
+> **NOTE:** If using an AWS Cloud9 environment to install MRE:
+> - Choose Amazon Linux 2 as the platform for your Cloud9 environment.
+> - Resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).
+> - Ensure the installed version of Python is 3.11. There is a [script](/deployment/install-python311-cloud9.sh) that will do this for you on Cloud9 Amazon Linux 2 environments.
 
 ## Greenfield Deployment
 
@@ -38,7 +39,7 @@ Run the following commands to build and deploy MRE. Be sure to define values for
 
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.7.0
+VERSION=2.9.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -51,7 +52,7 @@ cd deployment
 In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.7.0
+VERSION=2.9.0
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -80,6 +81,19 @@ To upgrade MRE Frontend to the latest version, follow the below steps. Be sure t
 	```
 - Finally, navigate to **aws-media-replay-engine/source/frontend/mre-frontend** folder, commit and push the changes to AWS CodeCommit.
 - AWS Amplify CI/CD pipeline should now automatically build and deploy the updated MRE Frontend application.
+
+#### Run Frontend Locally
+
+If you have the MRE Framework deployed to AWS you can configure and run the MRE frontend without having to redeploy the frontend stack. This can be useful if you want to quickly experiment and tinker with the user interface.
+
+- Firstly you want to configure the frontend to use the correct AWS resources, you can create a .env file in the **aws-media-replay-engine/source/frontend** folder by copying the env.template file.
+- Fill in this env file with the correct information, this can all be found in the outputs of the MRE cloudformation stacks.
+- Once the .env file is filled you can now install and run the MRE frontend from your local machine with the below commands:
+	```
+	npm i --legacy-peer-deps
+	npm run start
+	```
+- This will install the packages needed by the frontend and then run it on localhost:3000. Be sure that you have Node 20.10.0 installed for this to work as intended.
 
 ## Outputs
 
@@ -158,17 +172,21 @@ MRE uses AWS_IAM to authorize REST API requests for both the Control and Data pl
 
 ![Postman_Sample](docs/assets/images/Postman_Sample.png)
 
-## Run the MRE Frontend application locally
 
-1. Navigate to `source/frontend` folder.
-2. Duplicate `env.template` and rename the duplicated file to `.env`.
-3. Update the keys in `.env` with values from the **Outputs** tab of `mre-frontend` stack in AWS CloudFormation console.
-4. Once the values are updated, run the below commands:
-```
-npm install
+## Improve HTTPS viewer connection security
 
-npm start
-```
+The CloudFront distribution deployed by MRE allows for SSLv3 or TLSv1 for HTTPS viewer connections.
+However, it is recommended that customers help protect viewer connections by specifying a viewer certificate that enforces a minimum of TLSv1.2 in the security policy. In order to enforce TLSv1.2 in the security policy, update the Cloudfront Distribution by specifying a CNAME and the location of the SSL/TLS certificate. For more information on this, please refer to [Cloudfront Distribution Viewer Certificate](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-viewercertificate.html)
+
+
+### :heavy_exclamation_mark: **Important!**
+
+After a CNAME has been configured for the MRE Cloudfront distribution, be sure to execute the following steps to reflect this change within MRE deployment.
+
+1. Navigate to **AWS Systems Manager** in the AWS Management console. Choose **Parameter store** and replace the value of the parameter **/MRE/ControlPlane/MediaOutputDistribution** with the CNAME of the MRE Cloudfront distribution.
+2. Navigate to AWS Amplify in the AWS Management console. Under **All apps**, choose **mre_frontend**. In the left pane, under app settings, choose **Environment Variables**. Change the value of the environment variable **REACT_APP_CLOUDFRONT_DOMAIN_NAME** to the CNAME of the MRE Cloudfront distribution.
+3. In the left pane, under app settings, choose **Custom Headers**. Edit the Header information by replacing the the default MRE Cloudfront distribution url with the CNAME of the MRE Cloudfront distribution.
+4. Within the AWS Amplify console, under **All apps**, choose **MRE Frontend**. Click on **Build** and then click on **Redeploy this version**. This will redeploy the MRE frontend taking into account the new CNAME for the Cloudfront distribution.
 
 # Cost
 

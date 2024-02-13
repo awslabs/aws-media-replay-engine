@@ -3,6 +3,7 @@
 
 import json
 import os
+import tempfile
 import boto3
 from botocore.exceptions import ClientError
 import math
@@ -174,10 +175,11 @@ def lambda_handler(event, context):
 
         #retrieve the results from s3
         results_file = object_name + '.json'
-        s3_client.download_file(output_bucket_name, results_file, '/tmp/' + results_file)
+        tmp_dir = tempfile.mkdtemp(dir='/tmp')
+        s3_client.download_file(output_bucket_name, results_file, os.path.join(tmp_dir, results_file))
 
         #process results
-        results = consolidate_transcribe_results('/tmp/' + results_file, mre_pluginhelper, silence_duration_sec)
+        results = consolidate_transcribe_results(os.path.join(tmp_dir, results_file), mre_pluginhelper, silence_duration_sec)
         print(results)
 
         # Add the results of the plugin to the payload (required if the plugin status is "complete"; Optional if the plugin has any errors)

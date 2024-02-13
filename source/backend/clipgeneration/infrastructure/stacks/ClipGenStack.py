@@ -12,6 +12,8 @@ from aws_cdk import (
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks
 )
+from cdk_nag import NagSuppressions
+
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../')
@@ -49,9 +51,6 @@ class ClipGenStack(Stack):
         # Configure all Lambdas and Step Functions for Clip Gen
         self.configure_clip_gen_lambda()
 
-    
-
-        
     def configure_clip_gen_lambda(self):
 
         
@@ -67,12 +66,34 @@ class ClipGenStack(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                    "mediaconvert:Describe*",
-                    "mediaconvert:Get*",
-                    "mediaconvert:Create*"
+                    "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ]
+            )
+        )
+
+        self.event_clip_gen_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "mediaconvert:DescribeEndpoints",
+                    "mediaconvert:GetJob",
+                    "mediaconvert:GetQueue",
+                    "mediaconvert:CreatePreset",
+                    "mediaconvert:GetJobTemplate",
+                    "mediaconvert:CreatePreset",
+                    "mediaconvert:CreateQueue",
+                    "mediaconvert:CreateJobTemplate",
+                    "mediaconvert:CreateJob"
+                ],
+                resources=[
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobTemplates/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:presets/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:queues/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobs/*"
+                        ]
             )
         )
 
@@ -84,7 +105,7 @@ class ClipGenStack(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{MRE_EVENT_BUS}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{MRE_EVENT_BUS}"
                 ]
             )
         )
@@ -96,7 +117,7 @@ class ClipGenStack(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -104,10 +125,11 @@ class ClipGenStack(Stack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters",
+                    "ssm:GetParametersByPath"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -128,7 +150,7 @@ class ClipGenStack(Stack):
             self,
             "Mre-ClipGenEventClipGenerator",
             description="Generates Clips for MRE events",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/EventClipGenerator"),
             handler="mre-event-clip-generator.GenerateClips",
             role=self.event_clip_gen_lambda_role,
@@ -163,15 +185,45 @@ class ClipGenStack(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                    "mediaconvert:Describe*",
-                    "mediaconvert:Get*",
-                    "mediaconvert:Create*",
-                    "s3:Get*",
-                    "s3:Put*",
-                    "s3:List*"
+                    "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ]
+            )
+        )
+
+        self.event_hls_gen_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "mediaconvert:DescribeEndpoints",
+                    "mediaconvert:GetJob",
+                    "mediaconvert:GetQueue",
+                    "mediaconvert:CreatePreset",
+                    "mediaconvert:GetJobTemplate",
+                    "mediaconvert:CreatePreset",
+                    "mediaconvert:CreateQueue",
+                    "mediaconvert:CreateJobTemplate",
+                    "mediaconvert:CreateJob"
+                ],
+                resources=[
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobTemplates/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:presets/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:queues/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobs/*"
+                        ]
+            )
+        )
+
+        self.event_hls_gen_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:GetObject",
+                    "s3:PutObject"
+                ],
+                resources=[f"arn:aws:s3:::{self.media_convert_output_bucket_name}/*"]
             )
         )
 
@@ -182,7 +234,7 @@ class ClipGenStack(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -191,9 +243,10 @@ class ClipGenStack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -201,7 +254,7 @@ class ClipGenStack(Stack):
             self,
             "Mre-ClipGenEventHlsGenerator",
             description="Generates Hls Manifest for MRE events",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/EventHlsManifestGenerator"),
             handler="event_hls_manifest_gen.create_hls_manifest",
             role=self.event_hls_gen_lambda_role,
@@ -221,7 +274,7 @@ class ClipGenStack(Stack):
             self,
             "MreEventHlsMediaConvertJobStatus",
             description="Checks if all MRE Media Convert Jobs for an event are complete",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/EventHlsManifestGenerator"),
             handler="event_hls_manifest_gen.media_convert_job_status",
             role=self.event_hls_gen_lambda_role,
@@ -253,12 +306,22 @@ class ClipGenStack(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                    "s3:Get*",
-                    "s3:Put*",
-                    "s3:List*"
+                    "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ]
+            )
+        )
+
+        self.event_edl_gen_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:GetObject",
+                    "s3:PutObject"
+                ],
+                resources=[f"arn:aws:s3:::{self.media_convert_output_bucket_name}/*"]
             )
         )
 
@@ -269,7 +332,7 @@ class ClipGenStack(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -278,9 +341,10 @@ class ClipGenStack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -288,10 +352,10 @@ class ClipGenStack(Stack):
             self,
             "Mre-ClipGenEventEdlGenerator",
             description="Generates EDL representation for Mre Event",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/EventEdlGenerator"),
             handler="mre_event_edl_gen.generate_edl",
-            role=self.event_hls_gen_lambda_role,
+            role=self.event_edl_gen_lambda_role,
             memory_size=256,
             timeout=Duration.minutes(10),
             environment={
@@ -315,7 +379,7 @@ class ClipGenStack(Stack):
             self,
             "MRE-ClipGen-UpdateMediaConvertJobStatusInDDB",
             description="MRE - ClipGen - Updates Status of Media Convert Jobs in DDB based on event received from EventBridge",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/EventClipGenerator"),
             handler="mre-event-clip-generator.update_job_status",
             role=self.event_clip_gen_lambda_role,
@@ -344,18 +408,17 @@ class ClipGenStack(Stack):
             description="Service role for MRE Clip Generation Step Functions"
         )
 
-        # Step Function IAM Role: X-Ray permissions
+        
         self.sfn_clip_gen_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "xray:PutTraceSegments",
-                    "xray:PutTelemetryRecords",
-                    "xray:GetSamplingRules",
-                    "xray:GetSamplingTargets"
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
                 ],
                 resources=[
-                    "*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
                 ]
             )
         )
@@ -365,15 +428,10 @@ class ClipGenStack(Stack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "lambda:InvokeFunction",
-                    "lambda:List*",
-                    "lambda:Read*",
-                    "logs:CreateLogGroup",
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
+                    "lambda:InvokeFunction"
                 ],
                 resources=[
-                    "*"
+                    f"arn:aws:lambda:{Stack.of(self).region}:{Stack.of(self).account}:function:*"
                 ]
             )
         )
@@ -498,3 +556,122 @@ class ClipGenStack(Stack):
         )
 
         CfnOutput(self, "mre-clip-gen", value=self.state_machine.state_machine_arn, description="Contains MRE Clip Generation State Machine Arn", export_name="mre-clip-gen-arn" )
+
+        
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-DDB3",
+                    "reason": "DynamoDB Point-in-time Recovery not required in the default deployment mode. Customers can turn it on if required"
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:mediaconvert:*:*:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:jobTemplates/*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:presets/*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:queues/*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:jobs/*",
+                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::<MreClipGenEventHlsGenerator*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MreEventHlsMediaConvertJobStatus*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MreClipGenEventClipGenerator*.+Arn>:*/"
+                        }
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-SMG4",
+                    "reason": "By default no Secrets are created although the keys are created. Customers have to define these if the feature is being used."
+                },
+                {
+                    "id": "AwsSolutions-SF1",
+                    "reason": "Lambda functions have logging enabled. Step functions logs are not used"
+                },
+                {
+                    "id": "AwsSolutions-SF2",
+                    "reason": "x-Ray Tracing is not used"
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "AWS managed policies allowed",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ]
+                }
+            ]
+        )
+
+        NagSuppressions.add_resource_suppressions_by_path(self, 
+            f"aws-mre-clip-generation/AWS679f53fac002430cb0da5b7982bd2287", 
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "Clip Generator custom resource lambda function does not support the latest runtime version"
+                }
+            ])
+
+        NagSuppressions.add_resource_suppressions(
+            self.event_clip_generator_lambda,
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "Clip Generator lambda function does not require the latest runtime version"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions(
+            self.event_hls_create_manifest_lambda,
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "event_hls_create_manifest_lambda lambda function does not require the latest runtime version"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions(
+            self.event_hls_media_convert_job_status_lambda,
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "event_hls_media_convert_job_status_lambda lambda function does not require the latest runtime version"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions(
+            self.event_edl_gen_lambda,
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "event_edl_gen_lambda lambda function does not require the latest runtime version"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions(
+            self.update_media_convert_job_in_ddb,
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "update_media_convert_job_in_ddb lambda function does not require the latest runtime version"
+                }
+            ]
+        )

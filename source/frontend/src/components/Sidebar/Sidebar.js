@@ -16,7 +16,7 @@ import ListItemText from "@material-ui/core/ListItemText";
 import clsx from "clsx";
 import Typography from "@material-ui/core/Typography";
 import _ from "lodash";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import {SIDEBAR_ITEMS} from "../../common/Constants";
 
 
@@ -66,11 +66,11 @@ const useStyles = makeStyles((theme) => ({
 export const Sidebar = (props) => {
     const classes = useStyles();
     const [menuItemName, setMenuItemName] = React.useState(undefined)
-    const history = useHistory();
+    const navigate = useNavigate();
 
     React.useEffect(() => {
         let sidebar_item = _.find(SIDEBAR_ITEMS, item => {
-            return _.includes(item.url, history.location.pathname);
+            return _.includes(item.url, navigate.pathname);
         });
         if (sidebar_item) {
             setMenuItemName(sidebar_item.name);

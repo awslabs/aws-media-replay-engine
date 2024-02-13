@@ -11,6 +11,7 @@ from aws_cdk import (
     aws_lambda as _lambda
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../../')
@@ -74,7 +75,7 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -86,7 +87,7 @@ class ChaliceApp(Stack):
                     "ssm:DescribeParameters",
                     "ssm:GetParameter*"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -98,7 +99,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -111,7 +112,7 @@ class ChaliceApp(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
                 ]
             )
         )
@@ -121,7 +122,7 @@ class ChaliceApp(Stack):
             self,
             "WorkflowErrorHandler",
             description="Handle exceptions caught by the AWS Step Function workflow and optionally update the execution status of the Classifier plugin",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset("lambda/WorkflowErrorHandler"),
             handler="lambda_function.lambda_handler",
             role=self.workflow_error_handler_lambda_role,
@@ -158,7 +159,7 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -170,7 +171,7 @@ class ChaliceApp(Stack):
                     "ssm:DescribeParameters",
                     "ssm:GetParameter*"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -182,7 +183,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -191,7 +192,7 @@ class ChaliceApp(Stack):
             self,
             "PluginOutputHandler",
             description="Handle the output of a plugin based on its execution status",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset("lambda/PluginOutputHandler"),
             handler="lambda_function.lambda_handler",
             role=self.plugin_output_handler_lambda_role,
@@ -225,7 +226,7 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -237,7 +238,7 @@ class ChaliceApp(Stack):
                     "ssm:DescribeParameters",
                     "ssm:GetParameter*"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -249,7 +250,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -258,7 +259,7 @@ class ChaliceApp(Stack):
             self,
             "MultiChunkHelper",
             description="Check the completion status of a Classifier/Optimizer plugin in the prior AWS Step Function workflow executions",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset("lambda/MultiChunkHelper"),
             handler="lambda_function.lambda_handler",
             role=self.multi_chunk_helper_lambda_role,
@@ -319,7 +320,7 @@ class ChaliceApp(Stack):
                     "states:StartExecution"
                 ],
                 resources=[
-                    "arn:aws:states:*:*:stateMachine:*"
+                    f"arn:aws:states:{Stack.of(self).region}:{Stack.of(self).account}:stateMachine:*"
                 ]
             )
         )
@@ -344,7 +345,7 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -356,7 +357,7 @@ class ChaliceApp(Stack):
                     "ssm:DescribeParameters",
                     "ssm:GetParameter*"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -368,7 +369,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -377,7 +378,7 @@ class ChaliceApp(Stack):
             self,
             "ProbeVideo",
             description="Probe the HLS video segment (.ts) file to extract metadata about the video segment and all the key frames in it",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset("lambda/ProbeVideo"),
             handler="lambda_function.lambda_handler",
             role=self.probe_video_lambda_role,
@@ -413,7 +414,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -461,7 +462,7 @@ class ChaliceApp(Stack):
                     "states:TagResource"
                 ],
                 resources=[
-                    "arn:aws:states:*:*:*"
+                    f"arn:aws:states:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -505,6 +506,33 @@ class ChaliceApp(Stack):
             }
         )
 
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "MRE internal lambda IAM and Chalice IAM role policies require wildcard permissions to access SSM, CloudWatch, API Gateway and StepFunction",
+                    "appliesTo": [
+                        "Action::ssm:GetParameter*",
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::*",
+                        {
+                            "regex": "/^Resource::.*/index/\\*$/"
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:.*/"
+                        }
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "MRE internal lambda functions do not require the latest runtime version as their dependencies have been tested only on Python 3.11"
+                }
+            ]
+        )
 
         CfnOutput(self, "mre-profile-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Profile API Url", export_name="mre-profile-api-url" )
         

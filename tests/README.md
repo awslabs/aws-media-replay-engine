@@ -19,11 +19,11 @@ In the current release, the following are the scope of test cases
 
 ## Prerequisites
 
-* python >= 3.8
+* python == 3.11
 * aws-cli
 * aws-cdk >= 2.24.1
 * docker
-* node >= 16.15.0
+* node >= 20.10.0
 
 
 ## Deploy
@@ -53,6 +53,9 @@ Refer to the **Readme** under the **samples** folder for details on deploying an
 
 1. Configure AWS Command Line Interface (AWS CLI) to interact with AWS. This will create a aws profile.
 2. Define values for AWS_REGION and AWS_PROFILE and run the following command to execute all test cases.
+3. Define values of temporary IAM credentials aws_access_key_id, aws_secret_access_key and aws_session_token in the AWS Config file for the AWS profile used.
+
+Run the following command to execute all tests
 
 ```bash
 ./test-suite-entry.sh --region AWS_REGION --profile AWS_PROFILE
@@ -61,7 +64,22 @@ Refer to the **Readme** under the **samples** folder for details on deploying an
 
 ## Test Grouping
 
-By default, running the **./test-suite-entry.sh** script runs all the tests. Tests can also be run at a group level. For example, if you are interested in running all tests for a VOD based MRE Event using MediaLive channel as the 
+By default, running the **./test-suite-entry.sh** script runs all the tests. Tests can also be run at a group level. 
+
+### :heavy_exclamation_mark: **Attention!**
+
+Before running these test groups, ensure the following environment variables are set
+
+```
+export AWS_ACCESS_KEY_ID=
+export AWS_SECRET_ACCESS_KEY=
+export AWS_SESSION_TOKEN=
+export AWS_ACCOUNT_ID=
+export AWS_REGION=
+export PYTHONPATH=.
+```
+
+If you are interested in running all tests for a VOD based MRE Event using MediaLive channel as the 
 Video source, you can do so by running the following command. This command runs 4 tests in parallel as indicated by the option -n 4.
 
 ```bash

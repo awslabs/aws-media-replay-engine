@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import {useHistory, useParams} from "react-router-dom";
+import {useNavigate, useParams} from "react-router-dom";
 import {CATEGORIES} from "../../common/Constants";
 import _ from "lodash";
 import {makeStyles} from "@material-ui/core/styles";
@@ -18,9 +18,10 @@ import {EventList} from "./EventList";
 import moment from "moment";
 import Button from "@material-ui/core/Button";
 import Box from "@material-ui/core/Box";
-import {API} from "aws-amplify";
+import {get} from "aws-amplify/api";
 import PlayCircleOutlineIcon from "@material-ui/icons/PlayCircleOutline";
 import {Backdrop, CircularProgress} from "@material-ui/core";
+import {APIHandler} from "../../common/APIHandler/APIHandler";
 
 
 const useStyles = makeStyles((theme) => ({
@@ -40,12 +41,13 @@ const useStyles = makeStyles((theme) => ({
 export const Events = (props) => {
     const {category} = useParams();
     const classes = useStyles();
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const [selectedEvent, setSelectedEvent] = React.useState(undefined);
     const [replays, setReplays] = React.useState(undefined);
     const [highlightTypes, setHighlightTypes] = React.useState(undefined);
-    const [isLoading, setIsLoading] = React.useState(undefined);
+
+    const {query, isLoading} = APIHandler();
 
 
     React.useEffect(() => {
@@ -60,21 +62,14 @@ export const Events = (props) => {
 
     React.useEffect(() => {
         (async () => {
-            try {
-                setIsLoading(true);
+            let replaysResponse = await query('get', 'api', `replay/all`);
 
-                let replaysResponse = await API.get('api', `replay/all`);
-                setReplays(replaysResponse.Items);
-            }
-            finally {
-                setIsLoading(false);
-            }
-
+            setReplays(replaysResponse.data);
         })();
     }, []);
 
     const handleBackClick = () => {
-        history.push({pathname: "/"});
+        navigate("/");
     };
 
     const handleHighlightSelection = (highlightType) => {
@@ -83,7 +78,8 @@ export const Events = (props) => {
         });
 
         if (replaySelected) {
-            history.push({pathname: `/highlights/${selectedEvent.Name}/${selectedEvent.Program}/${replaySelected.ReplayId}`});
+            console.log(replaySelected)
+            navigate(`/highlights/${selectedEvent.Name}/${selectedEvent.Program}/${replaySelected.ReplayId}`);
         }
     };
 

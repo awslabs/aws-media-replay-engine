@@ -1,6 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+import os
+import tempfile
+import logging
 import botocore
 import boto3
 import json
@@ -296,7 +299,8 @@ def lambda_handler(event, context):
 
         # Download the HLS video segment from S3
         media_path = mre_dataplane.download_media()
-        mp4_path = '/tmp/mre_chunk.mp4'
+        tmp_dir = tempfile.mkdtemp(dir='/tmp')
+        mp4_path = os.path.join(tmp_dir, 'mre_chunk.mp4')
         try:
             stream = ffmpeg.input(media_path)
             out, err = (

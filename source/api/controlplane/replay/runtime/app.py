@@ -305,15 +305,17 @@ def listreplay_by_program_event(program, event):
             KeyConditionExpression=Key("PK").eq(f"{program}#{event}"),
             ConsistentRead=True
         )
+        
+        replayInfo = response["Items"]
 
         sorted_replayInfo = sorted(
-            response['Items'], key=lambda x: x['Created'], reverse=True)
+            replayInfo, key=lambda x: x['Created'], reverse=True)
 
         for item in sorted_replayInfo:
             replays.append({
                 "Program": program,
                 "Event": event,
-                "Duration": "TBD",
+                "Duration": item['DurationbasedSummarization']['Duration'] if 'DurationbasedSummarization' in item else 'N/A',
                 "Requester": item['Requester'],
                 "AudioTrack": item['AudioTrack'] if 'AudioTrack' in item else '',
                 "CatchUp": item['Catchup'],
@@ -388,7 +390,7 @@ def listreplay_by_content_group(contentGrp):
                         replays.append({
                             "Program": event['Program'],
                             "Event": event['Name'],
-                            "Duration": "TBD",
+                            "Duration": item['DurationbasedSummarization']['Duration'] if 'DurationbasedSummarization' in item else 'N/A',
                             "Requester": item['Requester'],
                             "AudioTrack": item['AudioTrack'] if 'AudioTrack' in item else '',
                             "CatchUp": item['Catchup'],

@@ -3,6 +3,7 @@
 
 import json
 import os
+import tempfile
 import boto3
 from MediaReplayEnginePluginHelper import OutputHelper
 from MediaReplayEnginePluginHelper import Status
@@ -29,7 +30,8 @@ def detect_ace_df_serve(segments, embedding_endpoint, classification_endpoint):
             print(clip_loc)
             bucket_name = clip_loc[2]
             object_name = '/'.join(clip_loc[3:])
-            file_name = '/tmp/seg.mp4'
+            tmp_dir = tempfile.mkdtemp(dir='/tmp')
+            file_name = os.path.join(tmp_dir, 'seg.mp4')
             print(bucket_name,object_name)
             s3.download_file(bucket_name, object_name, file_name)
             if os.path.isfile(file_name):

@@ -16,7 +16,7 @@ source/frontend/build/
 source/frontend/mre-frontend/
 source/frontend/package-lock.json
 
-.env
+.env*
 *.py-e
 ffmpeg.zip
 ffprobe.zip

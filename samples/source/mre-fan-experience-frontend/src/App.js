@@ -6,8 +6,8 @@
  */
 
 import {React, useState, useEffect} from "react";
-import {withRouter} from "react-router-dom";
-import {Auth} from "aws-amplify";
+import {withRouter} from "./common/utils/withRouter"
+import {fetchAuthSession, signOut} from "aws-amplify/auth";
 
 import config from "./config";
 import {SessionContext} from "./contexts/SessionContext";
@@ -42,7 +42,7 @@ function App(props) {
     const initApp = async () => {
         document.title = config.APP_TITLE;
         try {
-            const session = await Auth.currentSession();
+            const session = (await fetchAuthSession()).tokens ?? {};
             if (session) {
                 userHasAuthenticated(session.accessToken.payload.username);
             }
@@ -56,7 +56,7 @@ function App(props) {
     };
 
     const handleLogout = async () => {
-        await Auth.signOut();
+        await signOut();
         userHasAuthenticated(false);
         props.history.push("/login");
     };

@@ -40,7 +40,13 @@ rm -f ./ffprobe.zip
 docker build --tag=lambda_layer_factory:latest --platform linux/amd64 . 2>&1 > /dev/null 
 
 if [ $? -eq 0 ]; then
-  docker run --rm -it -v "$PWD":/packages lambda_layer_factory
+  # Check the operating system
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+      docker run --rm -it -v /${PWD}:/packages lambda_layer_factory
+  else
+      docker run --rm -it -v "$PWD":/packages lambda_layer_factory
+  fi
+  
 fi
 if [[ ! -f ./MediaReplayEnginePluginHelper.zip ]] || [[ ! -f ./MediaReplayEngineWorkflowHelper.zip ]] || [[ ! -f ./timecode.zip ]] || [[ ! -f ./ffmpeg.zip ]] || [[ ! -f ./ffprobe.zip ]]; then
     echo "ERROR: Failed to build lambda layer zip file."

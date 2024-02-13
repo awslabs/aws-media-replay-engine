@@ -17,6 +17,7 @@ from aws_cdk import (
 
 )
 import aws_cdk as core
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../')
@@ -53,7 +54,9 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ]
             )
         )
 
@@ -63,9 +66,10 @@ class ChaliceApp(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -77,21 +81,20 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
-        # EventCompletionHandlerLambdaRole: MediaLive permissions
+       
         self.event_completion_handler_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "medialive:List*",
-                    "medialive:Describe*",
-                    "medialive:Stop*",
-                    "medialive:Start*"
+                    "medialive:StartChannel",
+                    "medialive:StopChannel",
+                    "medialive:DescribeChannel"
                 ],
-                resources=["*"]
+                resources=[f"arn:aws:medialive:{Stack.of(self).region}:{Stack.of(self).account}:channel:*"]
             )
         )
 
@@ -102,7 +105,7 @@ class ChaliceApp(Stack):
                     "scheduler:ListSchedules"
                 ],
                 resources=[
-                    "*"
+                    "*"         #Selected actions only support the all resources wildcard('*').
                 ]
             )
         )
@@ -114,7 +117,7 @@ class ChaliceApp(Stack):
                     "scheduler:GetSchedule"
                 ],
                 resources=[
-                    f"arn:aws:scheduler:*:*:schedule/default/mre*"
+                    f"arn:aws:scheduler:{Stack.of(self).region}:{Stack.of(self).account}:schedule/default/mre*"
                 ]
             )
         )
@@ -127,7 +130,7 @@ class ChaliceApp(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
                 ]
             )
         )
@@ -142,7 +145,7 @@ class ChaliceApp(Stack):
             self,
             "EventCompletionHandler",
             description="Update the status of an MRE event to Complete based on the configured CloudWatch EventBridge triggers",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda"),
             handler="EventCompletion.lambda_handler",
             role=self.event_completion_handler_role,
@@ -156,7 +159,7 @@ class ChaliceApp(Stack):
             self,
             "MediaLiveChannelStopperHandler",
             description="Stops Medialive Channel when a VOD_EVENT_END / LIVE_EVENT_END(Conditions apply) is received via Event Bridge",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda"),
             handler="ChannelStopper.lambda_handler",
             role=self.event_completion_handler_role,
@@ -170,7 +173,7 @@ class ChaliceApp(Stack):
             self,
             "MediaLiveChannelStarterHandler",
             description="Starts Medialive Channel when a VOD_EVENT_START / LIVE_EVENT_START is received via Event Bridge",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda"),
             handler="ChannelStarter.lambda_handler",
             role=self.event_completion_handler_role,
@@ -185,13 +188,13 @@ class ChaliceApp(Stack):
             self, "SchedulePurgerHandler",
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda",
                 bundling=BundlingOptions(
-                    image=_lambda.Runtime.PYTHON_3_9.bundling_image,
+                    image=_lambda.Runtime.PYTHON_3_11.bundling_image,
                     command=["bash", "-c", "pip3 install -r requirements.txt -t /asset-output && cp -au . /asset-output"
                     ]
                 )
             ),
             description="Deletes a EB Schedule when a VOD_EVENT_COMPLETE / LIVE_EVENT_COMPLETE is received via Event Bridge",
-            runtime=_lambda.Runtime.PYTHON_3_9,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             handler="SchedulePurger.lambda_handler",
             role=self.event_completion_handler_role,
             memory_size=128,
@@ -204,10 +207,10 @@ class ChaliceApp(Stack):
             self,
             "ScheduleCleanupCronHandler",
             description="Deletes older EB schedules. This is a CRON that runs everyday at 6 AM UTC.",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda",
                 bundling=BundlingOptions(
-                    image=_lambda.Runtime.PYTHON_3_9.bundling_image,
+                    image=_lambda.Runtime.PYTHON_3_11.bundling_image,
                     command=["bash", "-c", "pip3 install -r requirements.txt -t /asset-output && cp -au . /asset-output"
                     ]
                 )
@@ -317,5 +320,85 @@ class ChaliceApp(Stack):
                 events_targets.LambdaFunction(
                     handler=self.channel_starter_handler_lambda
                 )
+            ]
+        )
+
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:medialive:<AWS::Region>:<AWS::AccountId>:channel:*",
+                        "Resource::arn:aws:scheduler:<AWS::Region>:<AWS::AccountId>:schedule/default/mre*",
+                        "Resource::*",
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
+                        }
+                        
+                    ]
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-event-life-cycle/EventCompletionHandler/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "MrEventCompletionHandler is on the appropriate runtime version as determined by the MRE Dev team"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-event-life-cycle/MediaLiveChannelStopperHandler/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "MediaLiveChannelStopperHandler is on the appropriate runtime version as determined by the MRE Dev team"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-event-life-cycle/MediaLiveChannelStarterHandler/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "MediaLiveChannelStarterHandler is on the appropriate runtime version as determined by the MRE Dev team"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-event-life-cycle/SchedulePurgerHandler/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "SchedulePurgerHandler is on the appropriate runtime version as determined by the MRE Dev team"
+                }
+            ]
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-event-life-cycle/ScheduleCleanupCronHandler/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "ScheduleCleanupCronHandler is on the appropriate runtime version as determined by the MRE Dev team"
+                }
             ]
         )

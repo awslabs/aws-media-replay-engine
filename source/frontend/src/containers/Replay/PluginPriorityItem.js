@@ -5,8 +5,7 @@
 
 import React from "react";
 import _ from "lodash";
-import { useHistory } from "react-router-dom";
-import { API } from "aws-amplify";
+import { useNavigate } from "react-router-dom";
 import { Backdrop, CircularProgress } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import Grid from "@material-ui/core/Grid";

@@ -47,6 +47,8 @@ def main(region, profile=None):
 
     cloudfront_url = f"https://{media_output_distro['Parameter']['Value']}"
 
+    mre_amplify_build_image = "public.ecr.aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+
     amplify_client = boto3.client('amplify', region_name=region)
 
     amplify_client.update_app(
@@ -100,7 +102,8 @@ def main(region, profile=None):
             "REACT_APP_USER_POOL_ID": user_pool_id,
             "REACT_APP_APP_CLIENT_ID": app_client_id,
             "REACT_APP_IDENTITY_POOL_ID": identity_pool_id,
-            "REACT_APP_CLOUDFRONT_PREFIX": cloudfront_url
+            "REACT_APP_CLOUDFRONT_PREFIX": cloudfront_url,
+            "_CUSTOM_IMAGE": mre_amplify_build_image
         },
         customRules=[
             {

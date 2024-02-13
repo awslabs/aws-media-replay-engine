@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import {API} from "aws-amplify";
+// import {post, get, del, put} from "aws-amplify/api";
 import _ from "lodash";
 import {CircularProgress, Container, FormControl, FormLabel, MenuItem, Select} from "@material-ui/core";
 import Grid from "@material-ui/core/Grid";

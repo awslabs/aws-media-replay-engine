@@ -4,8 +4,9 @@
  */
 
 import React, {useState, useEffect} from "react";
-import {withRouter, useHistory} from "react-router-dom";
-import {Auth} from "aws-amplify";
+import {useNavigate} from "react-router-dom";
+import {withRouter} from "./common/utils/withRouter"
+import {fetchAuthSession, signOut} from "aws-amplify/auth";
 
 import config from "./config";
 import {SessionContext} from "./contexts/SessionContext";
@@ -62,7 +63,7 @@ const App = (props) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [errorMessage, setErrorMessage] = useState(undefined);
 
-    const history = useHistory();
+    const navigate = useNavigate();
     const classes = useStyles();
 
     const userHasAuthenticated = username => {
@@ -74,11 +75,11 @@ const App = (props) => {
     useEffect(() => {
         initApp();
     }, []);
-
+    
     const initApp = async () => {
         document.title = config.APP_TITLE;
         try {
-            const session = await Auth.currentSession();
+            const session = (await fetchAuthSession()).tokens ?? {};
             if (session) {
                 userHasAuthenticated(session.accessToken.payload.username);
             }
@@ -92,9 +93,9 @@ const App = (props) => {
     };
 
     const handleLogout = async () => {
-        await Auth.signOut();
+        await signOut();
         userHasAuthenticated(false);
-        props.history.push("/login");
+        navigate("/login");
     };
 
     const handleDrawerOpen = () => {
@@ -146,27 +147,27 @@ const App = (props) => {
                                     menu={[
                                         {
                                             text: 'Events', navigate: () => {
-                                                props.history.push("/listEvents")
+                                                navigate("/listEvents")
                                             }
                                         },
                                         {
                                             text: 'Replays', navigate: () => {
-                                                props.history.push("/listReplays")
+                                                navigate("/listReplays")
                                             }
                                         },
                                         {
                                             text: 'Profiles', navigate: () => {
-                                                props.history.push("/listProfiles")
+                                                navigate("/listProfiles")
                                             }
                                         },
                                         {
                                             text: 'Plugins', navigate: () => {
-                                                props.history.push("/listPlugins")
+                                                navigate("/listPlugins")
                                             }
                                         },
                                         {
                                             text: 'Models', navigate: () => {
-                                                props.history.push("/listModels")
+                                                navigate("/listModels")
                                             }
                                         }
                                     ]}

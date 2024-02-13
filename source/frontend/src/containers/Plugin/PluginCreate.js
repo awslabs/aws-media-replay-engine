@@ -8,7 +8,7 @@ import {FormRenderer} from "../../components/Form/FormRenderer";
 import _ from 'lodash';
 
 import {PLUGIN_CLASSES, EXECUTION_TYPES, MEDIA_TYPES} from "../../common/Constants";
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {
     Backdrop,
     CircularProgress,
@@ -28,10 +28,11 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export const PluginCreate = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
+    const {state} = useLocation();
     const classes = useStyles();
 
-    const stateParams = _.get(history, 'location.state');
+    const stateParams = state;
 
     const {query, isLoading} = APIHandler();
     const [dependentPluginsOptions, setDependentPluginsOptions] = React.useState(undefined);

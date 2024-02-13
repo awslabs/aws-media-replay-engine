@@ -19,9 +19,11 @@ import AppBar from "@material-ui/core/AppBar";
 import Toolbar from "@material-ui/core/Toolbar";
 import IconButton from '@material-ui/core/IconButton';
 import Typography from "@material-ui/core/Typography";
+import Button from "@material-ui/core/Button";
 
 const drawerWidth = 240;
 
+import {useNavigate} from "react-router-dom";
 const useStyles = makeStyles((theme) => ({
     drawerPaper: {
         position: 'relative',
@@ -91,6 +93,7 @@ const useStyles = makeStyles((theme) => ({
 
 function Header(props) {
     const classes = useStyles();
+    const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = React.useState(null);
 
     const handleUserClick = event => {
@@ -144,6 +147,10 @@ function Header(props) {
         }
         else return null;
     }
+    
+    const goHome = () => {
+        navigate("/");
+    }
 
     const {loginName, menu, onLogout} = props;
     const hideLoginComponent = (loginName === undefined || loginName === null);
@@ -152,7 +159,7 @@ function Header(props) {
     return (
         <AppBar position={"static"} style={{backgroundColor: "#000000"}}>
             <Toolbar className={classes.toolbar}>
-                <img src={logo} height={"35"} alt={config.CUSTOMER_NAME}/>
+                <Button onClick={goHome} startIcon={<img src={logo} height={"35"} alt={config.CUSTOMER_NAME}/>}/>
                 <Typography component="h1" variant="h6" color="inherit" noWrap
                             className={classes.title}>
                     {config.APP_TITLE}

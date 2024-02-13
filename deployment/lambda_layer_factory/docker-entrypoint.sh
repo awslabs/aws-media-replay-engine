@@ -136,6 +136,10 @@ function copyFFMpegAndFFProbe() {
   cp -av /lib64/libfreetype.so* "$ffprobeLibDir"
   cp -av /lib64/libpng*.so* "$ffmpegLibDir"
   cp -av /lib64/libpng*.so* "$ffprobeLibDir"
+  cp -av /lib64/libssl*.so* "$ffmpegLibDir"
+  cp -av /lib64/libssl*.so* "$ffprobeLibDir"
+  cp -av /lib64/libcrypto*.so* "$ffmpegLibDir"
+  cp -av /lib64/libcrypto*.so* "$ffprobeLibDir"
 
   echo "== Copied FFMpeg and FFProbe binaries to their corresponding Lambda layer directory =="
   return 0
@@ -146,29 +150,28 @@ buildYASM
 buildFFMpeg
 copyFFMpegAndFFProbe
 
-
 echo "================================================================================"
 echo "Installing ffmpeg-python package"
 echo "================================================================================"
-pip3.8 install -q ffmpeg-python -t /packages/ffmpeg/python/lib/python3.8/site-packages
+pip3.11 install -q ffmpeg-python -t /packages/ffmpeg/python/lib/python3.11/site-packages
 
 
 echo "================================================================================"
 echo "Installing MediaReplayEnginePluginHelper library"
 echo "================================================================================"
-pip3.8 install -q /packages/Media_Replay_Engine_Plugin_Helper-1.0.0-py3-none-any.whl -t /packages/MediaReplayEnginePluginHelper/python/lib/python3.8/site-packages
+pip3.11 install -q /packages/Media_Replay_Engine_Plugin_Helper-1.0.0-py3-none-any.whl -t /packages/MediaReplayEnginePluginHelper/python/lib/python3.11/site-packages
 
 
 echo "================================================================================"
 echo "Installing MediaReplayEngineWorkflowHelper library"
 echo "================================================================================"
-pip3.8 install -q /packages/Media_Replay_Engine_Workflow_Helper-1.0.0-py3-none-any.whl -t /packages/MediaReplayEngineWorkflowHelper/python/lib/python3.8/site-packages
+pip3.11 install -q /packages/Media_Replay_Engine_Workflow_Helper-1.0.0-py3-none-any.whl -t /packages/MediaReplayEngineWorkflowHelper/python/lib/python3.11/site-packages
 
 
 echo "================================================================================"
 echo "Installing timecode package"
 echo "================================================================================"
-pip3.8 install -q timecode -t /packages/timecode/python/lib/python3.8/site-packages
+pip3.11 install -q timecode -t /packages/timecode/python/lib/python3.11/site-packages
 
 
 echo "================================================================================"

@@ -4,22 +4,19 @@
  */
 
 import React from "react";
-import { Route, Redirect } from "react-router-dom";
+import { Route, Navigate, useLocation } from "react-router-dom";
 
 import {useSessionContext} from "../../contexts/SessionContext";
 
 export const AuthenticatedRoute = ({ component: Component, ...rest }) => {
     const {isAuthenticated} = useSessionContext();
-    return (
-        <Route {...rest} render={({location}) => {
-            return isAuthenticated === true
-                ? <Component/>
-                : <Redirect to={{
-                    pathname: '/login',
-                    state: {from: location}
-                }}
-                />
-        }}/>
-    )
+    const location = useLocation()
+    return isAuthenticated === true
+        ? <Component/>
+        : <Navigate to={{
+            pathname: '/login',
+            state: {from: location}
+        }}
+        />
 };
 

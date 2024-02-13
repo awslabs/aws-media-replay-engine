@@ -67,6 +67,8 @@ def main(region, mode, profile=None):
         WithDecryption=False
     )
     mre_cloudfront_domain_name = mre_cloudfront_domain_name_parameter['Parameter']['Value']
+    
+    mre_amplify_build_image = "public.ecr.aws/codebuild/amazonlinux2-x86_64-standard:5.0"
 
     control_plain_endpoint_domain = '/'.join(
         control_plain_endpoint['Parameter']['Value'].split('/')[0:-2])
@@ -119,7 +121,8 @@ def main(region, mode, profile=None):
             "REACT_APP_USER_POOL_ID": user_pool_id,
             "REACT_APP_APP_CLIENT_ID": app_client_id,
             "REACT_APP_IDENTITY_POOL_ID": identity_pool_id,
-            "REACT_APP_CLOUDFRONT_DOMAIN_NAME": mre_cloudfront_domain_name
+            "REACT_APP_CLOUDFRONT_DOMAIN_NAME": mre_cloudfront_domain_name,
+            "_CUSTOM_IMAGE": mre_amplify_build_image
         },
         customRules=[
             {
@@ -161,7 +164,7 @@ def put_default_transition_config(transition_clip_bucket_name, region):
         "MediaType": "Image",
         "PreviewVideoLocation": f"s3://{transition_clip_bucket_name}/FadeInFadeOut/preview/FadeInOutSample.mp4"
     }
-    ddb_resource = boto3.resource("dynamodb")
+    ddb_resource = boto3.resource("dynamodb", region_name=region)
     transition_config_table = ddb_resource.Table(
         transition_config_parameter['Parameter']['Value'])
 

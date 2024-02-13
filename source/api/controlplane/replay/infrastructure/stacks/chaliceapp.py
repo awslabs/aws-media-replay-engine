@@ -14,6 +14,8 @@ from aws_cdk import (
     aws_ssm as ssm,
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
+
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../../')
@@ -137,10 +139,10 @@ class ChaliceApp(Stack):
                     self.replayrequest_table.table_arn,
                     self.transitions_config_table.table_arn,
                     self.plugin_table_arn,
-                    f"{self.plugin_table_arn}/index/*",
+                    #f"{self.plugin_table_arn}/index/*",
                     self.profile_table_arn,
-                    self.event_table_arn,
-                    f"{self.event_table_arn}/index/*"
+                    self.event_table_arn
+                    #f"{self.event_table_arn}/index/*"
                 ]
             )
         )
@@ -155,7 +157,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
                 ]
             )
         )
@@ -165,11 +167,11 @@ class ChaliceApp(Stack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "s3:Get*",
-                    "s3:List*"
+                    "s3:GetObject"
+                    #"s3:List*"
                 ],
                 resources=[
-                    "*"
+                    f"arn:aws:s3:::aws-mre*/*"
                 ]
             )
         )
@@ -213,7 +215,7 @@ class ChaliceApp(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
                 ]
             )
         )
@@ -250,3 +252,30 @@ class ChaliceApp(Stack):
 
         CfnOutput(self, "mre-replay-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value,
                       description="MRE Replay API Url", export_name="mre-replay-api-url")
+        
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-DDB3",
+                    "reason": "DynamoDB Point-in-time Recovery not required in the default deployment mode. Customers can turn it on if required"
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging",
+                    "appliesTo": [
+                        "Resource::arn:aws:s3:::aws-mre*/*",
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:secretsmanager:*:*:secret:/MRE*"
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-SMG4",
+                    "reason": "By default no Secrets are created although the keys are created. Customers have to define these if the feature is being used."
+                }
+            ]
+        )
+
+

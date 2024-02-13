@@ -1,6 +1,6 @@
 **MRE Plugin Samples**
 
-Plugin samples are provided to speed development and provide insights into different approaches for solving various video and audio processing needs. Plugins are written in Python 3.8 since the required MRE Helper library (Lambda Layer) is tested for this version.
+Plugin samples are provided to speed development and provide insights into different approaches for solving various video and audio processing needs. Plugins are written in Python 3.11 since the required MRE Helper library (Lambda Layer) is tested for this version.
 
 Each plugin is organized in this repository in a folder based on it's unique name.
 

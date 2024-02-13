@@ -1,11 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+import os
+import tempfile
 import boto3
 import ffmpeg
 from ffmpeg import Error
 import numpy as np
 import audio2numpy as a2n
+import matplotlib.pyplot as plt
 from numpy.fft import fft, fftfreq
 
 from MediaReplayEnginePluginHelper import OutputHelper
@@ -16,8 +19,8 @@ from MediaReplayEnginePluginHelper import DataPlane
 runtime_client = boto3.client('sagemaker-runtime')
 
 def extract_audio(filename, track=1):
-    tmp_file = '/tmp/'
-    tmp_file += filename.split('.')[-2][-3:]
+    tmp_dir = tempfile.mkdtemp(dir='/tmp')
+    tmp_file = os.path.join(tmp_dir, filename.split('.')[-2][-3:])
     tmp_file += '_tmp.mp3'
     print('Temp MP3 file:',tmp_file)
     try:

@@ -4,7 +4,7 @@
  */
 
 import React, {useEffect} from 'react';
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import Grid from "@material-ui/core/Grid";
 import {
     Backdrop,
@@ -54,7 +54,7 @@ const useStyles = makeStyles((theme) => ({
 
 
 export const ListRenderer = (props) => {
-    const history = useHistory();
+    const navigate = useNavigate();
     const classes = useStyles();
 
     const {query, isLoading} = APIHandler();
@@ -82,7 +82,7 @@ export const ListRenderer = (props) => {
 
     //region Table
     const fetchTableData = async () => {
-        return await query('get', 'api', props.fetchPath, props.queryParams);
+        return await query('get', 'api', props.fetchPath, {queryParams:props.queryParams});
     };
 
     const fetchReplaysByContentGroup = async (contentGroup) => {
@@ -96,7 +96,7 @@ export const ListRenderer = (props) => {
 
         if (res.success) {
             setOriginalTableData(originalTableData.concat(res.data));
-            setRows(rows.concat(getTableRows(res.data)));
+            setRows(rows.concat(res.data));
             setNextToken(res.LastEvaluatedKey);
 
             if (!res.LastEvaluatedKey) {
@@ -109,7 +109,7 @@ export const ListRenderer = (props) => {
     const initFilters = (tableData) => {
         setContentGroupFilter(_.get(props, 'header.contentGroupFilter') === true ? "ALL" : undefined);
         if (eventFilter !== "ALL" || programFilter !== "ALL") {
-            handleAllFilters(undefined, undefined);
+            handleAllFilters(undefined, undefined, tableData);
         }
     };
 
@@ -127,23 +127,19 @@ export const ListRenderer = (props) => {
         }
         else {
             if (_.isEmpty(props.queryParams) !== true) {
-                setNextToken(undefined);
-                _.set(props.queryParams, "LastEvaluatedKey", undefined);
                 res = await fetchTableData();
-
                 sortedTableData = res.data;
                 setNextToken(res.LastEvaluatedKey);
             }
         }
 
         if (res && res.success) {
-            setOriginalTableData(sortedTableData);
-            setRows(getTableRows(sortedTableData));
+            setOriginalTableData([...sortedTableData]);
+            setRows([...sortedTableData]);
             setPage(0);
-
-            if (!props.backendPagination) {
-                initFilters(sortedTableData);
-            }
+        }
+        if (!props.backendPagination) {
+                initFilters([...sortedTableData]);
         }
 
     };
@@ -192,8 +188,7 @@ export const ListRenderer = (props) => {
             replayDetailsParsed = parseReplayDetails(replayDetails.data, row);
         }
 
-        history.push({
-            pathname: props.rows.actions.viewDetails.path, state: {
+        navigate(props.rows.actions.viewDetails.path, {state: {
                 back: {
                     name: props.rows.actions.viewDetails.name,
                     link: props.rows.actions.viewDetails.link
@@ -276,8 +271,7 @@ export const ListRenderer = (props) => {
     };
 
     const handleClipPreview = async (row) => {
-        history.push({
-            pathname: props.rows.actions.clipPreview.path, state: {
+        navigate(props.rows.actions.clipPreview.path, {state: {
                 back: {
                     name: props.rows.actions.clipPreview.name,
                     link: props.rows.actions.clipPreview.link
@@ -289,7 +283,7 @@ export const ListRenderer = (props) => {
     }
 
     const handleCreate = () => {
-        history.push({pathname: props.createLink, state: {}});
+        navigate(props.createLink, {state: {}});
     };
 
     const getTableRows = (tableData) => {
@@ -334,9 +328,7 @@ export const ListRenderer = (props) => {
                         return _.includes(item.ContentGroups, contentGroup);
                     });
                 }
-
-                let filteredRows = (getTableRows(filteredTableData));
-                setRows(filteredRows);
+                setRows(filteredTableData);
 
                 return filteredTableData;
             },
@@ -351,9 +343,7 @@ export const ListRenderer = (props) => {
                     let response = await fetchReplaysByContentGroup(contentGroup);
                     tableDataCopy = response.data;
                 }
-
-                let filteredRows = (getTableRows(tableDataCopy));
-                setRows(filteredRows);
+                setRows(tableDataCopy);
             },
             value: contentGroupFilter
         },
@@ -367,9 +357,7 @@ export const ListRenderer = (props) => {
                             return item.Event === event;
                         });
                     }
-
-                    let filteredRows = (getTableRows(filteredTableData));
-                    setRows(filteredRows);
+                    setRows(filteredTableData);
                 }
                 return filteredTableData;
             },
@@ -385,9 +373,7 @@ export const ListRenderer = (props) => {
                         return item.Program === program;
                     });
                 }
-
-                let filteredRows = (getTableRows(filteredTableData));
-                setRows(filteredRows);
+                setRows(filteredTableData);
 
                 return filteredTableData;
             },
@@ -403,9 +389,7 @@ export const ListRenderer = (props) => {
                         return item.Class === pluginClass;
                     });
                 }
-
-                let filteredRows = (getTableRows(filteredTableData));
-                setRows(filteredRows);
+                setRows(filteredTableData);
 
                 return filteredTableData;
             },
@@ -413,9 +397,8 @@ export const ListRenderer = (props) => {
         }
     }
 
-    const handleAllFilters = async (currentFilterName, valueToFilterBy) => {
-        let tableDataCopyToFilter = _.cloneDeep(originalTableData);
-
+    const handleAllFilters = async (currentFilterName, valueToFilterBy, tableData = originalTableData) => {
+        let tableDataCopyToFilter = _.cloneDeep(tableData);
         if (props.header.replayFilter != null) {
             if (currentFilterName === FILTERS.contentGroupFilter.name) {
                 await FILTERS.contentGroupFilter.replaysHandler(valueToFilterBy);
@@ -427,14 +410,13 @@ export const ListRenderer = (props) => {
                     if (contentGroupFilter !== "ALL") {
                         let res = await fetchTableData();
                         let tableData = res.data;
-
                         tableDataCopyToFilter = _.filter(tableData, row => {
                             return _.has(row, "Enabled") !== true || row.Enabled !== false;
                         });
 
                         if (res && res.success) {
                             setOriginalTableData(tableDataCopyToFilter);
-                            setRows(getTableRows(tableDataCopyToFilter));
+                            setRows(tableDataCopyToFilter);
                             setPage(0);
                         }
                     }
@@ -601,7 +583,7 @@ export const ListRenderer = (props) => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {rows && rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)}
+                                    {getTableRows(rows?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage))}
                                 </TableBody>
                             </Table>
                         </TableContainer>

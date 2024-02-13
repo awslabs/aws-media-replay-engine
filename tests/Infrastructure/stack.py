@@ -16,6 +16,7 @@ from aws_cdk import (
     aws_s3_deployment as s3_deployment,
 )
 from aws_cdk.aws_lambda_event_sources import SqsEventSource
+from cdk_nag import NagSuppressions
 from constructs import Construct
 from medialive_construct import MediaLiveConstruct
 
@@ -27,7 +28,7 @@ class MreTestSuiteStack(Stack):
         self.event_bus = MreTestSuiteStack.get_event_bus(self)
         self.create_ddb_table()
         self.create_event_recorder_lambda()
-        self.create_medialive_role()
+        
 
         self.medialive_source_bucket = s3.Bucket(
             self,
@@ -68,6 +69,8 @@ class MreTestSuiteStack(Stack):
             destination_key_prefix="mre/testsuite",
             memory_limit=512
         )
+
+        self.create_medialive_role()
 
 
         self.channel1 = MediaLiveConstruct(self, "mre-medialive-channel-1",  
@@ -142,12 +145,73 @@ class MreTestSuiteStack(Stack):
         
         self.create_rule_for_segment_start()
         self.create_rule_for_segment_end()
+        
 
         CfnOutput(self, "mreTestAutomationMediaLiveSourceBucket", value=self.medialive_source_bucket.bucket_name, description="Name of MRE TestSuite MediaLive Source Bucket", export_name="mreTestAutomationMediaLiveSourceBucket" )
         CfnOutput(self, "mreTestAutomationBYOB1", value=self.mre_byob_source_bucket1.bucket_name, description="Name of MRE TestSuite BYOB Bucket 1", export_name="mreTestAutomationBYOB1" )
         CfnOutput(self, "mreTestAutomationBYOB2", value=self.mre_byob_source_bucket2.bucket_name, description="Name of MRE TestSuite BYOB Bucket 2", export_name="mreTestAutomationBYOB2" )
         CfnOutput(self, "mreTestAutomationBYOB3", value=self.mre_byob_source_bucket3.bucket_name, description="Name of MRE TestSuite BYOB Bucket 3", export_name="mreTestAutomationBYOB3" )
         CfnOutput(self, "mreTestAutomationBYOB4", value=self.mre_byob_source_bucket4.bucket_name, description="Name of MRE TestSuite BYOB Bucket 4", export_name="mreTestAutomationBYOB4" )
+
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-S1",
+                    "reason": "Logging can be enabled if reqd in higher environments"
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        "Action::s3:GetObject*",
+                        "Action::s3:GetBucket*",
+                        "Action::s3:Describe*",
+                        "Action::s3:List*",
+                        "Action::s3:DeleteObject*",
+                        "Action::s3:Abort*",
+                        "Action::s3:Put*",
+                        "Action::s3:Get*",
+                        "Resource::arn:aws:mediapackage:<AWS::Region>:<AWS::AccountId>:channels/*",
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:s3:::aws-mre*/*",
+                        "Resource::arn:aws:s3:::aws-mre*",
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::<AwsMreTestSuiteMediaLiveSourceBucket*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::<AwsMreTestSuiteMediaLiveSourceBucket*.+Arn>\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::<AwsMreTestSuiteByobBucket*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:<AWS::Partition>:s3:::cdk*\/*/",
+                        }
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "AWS managed policies allowed",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ]
+                }
+            ]
+        )
+
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "aws-mre-test-suite/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C512MiB/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "Custom Resource lambda function does not require the latest runtime version"
+                }
+            ]
+        )
 
 
     def create_medialive_role(self):
@@ -159,6 +223,7 @@ class MreTestSuiteStack(Stack):
             assumed_by=iam.ServicePrincipal("medialive.amazonaws.com")
         )
 
+        """  
         self.medialive_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
@@ -169,20 +234,45 @@ class MreTestSuiteStack(Stack):
                 effect=iam.Effect.ALLOW,
                 resources=["*"]
             )
-        )
+        ) 
+        """
 
         self.medialive_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
-                    "s3:ListBucket",
                     "s3:PutObject",
                     "s3:GetObject",
                     "s3:DeleteObject"
                 ],
                 effect=iam.Effect.ALLOW,
-                resources=["*"]
+                resources=[
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket1.bucket_name}/*",
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket2.bucket_name}/*",
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket3.bucket_name}/*",
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket4.bucket_name}/*",
+                     f"arn:aws:s3:::{self.medialive_source_bucket.bucket_name}/*",
+                     f"arn:aws:s3:::aws-mre*/*"
+                ]
             )
         )
+
+        self.medialive_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:ListBucket"
+                ],
+                effect=iam.Effect.ALLOW,
+                resources=[
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket1.bucket_name}",
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket2.bucket_name}",
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket3.bucket_name}",
+                     f"arn:aws:s3:::{self.mre_byob_source_bucket4.bucket_name}",
+                     f"arn:aws:s3:::{self.medialive_source_bucket.bucket_name}",
+                     f"arn:aws:s3:::aws-mre*"
+                ]
+            )
+        )
+
         self.medialive_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
@@ -193,7 +283,7 @@ class MreTestSuiteStack(Stack):
                     "logs:DescribeLogGroups"
                 ],
                 effect=iam.Effect.ALLOW,
-                resources=["arn:aws:logs:*:*:*"]
+                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"]
             )
         )
 
@@ -203,7 +293,7 @@ class MreTestSuiteStack(Stack):
                     "mediapackage:DescribeChannel"
                 ],
                 effect=iam.Effect.ALLOW,
-                resources=["*"]
+                resources=[f"arn:aws:mediapackage:{Stack.of(self).region}:{Stack.of(self).account}:channels/*"]
             )
         )
 
@@ -229,7 +319,7 @@ class MreTestSuiteStack(Stack):
             self,
             "mre-TestSuite-EventRecorderLambda",
             function_name="mre-TestSuite-EventRecorderLambda",
-            runtime=lambda_.Runtime.PYTHON_3_10,
+            runtime=lambda_.Runtime.PYTHON_3_11,
             code=lambda_.Code.from_asset("./lambdas"),
             handler="event_recorder.handler",
             environment={"EVENT_RECORDER_TABLE_NAME": self.table.table_name},

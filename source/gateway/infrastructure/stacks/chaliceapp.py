@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_secretsmanager as secret_mgr
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
@@ -36,7 +37,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
                 ]
             )
         )
@@ -46,9 +47,10 @@ class ChaliceApp(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -59,7 +61,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -69,7 +71,7 @@ class ChaliceApp(Stack):
                 actions=[
                     "servicediscovery:ListInstances"
                 ],
-                resources=["arn:aws:servicediscovery:*:*:*"]
+                resources=["*"]     #Selected actions only support the all resources wildcard('*').
             )
         )
 
@@ -100,7 +102,7 @@ class ChaliceApp(Stack):
                     "secretsmanager:TagResource"
                 ],
                 resources=[
-                    "arn:aws:secretsmanager:*:*:secret:/MRE*"
+                    f"arn:aws:secretsmanager:{Stack.of(self).region}:{Stack.of(self).account}:secret:/MRE*"
                 ]
             )
         )
@@ -145,3 +147,27 @@ class ChaliceApp(Stack):
 
 
         CfnOutput(self, "mre-default-api-gateway", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE default API Gateway Url", export_name="mre-default-api-gateway-url" )
+
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:secretsmanager:<AWS::Region>:<AWS::AccountId>:secret:/MRE*",
+                        "Resource::*"
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-SMG4",
+                    "reason": "By default no Secrets are created although the keys are created. Customers have to define these if the feature is being used."
+                }
+            ]
+        )

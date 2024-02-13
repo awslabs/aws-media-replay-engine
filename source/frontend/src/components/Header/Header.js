@@ -10,7 +10,7 @@ import logo from '../../assets/company-logo.svg';
 import config from '../../config';
 
 import {makeStyles} from "@material-ui/core/styles";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 
 import Link from "@material-ui/core/Link";
 import Popover from "@material-ui/core/Popover";
@@ -103,7 +103,7 @@ export const Header = (props) => {
     const [openDrawer, setOpenDrawer] = React.useState(false);
     const [anchorEl, setAnchorEl] = React.useState(null);
 
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const handleDrawerClose = () => {
         setOpenDrawer(false);
@@ -163,7 +163,9 @@ export const Header = (props) => {
                         >
                             {onLogout &&
                             <Typography className={classes.typography}>
-                                <Link href="/login" onClick={onLogout}>
+                                <Link 
+                                        component="button"
+                                        onClick={onLogout}>
                                     Logout
                                 </Link>
                             </Typography>
@@ -177,7 +179,7 @@ export const Header = (props) => {
     }
 
     const goHome = () => {
-        history.push({pathname: "/home"});
+        navigate("/home");
     }
 
     const {loginName, menu, onLogout} = props;

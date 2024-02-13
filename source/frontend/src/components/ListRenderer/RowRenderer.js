@@ -22,7 +22,7 @@ import MoreHorizIcon from '@material-ui/icons/MoreHoriz';
 import {createPathFromTemplate, getLatestVersion, getSortedByVersion} from "../../common/utils/utils";
 import _ from "lodash";
 import Grid from "@material-ui/core/Grid";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import EventTracksDialog from "./EventTracksDialog";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
@@ -36,7 +36,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export const RowRenderer = (props) => {
-    const history = useHistory();
+    const navigate = useNavigate();
     const classes = useStyles();
 
     const {query, isLoading} = APIHandler();
@@ -72,7 +72,7 @@ export const RowRenderer = (props) => {
         let addVersionPath = createPathFromTemplate(_.get(props, "versions.getVersionsPath"), props.rowData);
         let response = await query('get', 'api', addVersionPath);
         let latestVersion = getLatestVersion(response.data);
-        history.push({pathname: _.get(props, "actions.addVersion.link"), state: latestVersion});
+        navigate(_.get(props, "actions.addVersion.link"), {state: latestVersion});
     };
 
     const handleDeleteVersion = async (version) => {

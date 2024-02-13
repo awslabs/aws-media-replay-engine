@@ -10,14 +10,17 @@ import {useParams} from "react-router-dom";
 import {makeStyles} from '@material-ui/core/styles';
 import {Streamer} from "../../components/Streamer/Streamer";
 import screenfull from "screenfull"
+import Box from "@material-ui/core/Box";
+import Grid from "@material-ui/core/Grid";
 import _ from "lodash";
 import {formatVideoTime} from "../../common/utils/utils";
 import {CollapsedMenuOverlay} from "../../components/CollapsedMenuOverlay/CollapsedMenuOverlay";
 import {ExpandedMenuOverlay} from "../../components/ExpandedMenuOverlay/ExpandedMenuOverlay";
-import {API} from "aws-amplify";
+import {get} from "aws-amplify/api";
 import {Backdrop, CircularProgress} from "@material-ui/core";
 import Typography from "@material-ui/core/Typography";
 import clsx from "clsx";
+import {APIHandler} from "../../common/APIHandler/APIHandler";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -60,7 +63,7 @@ export const HighlightViewer = (props) => {
     const [segments, setSegments] = React.useState(null);
     const [eventDetails, setEventDetails] = React.useState(null);
     const [streamURL, setStreamURL] = React.useState(null);
-    const [isLoading, setIsLoading] = React.useState(false);
+    const {query, isLoading} = APIHandler();
     const [caption, setCaption] = React.useState(false);
     const [fade, setFade] = React.useState(undefined);
     const [totalHighlightsTimeSeconds, setTotalHighlightsTimeSeconds] = React.useState(undefined);
@@ -104,37 +107,44 @@ export const HighlightViewer = (props) => {
 
     React.useEffect(() => {
         (async () => {
-            try {
-                setIsLoading(true);
-                const [segmentsResponse, eventDetails, replayResponse] = await Promise.all([
-                    await API.get('api-data-plane', `event/${event}/program/${program}/replay/${replayId}/segments`),
-                    await API.get('api', `event/${event}/program/${program}`),
-                    await API.get('api', `replay/program/${program}/event/${event}/replayid/${replayId}`)
-                ]);
+            const [segmentsResponse, eventDetails, replayResponse] = await Promise.all([
+                (await query('get','api-data-plane', `event/${event}/program/${program}/replay/${replayId}/segments`)).data,
+                (await query('get','api', `event/${event}/program/${program}`)).data,                
+                (await query('get','api', `replay/program/${program}/event/${event}/replayid/${replayId}`)).data 
+            ]);
 
-                let segmentsWithStartTime = addNormalizedStartTime(segmentsResponse);
+            console.log(segmentsResponse)
+            console.log(eventDetails)
+            console.log(replayResponse)
+            
+            if(segmentsResponse.length < 1){return;}
+            
+            let segmentsWithStartTime = addNormalizedStartTime(segmentsResponse);
 
-                const lastSegment = _.last(segmentsWithStartTime);
+            const lastSegment = _.last(segmentsWithStartTime);
 
-                setTotalHighlightsTimeSeconds(
-                    lastSegment['normalizedStartTimeSeconds'] +
-                    (lastSegment['OptoEnd'] || lastSegment['End'] || 0) -
-                    (lastSegment['OptoStart'] || lastSegment['Start'] || 0)
-                );
+            setTotalHighlightsTimeSeconds(
+                lastSegment['normalizedStartTimeSeconds'] +
+                (lastSegment['OptoEnd'] || lastSegment['End'] || 0) -
+                (lastSegment['OptoStart'] || lastSegment['Start'] || 0)
+            );
 
-                let hlsLocation = replayResponse.HlsLocation;
+            let hlsLocation = replayResponse.HlsLocation;
+            let mp4Location = replayResponse.PreviewVideoUrl;
 
-                if (hlsLocation) {
-                    let url = hlsLocation.split('/').splice(3, 5).join('/');
-                    setStreamURL("/" + url);
-                }
-
-                setEventDetails(eventDetails);
-                setSegments(segmentsWithStartTime);
+            if (hlsLocation !== "-") {
+                let url = hlsLocation.split('/').splice(3, 5).join('/');
+                console.log(`Getting video from: ${url}`)
+                setStreamURL("/" + url);
             }
-            finally {
-                setIsLoading(false);
+            else if (mp4Location){
+                let url = mp4Location.split('/').splice(3, 5).join('/').split('?')[0];
+                console.log(`Getting video from: ${url}`)
+                setStreamURL("/" + url);
             }
+
+            setEventDetails(eventDetails);
+            setSegments(segmentsWithStartTime);
 
         })();
     }, []);
@@ -208,6 +218,7 @@ export const HighlightViewer = (props) => {
                             <CircularProgress color="inherit"/>
                         </Backdrop>
                     </div> :
+                    segments?.length > 0 ?
                     <>
                         <Streamer
                             url={process.env.REACT_APP_CLOUDFRONT_PREFIX + streamURL}
@@ -249,12 +260,20 @@ export const HighlightViewer = (props) => {
                             seekToSeconds={handleSkipToSeconds}
                             eventDetails={eventDetails}
                         />
-                        :
                         <CollapsedMenuOverlay
                             isHidden={isMenuExpanded}
                             onExpandClick={handleExpandMenu}
                         />
-
+                    </>
+                    :
+                    <>
+                    <Grid container item direction="column" alignItems="center" spacing={50}>
+                    <Box pt={3} display="flex" justifyContent="center">
+                                <Typography variant={"h6"}>
+                                    No Replay Clips Were Created From This Event. Try Creating Another Replay With Different Settings or Using Another Event.
+                                </Typography>
+                            </Box>
+                            </Grid>
                     </>
             }
 

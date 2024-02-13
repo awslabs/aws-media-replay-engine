@@ -68,7 +68,7 @@ export const LoginForm = (props) => {
         }
         else{
             const {onPasswordChangeSubmit} = props;
-            onPasswordChangeSubmit(username, emailCode, password);
+            onPasswordChangeSubmit(username, password, emailCode);
         }
     };
 

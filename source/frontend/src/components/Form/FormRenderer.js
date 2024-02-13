@@ -25,10 +25,10 @@ import Link from "@material-ui/core/Link";
 import Box from "@material-ui/core/Box";
 import Button from "@material-ui/core/Button";
 import {FormHandler} from "./FormHandler";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import InfoIcon from '@material-ui/icons/Info';
 import _ from "lodash";
-import DateTimePicker from 'react-datetime-picker/dist/entry.nostyle'
+import DateTimePicker from 'react-datetime-picker'
 import '../../common/DateTimePicker.css';
 import {OutputAttributesForm} from "../OutputAttributeForm/OutputAttributesForm";
 import {FormSelect} from "./Components/FormSelect";
@@ -60,10 +60,10 @@ const useStyles = makeStyles((theme) => ({
 
 export const FormRenderer = (props) => {
     const classes = useStyles();
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const {query, isLoading} = APIHandler();
-    const handleAfterRequestSuccess = () => {history.push({pathname: props.history})};
+    const handleAfterRequestSuccess = () => {navigate(props.history)};
 
     let inputFieldsList = _.values(props.inputFieldsMap);
 
@@ -72,12 +72,12 @@ export const FormRenderer = (props) => {
             body: formValues
         });
 
-        history.push({pathname: props.history});
+        navigate(props.history);
     };
 
     const goBack = (e) => {
         e.preventDefault();
-        history.goBack();
+        navigate(-1);
     };
 
     const customOnChange = (e, onChangeType) => {
@@ -175,6 +175,7 @@ export const FormRenderer = (props) => {
                                                             value={values[inputFieldValue.name]}
                                                             onChange={(e) => {
                                                                 handleInputValue(e, inputFieldValue.textFieldType)
+                                                                inputFieldValue.onChange?.(e)
                                                             }}
                                                             name={inputFieldValue.name}
                                                             multiline={inputFieldValue.multiline ?? false}

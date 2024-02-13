@@ -111,7 +111,7 @@ mre_dataplane = DataPlane(event)
 # Download the HLS video segment from S3
 media_path = mre_dataplane.download_media(bucket, key)
 
-Here, media_path points to the chunk downloaded from S3 to the /tmp directory of Lambda
+Here, media_path points to the chunk downloaded from S3 to the /tmp/mre/media directory of Lambda
 
 **How to get plugin parameters?**
 

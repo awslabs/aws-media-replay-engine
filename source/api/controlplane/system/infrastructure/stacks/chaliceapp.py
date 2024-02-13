@@ -6,9 +6,11 @@ from aws_cdk import (
     Stack,
     Fn,
     CfnOutput,
-    aws_iam as iam
+    aws_iam as iam,
+    aws_ssm as ssm
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../../')
@@ -23,8 +25,14 @@ class ChaliceApp(Stack):
 
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
-        self.system_table_arn = Fn.import_value("mre-system-table-arn")
-        self.system_table_name = Fn.import_value("mre-system-table-name")
+        self.system_table_arn = ssm.StringParameter.value_for_string_parameter(
+            self,
+            parameter_name="/MRE/ControlPlane/SystemTableArn"
+        )
+        self.system_table_name = ssm.StringParameter.value_for_string_parameter(
+            self,
+            parameter_name="/MRE/ControlPlane/SystemTableName"
+        )
         
         self.create_chalice_role()
 
@@ -49,7 +57,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -138,6 +146,25 @@ class ChaliceApp(Stack):
             }
         )
 
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice IAM role policy requires wildcard permissions for CloudWatch logging, MediaLive, MediaTailor and S3",
+                    "appliesTo": [
+                        "Action::medialive:List*",
+                        "Action::medialive:Describe*",
+                        "Action::mediatailor:List*",
+                        "Action::mediatailor:Describe*",
+                        "Action::s3:List*Bucket*",
+                        "Resource::*",
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:*"
+                    ]
+                }
+            ]
+        )
 
         CfnOutput(self, "mre-system-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE System API Url", export_name="mre-system-api-url" )
         

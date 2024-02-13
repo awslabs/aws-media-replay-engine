@@ -5,7 +5,7 @@
 
 import React from 'react';
 import {makeStyles} from '@material-ui/core/styles';
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import Grid from "@material-ui/core/Grid";
 import {Container, Paper} from "@material-ui/core";
 import Box from "@material-ui/core/Box";
@@ -13,8 +13,8 @@ import Link from "@material-ui/core/Link";
 import homeImage from "../../assets/home_image.svg"
 
 export const Home = (props) => {
-    const history = useHistory();
-    const navigateTo = route => history.push(route);
+    const navigate = useNavigate();
+    const navigateTo = route => navigate(route);
     const preventDefault = (event) => event.preventDefault();
 
     React.useEffect(() => {

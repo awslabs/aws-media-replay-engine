@@ -114,7 +114,7 @@ class MrePluginsStack(Stack):
             "mre-orchestration-custom-resource-lambda",
             description="CustomResource",
             function_name=custom_resource_name,
-            runtime=_lambda.Runtime.PYTHON_3_9,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset("../../../source/custom-resource/package"),
             role=custom_resource_role,
             handler="handler.on_event",
@@ -479,7 +479,7 @@ class MrePluginsStack(Stack):
             f"{plugin_config_name}Lambda",
             description=plugin_config["MRE"]["Plugin"].get("Description"),
             function_name=plugin_name,
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"../Plugins/{plugin_name}/package"),
             handler=plugin_config["Lambda"].get(
                 "Handler", f"{plugin_name}.lambda_handler"

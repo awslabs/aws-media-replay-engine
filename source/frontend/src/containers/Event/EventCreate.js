@@ -4,13 +4,13 @@
  */
 
 import React from 'react';
-import {FormRenderer} from "../../components/Form/FormRenderer";
+import { FormRenderer } from "../../components/Form/FormRenderer";
 import _ from "lodash";
-import {ProgramCreateModal} from "../../components/Programs/ProgramCreateModal";
-import {Backdrop, CircularProgress, Tooltip} from "@material-ui/core";
-import {APIHandler} from "../../common/APIHandler/APIHandler";
-import {makeStyles} from "@material-ui/core/styles";
-import {EXECUTION_TYPES, LAMBDA_WITH_VERSION_ARN_REGEX} from "../../common/Constants";
+import { ProgramCreateModal } from "../../components/Programs/ProgramCreateModal";
+import { Backdrop, CircularProgress, Tooltip } from "@material-ui/core";
+import { APIHandler } from "../../common/APIHandler/APIHandler";
+import { makeStyles } from "@material-ui/core/styles";
+import { EXECUTION_TYPES, LAMBDA_WITH_VERSION_ARN_REGEX } from "../../common/Constants";
 import moment from "moment";
 
 const useStyles = makeStyles((theme) => ({
@@ -26,18 +26,21 @@ export const EventCreate = () => {
 
     const sourceTypes = {
         UNDEFINED: '',
-        MEDIALIVE:'MediaLive',
-        HARVESTER:'HLS Harvester',
-        S3_BUCKET:'S3 Bucket'
+        MEDIALIVE: 'MediaLive',
+        HARVESTER: 'HLS Harvester',
+        S3_BUCKET: 'S3 Bucket'
     };
 
     const timeCodes = {
         UNDEFINED: '',
-        NONE:'NOT_EMBEDDED',
-        UTC:'UTC_BASED',
-        ZERO_BASED:'ZERO_BASED'
+        NONE: 'NOT_EMBEDDED',
+        UTC: 'UTC_BASED',
+        ZERO_BASED: 'ZERO_BASED'
     };
 
+    const [program, setProgram] = React.useState([]);
+    const [event, setEvent] = React.useState([]);
+    const [profile, setProfile] = React.useState([]);
     const [programOptions, setProgramOptions] = React.useState([]);
     const [profileOptions, setProfileOptions] = React.useState([]);
     const [profilesData, setProfilesData] = React.useState([]);
@@ -47,21 +50,21 @@ export const EventCreate = () => {
     const [sourceOptions, setSourceOptions] = React.useState(Object.values(sourceTypes));
     const [eventMetadata, setEventMetadata] = React.useState([]);
 
-    const {query, isLoading, setIsLoading} = APIHandler();
+    const { query, isLoading, setIsLoading } = APIHandler();
 
 
     const fetchChannels = async () => {
-        let response = await query('get', 'api', 'system/medialive/channels', {disableLoader: true});
+        let response = await query('get', 'api', 'system/medialive/channels', { disableLoader: true });
         return response.data;
     }
 
     const fetchBuckets = async () => {
-        let response = await query('get_cache', 'api', 'system/s3/buckets', {disableLoader: true}, {ttl: 30000}); // Cache for 30 seconds
+        let response = await query('get_cache', 'api', 'system/s3/buckets', { disableLoader: true }, { ttl: 30000 }); // Cache for 30 seconds
         return response.data;
     }
 
     const fetchProfile = async () => {
-        let response = await query('get', 'api', 'profile/all', {disableLoader: true});
+        let response = await query('get', 'api', 'profile/all', { disableLoader: true });
         //Sort based on Profile Name
         return _.sortBy(response.data, item => {
             return _.lowerCase(item.Name);
@@ -69,12 +72,12 @@ export const EventCreate = () => {
     };
 
     const fetchPrograms = async () => {
-        let response = await query('get', 'api', 'program/all',{disableLoader: true});
+        let response = await query('get', 'api', 'program/all', { disableLoader: true });
         return _.map(response.data, "Name").sort();
     };
 
     const fetchProfileMetadata = async (profile) => {
-        let response = await query('get', 'api', `profile/${profile}/context-variables`, {disableLoader: true}, {ttl: 30000});
+        let response = await query('get', 'api', `profile/${profile}/context-variables`, { disableLoader: true }, { ttl: 30000 });
         return response.data?.data;
     }
 
@@ -95,7 +98,7 @@ export const EventCreate = () => {
         })();
     }, []);
 
-    const onTimeCodeChange= async (value) => {
+    const onTimeCodeChange = async (value) => {
         console.log(value)
     }
 
@@ -115,9 +118,15 @@ export const EventCreate = () => {
         setProgramOptions(updatedContentGroups);
     }
 
+    const onChannelAdd = async () => {
+        const channelOptions = await fetchChannels();
+        setChannelOptions(channelOptions);
+    }
+
     const onProfileChange = async (profile) => {
         let profileMetadata = await fetchProfileMetadata(profile);
         setEventMetadata(profileMetadata);
+        setProfile(profile)
     }
 
     const isJsonString = (str) => {
@@ -157,12 +166,19 @@ export const EventCreate = () => {
             type: "select",
             isRequired: true,
             options: programOptions,
-            ItemComponent: <ProgramCreateModal onSuccessFunction={onProgramAdd}/>
+            onChange: (e) => {
+                setProgram(e?.target?.value)
+            },
+            ItemComponent: <ProgramCreateModal onSuccessFunction={onProgramAdd} />
         },
         Name: {
             name: "Name",
             label: "Event Name",
             type: "textField",
+            onChange: (e) => {
+                console.log(e)
+                setEvent(e?.target?.value)
+            },
             isRequired: true
         },
         Description: {
@@ -193,7 +209,7 @@ export const EventCreate = () => {
             },
             optionsFunc: (values) => {
                 if (values.Profile) {
-                    return _.find(profilesData, {"Name": values.Profile})["ContentGroups"];
+                    return _.find(profilesData, { "Name": values.Profile })["ContentGroups"];
                 }
             },
         },
@@ -220,7 +236,7 @@ export const EventCreate = () => {
             label: "Channel",
             type: "select",
             options: channelOptions,
-            isRequired: (values) => {return values.SourceSelection && values.SourceSelection === sourceTypes.MEDIALIVE},
+            isRequired: (values) => { return values.SourceSelection && values.SourceSelection === sourceTypes.MEDIALIVE },
             displayName: (channelOption) => {
                 return `${channelOption.Name} - ${channelOption.Id}`;
             },
@@ -250,7 +266,7 @@ export const EventCreate = () => {
             name: "SourceVideoUrl",
             label: "Source Video URL",
             type: "textField",
-            isRequired: (values) => {return values.SourceSelection === sourceTypes.HARVESTER},
+            isRequired: (values) => { return values.SourceSelection === sourceTypes.HARVESTER },
             condition: (values) => {
                 return values.SourceSelection === sourceTypes.HARVESTER;
             },
@@ -283,13 +299,13 @@ export const EventCreate = () => {
                 return isValidValue ? "" : "Value should be JSON structure"
             }
         },
-        
+
         SourceVideoBucket: {
             name: "SourceVideoBucket",
             label: "Source S3 Bucket",
             type: "select",
             options: bucketOptions,
-            isRequired: (values) => {return values.SourceSelection && values.SourceSelection === sourceTypes.S3_BUCKET},
+            isRequired: (values) => { return values.SourceSelection && values.SourceSelection === sourceTypes.S3_BUCKET },
             condition: (values) => {
                 return values.SourceSelection && values.SourceSelection === sourceTypes.S3_BUCKET;
             }
@@ -297,18 +313,18 @@ export const EventCreate = () => {
         S3BucketHint: {
             type: "formComponent",
             condition: (values) => {
-                return values.SourceSelection && values.SourceSelection === sourceTypes.S3_BUCKET 
-                && values.Program
-                && values.Name
-                && values.Profile
-                && values.SourceVideoBucket
+                return values.SourceSelection && values.SourceSelection === sourceTypes.S3_BUCKET
+                    && values.Program
+                    && values.Name
+                    && values.Profile
+                    && values.SourceVideoBucket
             },
             NestedFormRenderer: "ClickableInfoChip",
             parameters: {
                 label: (values) => {
-                    return  `Source video chunks should be uploaded to s3://${values.SourceVideoBucket}/${values.Program}/${values.Name}/${values.Profile}/ to process the event.`;
+                    return `Source video chunks should be uploaded to s3://${values.SourceVideoBucket}/${values.Program}/${values.Name}/${values.Profile}/ to process the event.`;
                 },
-                link: (values)=>{
+                link: (values) => {
                     return `https://s3.console.aws.amazon.com/s3/buckets/${values.SourceVideoBucket}?prefix=${values.Program}/${values.Name}/${values.Profile}/`
                 },
                 variant: "outlined"
@@ -361,7 +377,7 @@ export const EventCreate = () => {
             name: "Variables",
             label: "Context Variables",
             type: "keyValuePairs",
-            keyValues:eventMetadata,
+            keyValues: eventMetadata,
             defaultLocked: true,
             addButtonLabel: "Variable"
         }
@@ -373,7 +389,7 @@ export const EventCreate = () => {
                 isLoading ?
                     <div>
                         <Backdrop open={true} className={classes.backdrop}>
-                            <CircularProgress color="inherit"/>
+                            <CircularProgress color="inherit" />
                         </Backdrop>
                     </div> :
                     <FormRenderer

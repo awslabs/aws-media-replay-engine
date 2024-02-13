@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import {Route, Switch} from "react-router-dom";
+import {Route, Routes} from "react-router-dom";
 
 import NotFound from "./containers/NotFound/NotFound";
 import {Login} from "./containers/Login/Login";
@@ -28,30 +28,30 @@ import {HlsViewer} from "./containers/Replay/HlsViewer";
 
 export default () => {
     return (
-        <Switch>
-            <UnauthenticatedRoute path="/login" exact component={Login}/>
-            <AuthenticatedRoute path="/" exact component={Home}/>
-            <AuthenticatedRoute path="/home" exact component={Home}/>
-            <AuthenticatedRoute path="/listModels" exact component={ModelList}/>
-            <AuthenticatedRoute path="/addModel" exact component={ModelCreate}/>
-            <AuthenticatedRoute path="/viewModel" exact component={SummaryView}/>
-            <AuthenticatedRoute path="/addPlugin" exact component={PluginCreate}/>
-            <AuthenticatedRoute path="/listPlugins" exact component={PluginList}/>
-            <AuthenticatedRoute path="/viewPlugin" exact component={SummaryView}/>
-            <AuthenticatedRoute path="/listEvents" exact component={EventList}/>
-            <AuthenticatedRoute path="/addEvent" exact component={EventCreate}/>
-            <AuthenticatedRoute path="/viewEvent" exact component={EventView}/>
-            <AuthenticatedRoute path="/listReplays" exact component={ReplayList}/>
-            <AuthenticatedRoute path="/viewReplay" exact component={SummaryView}/>
-            <AuthenticatedRoute path="/addReplay" exact component={ReplayCreate}/>
-            <AuthenticatedRoute path="/listProfiles" exact component={ProfileList}/>
-            <AuthenticatedRoute path="/viewProfile" exact component={SummaryView}/>
-            <AuthenticatedRoute path="/addProfile" exact component={ProfileCreate}/>
-            <AuthenticatedRoute path="/clipPreview" exact component={ClipPreview}/>
-            <AuthenticatedRoute path="/hls" exact component={HlsViewer}/>
+        <Routes>
+            <Route path="/login" element={<UnauthenticatedRoute exact component={Login}/>}/>
+            <Route path="/" element={<AuthenticatedRoute exact component={Home}/>}/>
+            <Route path="/home" element={<AuthenticatedRoute exact component={Home}/>}/>
+            <Route path="/listModels" element={<AuthenticatedRoute exact component={ModelList}/>}/>
+            <Route path="/addModel" element={<AuthenticatedRoute exact component={ModelCreate}/>}/>
+            <Route path="/viewModel" element={<AuthenticatedRoute exact component={SummaryView}/>}/>
+            <Route path="/addPlugin" element={<AuthenticatedRoute exact component={PluginCreate}/>}/>
+            <Route path="/listPlugins" element={<AuthenticatedRoute exact component={PluginList}/>}/>
+            <Route path="/viewPlugin" element={<AuthenticatedRoute exact component={SummaryView}/>}/>
+            <Route path="/listEvents" element={<AuthenticatedRoute exact component={EventList}/>}/>
+            <Route path="/addEvent" element={<AuthenticatedRoute exact component={EventCreate}/>}/>
+            <Route path="/viewEvent" element={<AuthenticatedRoute exact component={EventView}/>}/>
+            <Route path="/listReplays" element={<AuthenticatedRoute exact component={ReplayList}/>}/>
+            <Route path="/viewReplay" element={<AuthenticatedRoute exact component={SummaryView}/>}/>
+            <Route path="/addReplay" element={<AuthenticatedRoute exact component={ReplayCreate}/>}/>
+            <Route path="/listProfiles" element={<AuthenticatedRoute exact component={ProfileList}/>}/>
+            <Route path="/viewProfile" element={<AuthenticatedRoute exact component={SummaryView}/>}/>
+            <Route path="/addProfile" element={<AuthenticatedRoute exact component={ProfileCreate}/>}/>
+            <Route path="/clipPreview" element={<AuthenticatedRoute exact component={ClipPreview}/>}/>
+            <Route path="/hls" element={<AuthenticatedRoute exact component={HlsViewer}/>}/>
 
             { /* Finally, catch all unmatched routes */}
             <Route component={NotFound}/>
-        </Switch>
+        </Routes>
     )
 }

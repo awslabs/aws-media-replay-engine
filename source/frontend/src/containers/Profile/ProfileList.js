@@ -10,11 +10,11 @@ import Link from "@material-ui/core/Link";
 import {PROFILE_SUMMARY_FORM} from "../../common/Constants";
 import {ListRenderer} from "../../components/ListRenderer/ListRenderer";
 import Button from "@material-ui/core/Button";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 
 
 export const ProfileList = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const sortTableByName = (tableData) => {
         return _.sortBy(tableData, item => {
@@ -40,9 +40,8 @@ export const ProfileList = () => {
     };
 
     const handleDetailsView = (row) => {
-        history.push({
-            pathname: "/viewProfile",
-            state: {
+        navigate("/viewProfile",
+            {state: {
                 back: {
                     name: "Profiles List",
                     link: "/listProfiles"

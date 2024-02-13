@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {makeStyles} from '@material-ui/core/styles';
 import _ from "lodash";
 import Box from "@material-ui/core/Box";
@@ -70,10 +70,11 @@ const useStyles = makeStyles((theme) => ({
 
 export const ClipPreview = () => {
         const classes = useStyles();
-        const history = useHistory();
+        const navigate = useNavigate();
+        const {state} = useLocation();
         const [selectedCard, setSelectedCard] = React.useState({})
         const [originalEventData, setOriginalEventData] = React.useState({})
-        const stateParams = _.get(history, 'location.state');
+        const stateParams = state;
         const [allClips, setAllClips] = React.useState(undefined);
         const {setIsSidebarOpen, isSidebarOpen, authenticatedUserName} = useSessionContext()
         
@@ -187,8 +188,7 @@ export const ClipPreview = () => {
 
         const goBack = () => {
             if (clipPreviewMode === "EventClips") {
-                history.push({
-                    pathname: "/viewEvent", state: {
+                navigate("/viewEvent", {state: {
                         back: {
                             name: "Events List",
                             link: "/viewEvent"
@@ -198,8 +198,7 @@ export const ClipPreview = () => {
                 });
             }
             else {
-                history.push({
-                    pathname: "/listReplays", state: {
+                navigate("/listReplays", {state: {
                         data: '',
                     }
                 });

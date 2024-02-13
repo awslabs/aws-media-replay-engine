@@ -13,7 +13,7 @@ import Typography from "@material-ui/core/Typography";
 import _ from "lodash";
 import {CATEGORIES} from "../../common/Constants";
 
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 
 const useStyles = makeStyles((theme) => ({
     imageContainer: {
@@ -36,13 +36,13 @@ const useStyles = makeStyles((theme) => ({
 
 export const Home = () => {
     const classes = useStyles();
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const [imageHover, setImageHover] = React.useState('');
 
     const handleCategoryClick = (categoryDetails) => {
         if (categoryDetails.backgroundImage != null) {
-            history.push(`/events/${categoryDetails.title}`);
+            navigate(`/events/${categoryDetails.title}`);
         }
     };
 

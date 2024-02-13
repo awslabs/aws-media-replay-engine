@@ -101,7 +101,7 @@ def generate_edl(event, context):
     mre_event = controlPlaneHelper.get_event(event_name, program_name)
     frame_rate = mre_event['FrameRate']
     profile_name = mre_event['Profile']
-    input_media_name = mre_event['LastKnownMediaLiveConfig']['InputAttachments'][0]['InputAttachmentName']
+    input_media_name = mre_event['LastKnownMediaLiveConfig']['InputAttachments'][0]['InputAttachmentName'] if 'LastKnownMediaLiveConfig' in mre_event else str(uuid.uuid4())
     input_media_name_without_extn = get_input_media_name(input_media_name)
 
     edl_content.append(f"TITLE: {input_media_name_without_extn}")

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import {makeStyles} from '@material-ui/core/styles';
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {Backdrop, Breadcrumbs, CircularProgress, Typography, Grid, Link, Button} from "@material-ui/core";
 import _ from "lodash";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
@@ -36,7 +36,8 @@ const useStyles = makeStyles((theme) => ({
 
 export const SummaryView = (props) => {
     const classes = useStyles();
-    const history = useHistory();
+    const navigate = useNavigate();
+    const {state} = useLocation();
     const [plugins, setPlugins] = React.useState([]);
     const [selectedPlugin, setSelectedPlugin] = React.useState(undefined);
     const {query, isLoading} = APIHandler();
@@ -49,7 +50,7 @@ export const SummaryView = (props) => {
         inputFieldsList = _.values(_.get(props, "dialogParams.inputFieldsMap"))
     }
     else {
-        stateParams = _.get(history, 'location.state');
+        stateParams = state;
         inputFieldsList = _.values(stateParams.inputFieldsMap)
     }
 
@@ -64,7 +65,7 @@ export const SummaryView = (props) => {
     }, []);
 
     const goBack = () => {
-        history.push({pathname: _.get(stateParams, "back.link", "/home")});
+        navigate(_.get(stateParams, "back.link", "/home"));
     };
 
     const handlePluginViewDialogClose = () => {
@@ -165,7 +166,7 @@ export const SummaryView = (props) => {
                         <Link color="inherit" component="button" variant="subtitle1" onClick={goBack}>
                             {_.get(stateParams, 'back.name')}
                         </Link>
-                        <Typography color="textPrimary">{stateParams.data.Name}</Typography>
+                        <Typography color="textPrimary">{_.get(stateParams, 'data.Name')}</Typography>
                     </Breadcrumbs>
                 </Grid>}
             {!_.has(props, "dialogParams") &&

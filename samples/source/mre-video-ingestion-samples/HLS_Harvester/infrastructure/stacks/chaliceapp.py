@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_iam as iam
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 # Ask the Python interpreter to search for modules in the parent folder. This is required to access the harvester_config.py.
 sys.path.append(os.path.join(
@@ -118,13 +119,13 @@ class ChaliceApp(Stack):
                     "ec2:RunInstances"
                 ],
                 resources=[
-                    "arn:aws:ec2:*:*:subnet/subnet-subnet-id",
-                    "arn:aws:ec2:*:*:network-interface/*",
-                    "arn:aws:ec2:*:*:instance/*",
-                    "arn:aws:ec2:*:*:volume/*",
-                    "arn:aws:ec2:*::image/ami-*",
-                    "arn:aws:ec2:*:*:key-pair/*",
-                    "arn:aws:ec2:*:*:security-group/*"
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}:subnet/*",
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}:network-interface/*",
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}:instance/*",
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}:volume/*",
+                    f"arn:aws:ec2:{Stack.of(self).region}::image/ami-*",
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}:key-pair/*",
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}:security-group/*"
                 ]
             )
         )
@@ -156,4 +157,28 @@ class ChaliceApp(Stack):
                     }
                 }
             }
+        )
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "EC2 and Chalice IAM roles require wildcard access to create and manage EC2 resources, access SSM parameters, S3 objects and API Gateway endpoint",
+                    "appliesTo": [
+                        "Action::ec2:Describe*",
+                        "Action::ec2:GetConsole*",
+                        "Action::ssm:GetParameter*",
+                        "Action::s3:Put*",
+                        "Resource::*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:ec2:<AWS::Region>::image/ami-*",
+                        {
+                            "regex": "/^Resource::arn:aws:ec2:<AWS::Region>:<AWS::AccountId>:.*/\\*$/"
+                        }
+                    ]
+                }
+            ]
         )

@@ -1,13 +1,11 @@
 /*
- *
- *  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  * SPDX-License-Identifier: MIT-0
- *
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, {useState} from "react";
-import {Auth} from "aws-amplify";
-import {useHistory, useLocation} from "react-router-dom";
+import {signIn, resetPassword, confirmResetPassword, confirmSignIn} from "aws-amplify/auth"
+import {useNavigate, useLocation} from "react-router-dom";
 
 import Avatar from '@material-ui/core/Avatar';
 import Box from '@material-ui/core/Box';
@@ -16,8 +14,9 @@ import Typography from '@material-ui/core/Typography';
 import {makeStyles} from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 
-import Copyright from '../../common/Copyright';
-import LoginForm from "./LoginForm";
+import {Copyright} from '../../common/Copyright';
+import {LoginForm} from "./LoginForm";
+import {ChangePasswordForm} from "./ChangePassword";
 import {useSessionContext} from "../../contexts/SessionContext";
 
 const useStyles = makeStyles((theme) => ({
@@ -32,44 +31,100 @@ const useStyles = makeStyles((theme) => ({
     },
     avatar: {
         margin: theme.spacing(1),
-        backgroundColor: theme.palette.secondary.main,
+        
     },
+    
 }));
 
-function Login(props) {
+export const Login = (props) => {
     const [isLoading, setIsLoading] = useState(false);
     const classes = useStyles();
-    const history = useHistory();
+    const navigate = useNavigate();
     const {state} = useLocation();
+
+    const [changePassword, setChangePassword] = useState(false);
+    const [username, setUsername] = useState("");
+    const [signInResponse, setSignInResponse] = useState(undefined);
 
     const {userHasAuthenticated} = useSessionContext();
 
-    const confirmNewPassword = async (signInResponse, password) => {
-        console.log('This is the first time this user logs in. The user requires changing (or confirming) password');
-        console.log('Auto-confirm user password');
-        await Auth.completeNewPassword(
-            signInResponse,
-            password,
-            signInResponse.challengeParam.requiredAttributes
-        );
-        console.log("Auth.completeNewPassword succeeded");
+    // Resets the user password in Cog Pool - for when user has first signed in
+    const confirmNewPassword = async (newPassword) => {
+        setIsLoading(true);
+        
+        try{
+            const confirmedResponse = await confirmSignIn({challengeResponse: newPassword});
+            console.log(confirmedResponse)
+            userHasAuthenticated(confirmedResponse.isSignedIn);
+            setSignInResponse(confirmedResponse)
+            navigate(state?.from || '/');
+        }
+        catch (e) {
+            alert(e.message);
+            setIsLoading(false);
+        }
     };
 
+    // Signs in the user, or prompts them to change their password if that is required on first sign in
     const handleSubmit = async (username, password) => {
         setIsLoading(true);
         try {
-            const signInResponse = await Auth.signIn(username, password);
-            if (signInResponse.challengeName === "NEW_PASSWORD_REQUIRED") {
-                await confirmNewPassword(signInResponse, password);
+            setUsername(username)
+            const signInResponse = await signIn({username, password});
+            console.log(signInResponse)
+            if (signInResponse.nextStep.signInStep === "CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED") {
+                setIsLoading(false);
+                setChangePassword(true)
+                setSignInResponse(signInResponse)
             }
-            userHasAuthenticated(signInResponse.username);
-
-            history.push(state?.from || '/');
+            else{
+                userHasAuthenticated(signInResponse.isSignedIn);
+                navigate(state?.from || '/');
+            }
+            
         } catch (e) {
             alert(e.message);
             setIsLoading(false);
         }
     };
+
+    // Changes User Password in Cog Pool - for when user has forgotten it
+    const handleForgotPassword = async(username, onEmailed) => {
+      try {
+        const output = await resetPassword({ username });
+        const { nextStep } = output;
+        
+        switch (nextStep.resetPasswordStep) {
+            case 'CONFIRM_RESET_PASSWORD_WITH_CODE':
+              const codeDeliveryDetails = nextStep.codeDeliveryDetails;
+              console.log(
+                `Confirmation code was sent to ${codeDeliveryDetails.deliveryMedium}`
+              );
+              console.log(output)
+              onEmailed(true)
+              break;
+            case 'DONE':
+              console.log('Successfully reset password.');
+              break;
+        }
+        
+      } catch (e) {
+        alert(e.message);
+        console.log(e);
+    
+      }
+    }
+    
+    const handleConfirmResetPassword = async (username, newPassword, confirmationCode) => {
+      try{
+        const res = await confirmResetPassword({username, newPassword, confirmationCode})    
+        console.log(res)
+      } catch(e) {
+        alert(e.message);
+        console.log(e)
+      }
+      
+    }
 
     return (
         <Grid container
@@ -77,26 +132,51 @@ function Login(props) {
               direction="column"
               alignItems="center"
               style={{
-                  minHeight: '100vh',
+                  minHeight: '75vh',
                   justifyContent: 'center'
               }}>
-            <Grid className={classes.paper} item>
-                <Avatar className={classes.avatar}>
-                    <LockOutlinedIcon/>
-                </Avatar>
-                <Typography component="h1" variant="h5">
-                    Sign in
-                </Typography>
-                <LoginForm
-                    isLoading={isLoading}
-                    onSubmit={handleSubmit}
-                />
-                <Box mt={8} className={classes.box}>
-                    <Copyright/>
-                </Box>
-            </Grid>
+                {
+                    changePassword ? (
+                        <Grid className={classes.paper} item>
+                            <Avatar className={classes.avatar}>
+                                <LockOutlinedIcon color="primary"/>
+                            </Avatar>
+                            <Typography component="h1" variant="h5">
+                                Update your password
+                            </Typography>
+                            <Typography component="h1" variant="caption">
+                                You need to update your password because this is the first time you are signing in.
+                            </Typography>
+                            <ChangePasswordForm
+                                isLoading={isLoading}
+                                onSubmit={confirmNewPassword}
+                                username={username}
+                            />
+                            <Box mt={8} className={classes.box}>
+                                <Copyright/>
+                            </Box>
+                        </Grid>
+                    ) :
+                    (
+                        <Grid className={classes.paper} item>
+                        <Avatar className={classes.avatar}>
+                            <LockOutlinedIcon color="primary"/>
+                        </Avatar>
+                        
+                        
+                        <LoginForm
+                            isLoading={isLoading}
+                            onSubmit={handleSubmit}
+                            onForgotPassword={handleForgotPassword}
+                            onPasswordChangeSubmit={handleConfirmResetPassword}
+                        />
+                        <Box mt={8} className={classes.box}>
+                            <Copyright/>
+                        </Box>
+                    </Grid>
+                    )
+                }
+            
         </Grid>
     );
 }
-
-export default Login;

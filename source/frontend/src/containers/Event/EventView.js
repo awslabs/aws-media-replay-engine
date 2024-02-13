@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {makeStyles} from '@material-ui/core/styles';
 
 import _ from "lodash";
@@ -61,7 +61,8 @@ const useStyles = makeStyles((theme) => ({
 export const EventView = () => {
     const classes = useStyles();
     const preventDefault = (event) => event.preventDefault();
-    const history = useHistory();
+    const navigate = useNavigate();
+    const {state} = useLocation();
 
     const [rows, setRows] = React.useState(undefined);
     const [allClips, setAllClips] = React.useState({});
@@ -76,12 +77,12 @@ export const EventView = () => {
     const [isOptimizerConfiguredInProfile, setIsOptimizerConfiguredInProfile] = React.useState(false);
 
     const {query, isLoading} = APIHandler();
-
-    const stateParams = _.get(history, 'location.state');
+    
+    const stateParams = state;
     const eventData = _.get(stateParams, 'data')
 
     const goBack = () => {
-        history.push({pathname: "/listEvents"});
+        navigate("/listEvents");
     };
 
     if (!stateParams) {
@@ -127,7 +128,10 @@ export const EventView = () => {
         if (profileClassifier) {
             let response = await query('get', 'api-data-plane', `event/${eventData.Name}/program/${eventData.Program}/profileClassifier/${profileClassifier}/track/1/segments/v2`,
                 {
-                    limit: CLIPS_LIMIT
+                    queryParams: 
+                        {
+                            limit: CLIPS_LIMIT
+                        }
                 }
             );
 
@@ -184,8 +188,7 @@ export const EventView = () => {
     };
 
     const handleDetailsView = (clipInfo, clips) => {
-        history.push({
-            pathname: "/clipPreview", state: {
+        navigate("/clipPreview", {state: {
                 back: {
                     name: "View Event",
                     link: "/viewEvent"
@@ -218,8 +221,7 @@ export const EventView = () => {
     };
 
     const navigateToReplay = (eventName, eventProgram) => {
-        history.push({
-            pathname: "/listReplays", state: {
+        navigate("/listReplays", { state: {
                 eventFilter: eventName,
                 programFilter: eventProgram,
             }

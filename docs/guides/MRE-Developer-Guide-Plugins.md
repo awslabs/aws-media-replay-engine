@@ -21,7 +21,7 @@ Also optional is the use of a Labeler class plugin. In this example, the Label T
 
 ![profile-example](../assets/images/devguide-profile-example.png)
 
-Plugins are written as AWS Lambda Functions. They **must** use the provided MRE Plugin Helper library which has been tested with Python 3.8 and is provided as a AWS Lambda Layer. Include this layer in all AWS Lambda functions that are intended to be MRE Plugins. It is called: **MediaReplayEnginePluginHelper**
+Plugins are written as AWS Lambda Functions. They **must** use the provided MRE Plugin Helper library which has been tested with Python 3.11 and is provided as a AWS Lambda Layer. Include this layer in all AWS Lambda functions that are intended to be MRE Plugins. It is called: **MediaReplayEnginePluginHelper**
 
 It is suggested that MRE Plugin names start with a verb. For example,  DetectSilence, DetectTennisAceShot, OptimizeTennis, etc.
 

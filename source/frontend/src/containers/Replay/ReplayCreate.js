@@ -5,7 +5,7 @@
 
 import React from 'react';
 import _ from 'lodash';
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {Backdrop, CircularProgress} from "@material-ui/core";
 import {duration, makeStyles} from "@material-ui/core/styles";
 import Grid from "@material-ui/core/Grid";
@@ -33,7 +33,8 @@ import {
 
 } from "@material-ui/core";
 import {PluginPriorityItem} from "./PluginPriorityItem"
-import {API} from "aws-amplify";
+import {get, post} from "aws-amplify/api";
+import {APIHandler} from "../../common/APIHandler/APIHandler";
 import {useSessionContext} from "../../contexts/SessionContext";
 import {MultiSelectWithChips} from "../../components/MultiSelectWithChips/MultiSelectWithChips";
 import PlayCircleFilledIcon from "@material-ui/icons/PlayCircleFilled";
@@ -83,8 +84,9 @@ const HlsResolutions = [
 
 export const ReplayCreate = () => {
     const classes = useStyles();
-    const history = useHistory();
-    const stateParams = _.get(history, 'location.state');
+    const {state} = useLocation();
+    const navigate = useNavigate();
+    const stateParams = state;
 
     const [audioTrackOptions, setAudioTrackOptions] = React.useState([]);
     const [selectedProgram, setSelectedProgram] = React.useState("-NA-");
@@ -95,7 +97,6 @@ export const ReplayCreate = () => {
     const [replayDescription, setReplayDescription] = React.useState("");
     const [replayMode, setReplayMode] = React.useState("Duration");
     const [availableFeatures, setAvailableFeatures] = React.useState([]);
-    const [isLoading, setIsLoading] = React.useState(false);
     const [isLoadingAttribValues, setIsLoadingAttribValues] = React.useState(false);
     const [replayDuration, setReplayDuration] = React.useState(60);
     const [adInsertDuration, setAdInsertDuration] = React.useState(1);
@@ -114,6 +115,7 @@ export const ReplayCreate = () => {
     const [fadeOutMs, setFadeOutMs] = React.useState(0);
     const [durationFromToleranceValue, setDurationFromToleranceValue] = React.useState(30);
     
+    const {query, isLoading, setIsLoading} = APIHandler();
 
 
     let featuresM = new Map()
@@ -226,10 +228,10 @@ export const ReplayCreate = () => {
         if (!formInvalid) {
             setIsLoading(true)
             try {
-                await API.post('api', `replay`, {
+                await post({apiName: 'api', path: `replay`, options: {
                     body: getFormValues()
-                });
-                history.push({pathname: "/listReplays"});
+                }});
+                navigate("/listReplays");
             }
             catch (error) {
                 console.log(error);
@@ -244,7 +246,7 @@ export const ReplayCreate = () => {
 
 
     const goBack = () => {
-        history.goBack();
+        navigate(-1);
     };
 
     const handleInputChange = (e) => {
@@ -266,8 +268,7 @@ export const ReplayCreate = () => {
 
     const fetchAudioTracks = async (url) => {
         try {
-            let response = await API.get('api', url);
-            return {success: true, data: response};
+            return await query('get', 'api', url , {disableLoader: true})
         }
         catch (error) {
             return {success: false};
@@ -319,8 +320,10 @@ export const ReplayCreate = () => {
             setAvailableFeatures([]);
 
             try {
-                let res = await API.get('api', `replay/program/${event.target.value}/event/${selectedEvent}/features`);
-                setAvailableFeatures(res);
+                let res = await query('get', 'api', `replay/program/${event.target.value}/event/${selectedEvent}/features` , {disableLoader: true})
+                console.log("Available Features: ")
+                console.log(res)
+                setAvailableFeatures(res.data);
             }
             catch (error) {
 
@@ -363,9 +366,9 @@ export const ReplayCreate = () => {
             // Load features
             setAvailableFeatures([]);
             try {
-
-                let res = await API.get('api', `replay/program/${selectedProgram}/event/${event.target.value}/features`);
-                setAvailableFeatures(res);
+                let res = await query('get', 'api', `replay/program/${selectedProgram}/event/${event.target.value}/features` , {disableLoader: true})
+                console.log(res)
+                setAvailableFeatures(res.data);
             }
             catch (error) {
 
@@ -482,9 +485,9 @@ export const ReplayCreate = () => {
         //console.log('pluginOutputAttribName: ', pluginOutputAttribName);
         try {
             //console.log(`replay/feature/program/${selectedProgram}/event/${selectedEvent}/outputattribute/${pluginOutputAttribName}/plugin/${pluginName}`);
-            let response = await API.get('api-data-plane', `replay/feature/program/${selectedProgram}/event/${selectedEvent}/outputattribute/${pluginOutputAttribName}/plugin/${pluginName}`);
+            let response = await query('get', 'api-data-plane', `replay/feature/program/${selectedProgram}/event/${selectedEvent}/outputattribute/${pluginOutputAttribName}/plugin/${pluginName}` , {disableLoader: true})
             //console.log(response)
-            return response
+            return response.data
         }
         catch (error) {
             return {success: false};

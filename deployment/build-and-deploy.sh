@@ -164,10 +164,10 @@ echo ""
 sleep 3
 
 # Verify Python min version
-resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor >= 8 else "Invalid Version")')"
+resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor == 11 else "Invalid Version")')"
 if [[ $resp =~ "Invalid Version" ]]; then
   echo "ERROR: Invalid Python version:"
-  echo "ERROR: Minimal required version: 3.8"
+  echo "ERROR: Required version: 3.11"
   echo "ERROR: Please install it and rerun this script"
   exit 1
 fi
@@ -269,7 +269,12 @@ fi
 echo "Using python virtual environment:"
 VENV=$(mktemp -d) && echo "$VENV"
 python3 -m venv "$VENV"
-source "$VENV"/bin/activate
+# Check the operating system
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    source "$VENV"/Scripts/activate
+else
+    source "$VENV"/bin/activate
+fi
 pip3 install wheel
 pip3 install -q urllib3 requests requests-aws4auth
 if [ $? -ne 0 ]; then
@@ -404,6 +409,101 @@ echo "--------------------------------------------------------------------------
 # Update in place
 sed -i -e "s/%%FRAMEWORK_VERSION%%/$version/" "$shared_dir/infrastructure/helpers/constants.py"
 
+# Gracefully unblock CloudFormation cross-stack export references due to Python version upgrade in MRE v2.9.0
+# Applicable only when upgrading from MRE v2.x.x to v2.9.0 or later
+echo "------------------------------------------------------------------------------"
+echo "Unblocking CloudFormation cross-stack export references"
+echo "------------------------------------------------------------------------------"
+# Check if MRE is already deployed in the region
+controlplane_endpoint_param=$(aws ssm describe-parameters --output text --parameter-filters "Key=Name,Values=/MRE/ControlPlane/EndpointURL" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+if [[ -z "${controlplane_endpoint_param}" ]]; then
+  echo "No unblocking needed as an existing version of MRE is not found in $region region"
+else
+  workflow_layer_param=$(aws ssm describe-parameters --output text --parameter-filters "Key=Name,Values=/MRE/WorkflowHelperLambdaLayerArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+  if [[ -z "${workflow_layer_param}" ]]; then
+    echo "Proceeding with the unblocking operation as the existing version of MRE found in $region region is earlier than v2.9.0"
+    echo "Getting the latest timecode layer version arn"
+    timecode_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_timecode --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    if [ $? -ne 0 ]; then
+        msg "ERROR: Failed to get the latest timecode layer version arn"
+        die 1
+    fi
+    echo "Getting the latest ffmpeg layer version arn"
+    ffmpeg_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_ffmpeg --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    if [ $? -ne 0 ]; then
+        msg "ERROR: Failed to get the latest ffmpeg layer version arn"
+        die 1
+    fi
+    echo "Getting the latest ffprobe layer version arn"
+    ffprobe_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_ffprobe --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    if [ $? -ne 0 ]; then
+        msg "ERROR: Failed to get the latest ffprobe layer version arn"
+        die 1
+    fi
+    echo "Getting the latest MediaReplayEngineWorkflowHelper layer version arn"
+    workflow_helper_layer_arn=$(aws lambda list-layer-versions --output text --layer-name MediaReplayEngineWorkflowHelper --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    if [ $? -ne 0 ]; then
+        msg "ERROR: Failed to get the latest MediaReplayEngineWorkflowHelper layer version arn"
+        die 1
+    fi
+    echo "Getting the latest MediaReplayEnginePluginHelper layer version arn"
+    plugin_helper_layer_arn=$(aws lambda list-layer-versions --output text --layer-name MediaReplayEnginePluginHelper --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    if [ $? -ne 0 ]; then
+        msg "ERROR: Failed to get the latest MediaReplayEnginePluginHelper layer version arn"
+        die 1
+    fi
+    echo "Getting the system dynamodb table arn from CloudFormation outputs"
+    system_table_arn=$(aws cloudformation describe-stacks --output text --stack-name aws-mre-shared-resources --query "Stacks[0].Outputs[?OutputKey=='mresystemtablearn'].OutputValue" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    if [ $? -ne 0 ]; then
+        msg "ERROR: Failed to get the system dynamodb table arn from CloudFormation outputs"
+        die 1
+    fi
+    system_table_name=$(echo "$system_table_arn" | cut -d/ -f2)
+
+    # Create SSM parameters with the retrieved arns
+    aws ssm put-parameter --name "/MRE/TimecodeLambdaLayerArn" --value $timecode_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/FfmpegLambdaLayerArn" --value $ffmpeg_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/FfprobeLambdaLayerArn" --value $ffprobe_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/WorkflowHelperLambdaLayerArn" --value $workflow_helper_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/PluginHelperLambdaLayerArn" --value $plugin_helper_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/ControlPlane/SystemTableArn" --value $system_table_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/ControlPlane/SystemTableName" --value $system_table_name --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+
+    # Deploy all the cross-stacks where the export references are found
+    # Segment Caching stack
+    deploy_cdk_app "Segment Caching" "$backend_dir/caching"
+
+    # Clip Generation stack
+    deploy_cdk_app "Clip Generation" "$backend_dir/clipgeneration"
+
+    # Data Export stack
+    deploy_cdk_app "Data Export" "$backend_dir/data_export"
+
+    # Event Life Cycle Handler stack
+    deploy_cdk_app "Event Life Cycle Handler" "$backend_dir/event-life-cycle"
+
+    # Replay Handler stack
+    deploy_cdk_app "Replay Handler" "$backend_dir/replay"
+
+    # Workflow Trigger stack
+    deploy_cdk_app "Workflow Trigger" "$backend_dir/workflow_trigger"
+
+    # System stack
+    deploy_cdk_app "System" "$api_dir/controlplane/system"
+
+    # Profile stack
+    deploy_cdk_app "Profile" "$api_dir/controlplane/profile"
+
+    # Delete SSM parameters created earlier
+    aws ssm delete-parameters --names "/MRE/TimecodeLambdaLayerArn" "/MRE/FfmpegLambdaLayerArn" "/MRE/FfprobeLambdaLayerArn" "/MRE/WorkflowHelperLambdaLayerArn" "/MRE/PluginHelperLambdaLayerArn" "/MRE/ControlPlane/SystemTableArn" "/MRE/ControlPlane/SystemTableName" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+
+    # Wait for 30 seconds for the delete propagation
+    sleep 30
+  else
+    echo "No unblocking needed as the existing version of MRE found in $region region is v2.9.0 or later"
+  fi
+fi
+
 echo "------------------------------------------------------------------------------"
 echo "Shared Resources stack"
 echo "------------------------------------------------------------------------------"
@@ -423,9 +523,6 @@ deploy_cdk_app "Data Export" "$backend_dir/data_export"
 
 # Event Life Cycle Handler stack
 deploy_cdk_app "Event Life Cycle Handler" "$backend_dir/event-life-cycle"
-
-# Event Scheduler stack
-#deploy_cdk_app "Event Scheduler" "$backend_dir/event_scheduler"
 
 # Replay Handler stack
 deploy_cdk_app "Replay Handler" "$backend_dir/replay"

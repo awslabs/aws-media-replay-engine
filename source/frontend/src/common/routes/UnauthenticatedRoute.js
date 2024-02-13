@@ -4,20 +4,16 @@
  */
 
 import React from "react";
-import { Route, Redirect } from "react-router-dom";
+import { Route, Navigate } from "react-router-dom";
 
 import {useSessionContext} from "../../contexts/SessionContext";
 
 export const UnauthenticatedRoute = ({ component: Component, ...rest }) => {
   const {isAuthenticated} = useSessionContext();
-  return (
-      <Route {...rest} render={() => {
-        return isAuthenticated === false
-            ? <Component />
-            : <Redirect to={{
-              pathname: '/'
-            }}
-            />
-      }} />
-  )
+  return isAuthenticated === false
+      ? <Component />
+      : <Navigate to={{
+        pathname: '/'
+      }}
+      />
 };

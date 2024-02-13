@@ -8,7 +8,7 @@ import {FormRenderer} from "../../components/Form/FormRenderer";
 
 import {PLUGIN_CLASSES} from "../../common/Constants";
 import _ from "lodash";
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {Backdrop, CircularProgress} from "@material-ui/core";
 import {ContentGroupCreateModal} from "../../components/ContentGroup/ContentGroupCreateModal";
 import {getNewVersionID} from "../../common/utils/utils";
@@ -24,10 +24,11 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export const ModelCreate = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
+    const {state} = useLocation();
     const classes = useStyles();
 
-    const stateParams = _.get(history, 'location.state');
+    const stateParams = state;
     const {query, isLoading} = APIHandler();
 
     const [contentGroupOptions, setContentGroupOptions] = React.useState([]);

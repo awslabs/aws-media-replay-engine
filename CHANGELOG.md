@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2024-02-13
+- Upgraded the Python version used in the framework (control/data plane API handlers, plugin/workflow helper layers, etc.) and sample plugins from 3.8 to 3.11.
+    > ⚠️ This is a breaking change for existing MRE plugins which now need to be upgraded to use the Python 3.11 lambda runtime.
+- Upgraded the Node version used in the frontend and fan experience UI from 14 to 20.
+
+- Fixed:
+    - [Git Issue] [#17](https://github.com/awslabs/aws-media-replay-engine/issues/17) - MediaReplayEnginePluginHelper - '@Decorator.cleanup_tmp_dir()' can have unintended consequences.
+    - Usage of boto3core in a couple of sample model training notebooks instead of botocore.
+    - AWS Region passed during deployment not utilized while initializing the DynamoDB boto3 resource in init-amplify.py.
+    - EDL generation bug when processing BYOB events.
+    - Minor bug fixes.
+
 ## [2.8.0] - 2023-09-12
 - Feature: **Replay CustomPriorities**: This version of MRE includes support for custom priority relay engine. It is now possible to integrate the replay engine with external systems (via an API for example) and influence the segments that are chosen to be a part of the replay.
 - Feature: **MRE Test Suite** - Collection of Integration tests to assert MRE Framework's functional behavior. These tests enable you to perform regression / adhoc testing.

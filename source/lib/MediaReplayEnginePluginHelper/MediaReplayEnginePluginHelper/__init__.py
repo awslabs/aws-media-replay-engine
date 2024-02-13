@@ -341,9 +341,9 @@ class DataPlane:
         Class that contains one or more decorator functions
         """
         @classmethod
-        def cleanup_tmp_dir(cls, path="/tmp/"):
+        def cleanup_tmp_dir(cls, path="/tmp/mre/"):
             """
-            Decorator function to clean up all the files and sub-directories in the /tmp directory
+            Decorator function to clean up all the files and sub-directories in the /tmp/mre directory
             """
             def rm_content(path):
                 if os.path.exists(path):
@@ -517,7 +517,7 @@ class DataPlane:
         return api_response.text
 
     @Decorator.cleanup_tmp_dir()
-    def download_media(self, path="/tmp/media/"):
+    def download_media(self, path="/tmp/mre/media/"):
         """
         Method to download the media (video) file from the Data plane to a local path.
 

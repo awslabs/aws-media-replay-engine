@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_mediaconvert as media_convert,
     lambda_layer_awscli as awscli
 )
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../')
@@ -63,7 +64,7 @@ class ReplayStack(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
                 ]
             )
         )
@@ -74,16 +75,71 @@ class ReplayStack(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                    "mediaconvert:Describe*",
-                    "mediaconvert:Get*",
-                    "mediaconvert:Create*",
-                    "s3:Get*",
-                    "s3:Put*",
-                    "s3:List*",
+                    "logs:PutLogEvents"
+                ],
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ]
+            )
+        )
+
+        self.replay_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "mediaconvert:DescribeEndpoints",
+                    "mediaconvert:GetJob",
+                    "mediaconvert:GetQueue",
+                    "mediaconvert:CreatePreset",
+                    "mediaconvert:GetJobTemplate",
+                    "mediaconvert:CreatePreset",
+                    "mediaconvert:CreateQueue",
+                    "mediaconvert:CreateJobTemplate",
+                    "mediaconvert:CreateJob"
+                ],
+                resources=[
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobTemplates/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:presets/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:queues/*",
+                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobs/*"
+                        ]
+            )
+        )
+
+        self.replay_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:GetObject",
+                    "s3:PutObject"
+                ],
+                resources=[
+                    f"arn:aws:s3:::{self.media_convert_output_bucket_name}/*",
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}/*"
+                ]
+            )
+        )
+        
+        self.replay_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "s3:ListBucket"
+                ],
+                resources=[
+                    f"arn:aws:s3:::{self.media_convert_output_bucket_name}",
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}"
+                ]
+            )
+        )
+
+        self.replay_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
                     "cloudwatch:PutMetricData"
                 ],
-                resources=["*"]
+                resources=["*"]     # Selected actions only support the all resources wildcard('*').
             )
         )
 
@@ -94,7 +150,7 @@ class ReplayStack(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -103,9 +159,10 @@ class ReplayStack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -148,7 +205,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-CreateReplay",
             description="MRE - Creates Replay for MRE events",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.CreateReplay",
             role=self.replay_lambda_role,
@@ -170,7 +227,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-GetEligibleReplays",
             description="MRE - Gets eligible replays for an MRE event",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.GetEligibleReplays",
             role=self.replay_lambda_role,
@@ -189,7 +246,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-MarkReplayComplete",
             description="MRE - Mark a Replay status as Complete",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.mark_replay_complete",
             role=self.replay_lambda_role,
@@ -209,7 +266,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-MarkReplayError",
             description="MRE - Mark a Replay status as Error",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.mark_replay_error",
             role=self.replay_lambda_role,
@@ -228,7 +285,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-GenerateMasterPlaylist",
             description="MRE - Creates a HLS Master Playlist manifest",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.generate_master_playlist",
             role=self.replay_lambda_role,
@@ -247,7 +304,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-GenerateHlsClips",
             description="MRE - Creates HLS Clips",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.generate_hls_clips",
             role=self.replay_lambda_role,
@@ -266,7 +323,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-CheckHlsJobsStatus",
             description="MRE - Checks ths status of HLS Jobs",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.check_Hls_job_status",
             role=self.replay_lambda_role,
@@ -285,7 +342,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-GenerateMp4Clips",
             description="MRE - Creates MP4 replay Clips",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.generate_mp4_clips",
             role=self.replay_lambda_role,
@@ -304,7 +361,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-UpdateMediaConvertJobStatusInDDB",
             description="MRE - Replay - Updates Status of Media Convert Jobs in DDB based on event received from EventBridge",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.update_job_status",
             role=self.replay_lambda_role,
@@ -323,7 +380,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-CheckMp4JobsStatus",
             description="MRE - Checks the status of Mp4 replay Jobs",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.check_mp4_job_status",
             role=self.replay_lambda_role,
@@ -342,7 +399,7 @@ class ReplayStack(Stack):
             self,
             "MRE-replay-UpdateReplayWithMp4Loc",
             description="MRE - Updates the replay request with the location of MP4 video",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/"),
             handler="replay_lambda.update_replay_with_mp4_location",
             role=self.replay_lambda_role,
@@ -365,21 +422,7 @@ class ReplayStack(Stack):
             description="Service role for the Replay Generation Step Functions"
         )
 
-        # Step Function IAM Role: X-Ray permissions
-        self.replay_sfn_role.add_to_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "xray:PutTraceSegments",
-                    "xray:PutTelemetryRecords",
-                    "xray:GetSamplingRules",
-                    "xray:GetSamplingTargets"
-                ],
-                resources=[
-                    "*"
-                ]
-            )
-        )
+        
 
         # Step Function IAM Role: Lambda permissions
         self.replay_sfn_role.add_to_policy(
@@ -389,7 +432,7 @@ class ReplayStack(Stack):
                     "lambda:InvokeFunction"
                 ],
                 resources=[
-                    "*"
+                    f"arn:aws:lambda:{Stack.of(self).region}:{Stack.of(self).account}:function:*"
                 ]
             )
         )
@@ -610,4 +653,102 @@ class ReplayStack(Stack):
 
         self.mre_replay_media_convert_job_update_rule.node.add_dependency(self.update_media_convert_job_in_ddb)
 
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:mediaconvert:*:*:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:jobTemplates/*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:presets/*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:queues/*",
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:jobs/*",
+                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
+                        "Resource::*",
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayGetEligibleReplays*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayMarkReplayComplete*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayGenerateHlsClips*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayCheckHlsJobsStatus*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayGenerateMasterPlaylist*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayGenerateMp4Clips*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayCheckMp4JobsStatus*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayUpdateReplayWithMp4Loc*.+Arn>:*/"
+                        },
+                        {
+                            "regex": "/^Resource::<MREreplayCreateReplay*.+Arn>:*/"
+                        }
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-SF1",
+                    "reason": "Lambda functions have logging enabled. Step functions logs are not used"
+                },
+                {
+                    "id": "AwsSolutions-SF2",
+                    "reason": "x-Ray Tracing is not used"
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "AWS managed policies allowed",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ]
+                }
+            ]
+        )
+
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/AWS679f53fac002430cb0da5b7982bd2287/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-CreateReplay/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GetEligibleReplays/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-MarkReplayComplete/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-MarkReplayError/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GenerateMasterPlaylist/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GenerateHlsClips/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-CheckHlsJobsStatus/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GenerateMp4Clips/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-UpdateMediaConvertJobStatusInDDB/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-CheckMp4JobsStatus/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-UpdateReplayWithMp4Loc/Resource", "AwsSolutions-L1")
+
         
+        
+    
+    def __add_resource_suppressions_by_path(self, path: str, id: str):
+        NagSuppressions.add_resource_suppressions_by_path(self, 
+            path, 
+            [
+                {
+                    "id": id,
+                    "reason": "aws-mre-replay-handler custom resource lambda function has the appropriate runtime version"
+                }
+            ]
+        )

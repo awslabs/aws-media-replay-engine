@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_iam as iam
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../../')
@@ -40,7 +41,7 @@ class ChaliceApp(Stack):
 
         self.create_chalice_role()
 
-    
+
     def create_chalice_role(self):
 
         # Chalice IAM Role
@@ -61,7 +62,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -104,7 +105,7 @@ class ChaliceApp(Stack):
                     "cloudwatch:DeleteAlarms"
                 ],
                 resources=[
-                    f"arn:aws:cloudwatch:*:*:alarm:AWS_MRE*"
+                    f"arn:aws:cloudwatch:{Stack.of(self).region}:{Stack.of(self).account}:alarm:AWS_MRE*"
                 ]
             )
         )
@@ -148,7 +149,7 @@ class ChaliceApp(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
                 ]
             )
         )
@@ -161,7 +162,7 @@ class ChaliceApp(Stack):
                     "sqs:SendMessage"
                 ],
                 resources=[
-                    f"arn:aws:sqs:*:*:{Fn.import_value('mre-event-deletion-queue-name')}"
+                    f"arn:aws:sqs:{Stack.of(self).region}:{Stack.of(self).account}:{Fn.import_value('mre-event-deletion-queue-name')}"
                 ]
             )
         )
@@ -176,7 +177,7 @@ class ChaliceApp(Stack):
                     "secretsmanager:TagResource"
                 ],
                 resources=[
-                    "arn:aws:secretsmanager:*:*:secret:/MRE*"
+                    f"arn:aws:secretsmanager:{Stack.of(self).region}:{Stack.of(self).account}:secret:/MRE*"
                 ]
             )
         )
@@ -203,7 +204,7 @@ class ChaliceApp(Stack):
                     "scheduler:DeleteSchedule"
                 ],
                 resources=[
-                    f"arn:aws:scheduler:*:*:schedule/default/mre*"
+                    f"arn:aws:scheduler:{Stack.of(self).region}:{Stack.of(self).account}:schedule/default/mre*"
                 ]
             )
         )
@@ -249,6 +250,32 @@ class ChaliceApp(Stack):
                 "manage_iam_role": False,
                 "iam_role_arn": self.chalice_role.role_arn
             }
+        )
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice IAM role policy requires wildcard permissions for S3, DynamoDB, MediaLive and CloudWatch",
+                    "appliesTo": [
+                        "Action::s3:Get*",
+                        "Action::s3:List*",
+                        "Action::s3:*BucketNotification*",
+                        "Action::medialive:List*",
+                        "Action::medialive:Describe*",
+                        {
+                            "regex": "/^Resource::.*/index/\\*$/"
+                        },
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:cloudwatch:<AWS::Region>:<AWS::AccountId>:alarm:AWS_MRE*",
+                        "Resource::arn:aws:scheduler:<AWS::Region>:<AWS::AccountId>:schedule/default/mre*",
+                        "Resource::arn:aws:secretsmanager:<AWS::Region>:<AWS::AccountId>:secret:/MRE*",
+                        "Resource::*",
+                    ]
+                }
+            ]
         )
 
         CfnOutput(self, "mre-event-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Event API Url", export_name="mre-event-api-url" )

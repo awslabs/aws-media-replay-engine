@@ -4,8 +4,8 @@
  */
 
 import React, {useState} from "react";
-import {Auth} from "aws-amplify";
-import {useHistory, useLocation} from "react-router-dom";
+import {updatePassword, signIn, resetPassword, ResetPasswordOutput, confirmResetPassword, confirmSignIn} from "aws-amplify/auth"
+import {useNavigate, useLocation} from "react-router-dom";
 
 import Avatar from '@material-ui/core/Avatar';
 import Box from '@material-ui/core/Box';
@@ -39,7 +39,7 @@ const useStyles = makeStyles((theme) => ({
 export const Login = (props) => {
     const [isLoading, setIsLoading] = useState(false);
     const classes = useStyles();
-    const history = useHistory();
+    const navigate = useNavigate();
     const {state} = useLocation();
 
     const [changePassword, setChangePassword] = useState(false);
@@ -48,18 +48,16 @@ export const Login = (props) => {
 
     const {userHasAuthenticated} = useSessionContext();
 
-    const confirmNewPassword = async (password) => {
+    // Resets the user password in Cog Pool - for when user has first signed in
+    const confirmNewPassword = async (newPassword) => {
         setIsLoading(true);
         
         try{
-        await Auth.completeNewPassword(
-            signInResponse,
-            password,
-            signInResponse.challengeParam.requiredAttributes
-        );
-        userHasAuthenticated(signInResponse.username);
-        history.push(state?.from || '/');
-        
+            const confirmedResponse = await confirmSignIn({challengeResponse: newPassword});
+            console.log(confirmedResponse.username)
+            userHasAuthenticated(username);
+            setSignInResponse(confirmedResponse)
+            navigate(state?.from || '/');
         }
         catch (e) {
             alert(e.message);
@@ -67,19 +65,21 @@ export const Login = (props) => {
         }
     };
 
+    // Signs in the user, or prompts them to change their password if that is required on first sign in
     const handleSubmit = async (username, password) => {
         setIsLoading(true);
         try {
             setUsername(username)
-            const signInResponse = await Auth.signIn(username, password);
-            if (signInResponse.challengeName === "NEW_PASSWORD_REQUIRED") {
+            const signInResponse = await signIn({username, password});
+            console.log(signInResponse)
+            if (signInResponse.nextStep.signInStep === "CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED") {
                 setIsLoading(false);
                 setChangePassword(true)
                 setSignInResponse(signInResponse)
             }
             else{
-                userHasAuthenticated(signInResponse.username);
-                history.push(state?.from || '/');
+                userHasAuthenticated(username);
+                navigate(state?.from || '/');
             }
             
         } catch (e) {
@@ -88,52 +88,42 @@ export const Login = (props) => {
         }
     };
 
-    // Changes User Password in Cog Pool
-    const passwordChangeSubmit = async (username, code, password) => {
-        setIsLoading(true);
-        try {
-            await Auth.forgotPasswordSubmit(username, code, password)
-            setIsLoading(false);
-
-            setChangePassword(false)
-            setUsername("")
-            setSignInResponse(undefined)
-            history.push('/');
-        } catch (e) {
-            
-            setIsLoading(false);
-            alert(e.message);
+    // Changes User Password in Cog Pool - for when user has forgotten it
+    const handleForgotPassword = async(username, onEmailed) => {
+      try {
+        const output = await resetPassword({ username });
+        const { nextStep } = output;
+        
+        switch (nextStep.resetPasswordStep) {
+            case 'CONFIRM_RESET_PASSWORD_WITH_CODE':
+              const codeDeliveryDetails = nextStep.codeDeliveryDetails;
+              console.log(
+                `Confirmation code was sent to ${codeDeliveryDetails.deliveryMedium}`
+              );
+              console.log(output)
+              onEmailed(true)
+              break;
+            case 'DONE':
+              console.log('Successfully reset password.');
+              break;
         }
         
-    };
-
-    // Sends an Email to the User EmailId
-    const forgotPassword = async (username, onEmailed) => {
-        try{
-            if (username.trim() === ""){
-                alert("Username cannot be empty !")
-                return
-            }
-            // Send confirmation code to user's email
-            const res = await Auth.forgotPassword(username)
-            console.log(res);
-            onEmailed(true)
-            console.log('Emailed');
-        }
-        catch (e) {
-            onEmailed(false)
-
-            if (e.code === 'NotAuthorizedException') {
-                alert("Incorrect password or you haven't signed into MRE at least once in the past");
-            }
-            else if (e.code === "UserNotFoundException") {
-                alert("Username not found");
-            }
-            else
-                alert(e.message);
-
-            setIsLoading(false);
-        }
+      } catch (e) {
+        alert(e.message);
+        console.log(e);
+    
+      }
+    }
+    
+    const handleConfirmResetPassword = async (username, newPassword, confirmationCode) => {
+      try{
+        const res = await confirmResetPassword({username, newPassword, confirmationCode})    
+        console.log(res)
+      } catch(e) {
+        alert(e.message);
+        console.log(e)
+      }
+      
     }
 
     return (
@@ -177,8 +167,8 @@ export const Login = (props) => {
                         <LoginForm
                             isLoading={isLoading}
                             onSubmit={handleSubmit}
-                            onForgotPassword={forgotPassword}
-                            onPasswordChangeSubmit={passwordChangeSubmit}
+                            onForgotPassword={handleForgotPassword}
+                            onPasswordChangeSubmit={handleConfirmResetPassword}
                         />
                         <Box mt={8} className={classes.box}>
                             <Copyright/>

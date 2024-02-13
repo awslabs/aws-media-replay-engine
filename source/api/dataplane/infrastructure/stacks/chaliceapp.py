@@ -19,6 +19,7 @@ from aws_cdk import (
     custom_resources as cr
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 CHUNK_STARTPTS_INDEX = "StartPts-index"
 PROGRAM_EVENT_INDEX = "ProgramEvent_Start-index"
@@ -188,7 +189,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -199,7 +200,7 @@ class ChaliceApp(Stack):
             "DynamoGSIHandler",
             description="Create or Delete GSI from a MRE managed DynamoDB table",
             code=_lambda.Code.from_asset("lambda/DynamoGSIHandler"),
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda_function.on_event",
             role=self.gsi_handler_lambda_role,
             memory_size=128,
@@ -237,7 +238,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -248,7 +249,7 @@ class ChaliceApp(Stack):
             "CRIsCompleteHandler",
             description="Check the current status of the DynamoDB GSI created via a Custom Resource",
             code=_lambda.Code.from_asset("lambda/DynamoIsCompleteHandler"),
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda_function.is_complete",
             role=self.gsi_is_complete_handler_lambda_role,
             memory_size=128,
@@ -556,7 +557,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -570,7 +571,7 @@ class ChaliceApp(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{self.eb_event_bus_name}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.eb_event_bus_name}"
                 ]
             )
         )
@@ -640,7 +641,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -651,7 +652,7 @@ class ChaliceApp(Stack):
             "EventDeletionHandler",
             description="Delete all the processing data stored in DynamoDB for a given Event and Program based on the notification sent to the Event Deletion SQS queue",
             code=_lambda.Code.from_asset("lambda/EventDeletionHandler"),
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda_function.lambda_handler",
             role=self.event_deletion_lambda_role,
             memory_size=256,
@@ -723,4 +724,44 @@ class ChaliceApp(Stack):
             parameter_name="/MRE/DataPlane/EndpointURL",
             tier=ssm.ParameterTier.INTELLIGENT_TIERING,
             description="[DO NOT DELETE] Parameter contains the AWS MRE DataPlane APIEndpoint URL used by the MRE Plugin helper library"
+        )
+
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-DDB3",
+                    "reason": "DynamoDB Point-in-time Recovery not required as the data stored is non-critical and can be recreated"
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "CDK custom resource provider uses AWS Managed Policies",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "MRE internal lambda IAM role policies require wildcard permissions for CloudWatch, S3 and DynamoDB",
+                    "appliesTo": [
+                        "Action::s3:Get*",
+                        "Action::s3:List*",
+                        "Action::s3:Delete*",
+                        "Resource::*",
+                        "Resource::arn:aws:s3:::mre-segment-cache-bucket-name/*",
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:*",
+                        {
+                            "regex": "/^Resource::<.*.+Arn>:\\*$/"
+                        },
+                        {
+                            "regex": "/^Resource::.*/index/\\*$/"
+                        }
+                    ]
+                },
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "MRE internal lambda functions do not require the latest runtime version as their dependencies have been tested only on Python 3.11"
+                }
+            ]
         )

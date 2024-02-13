@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_lambda as _lambda
 )
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../')
@@ -57,7 +58,9 @@ class ChaliceApp(Stack):
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
                 ],
-                resources=["*"]
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ]
             )
         )
 
@@ -69,7 +72,7 @@ class ChaliceApp(Stack):
                     "events:PutEvents"
                 ],
                 resources=[
-                    f"arn:aws:events:*:*:event-bus/{MRE_EVENT_BUS}"
+                    f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{MRE_EVENT_BUS}"
                 ]
             )
         )
@@ -81,7 +84,7 @@ class ChaliceApp(Stack):
                     "execute-api:Invoke",
                     "execute-api:ManageConnections"
                 ],
-                resources=["arn:aws:execute-api:*:*:*"]
+                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -89,9 +92,9 @@ class ChaliceApp(Stack):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "s3:Get*",
-                    "s3:Put*",
-                    "s3:List*"
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:ListBucket"
                 ],
                 resources=[
                     f"arn:aws:s3:::{self.segment_cache_bucket_name}",
@@ -117,9 +120,10 @@ class ChaliceApp(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "ssm:DescribeParameters",
-                    "ssm:GetParameter*"
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
                 ],
-                resources=["arn:aws:ssm:*:*:parameter/MRE*"]
+                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
             )
         )
 
@@ -143,7 +147,7 @@ class ChaliceApp(Stack):
             self,
             "Mre-SegmentCaching",
             description="Caches segments and related features outputted by MRE workflows in S3",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             code=_lambda.Code.from_asset(f"{RUNTIME_SOURCE_DIR}/lambda/SegmentCaching"),
             handler="mre-segment-caching.lambda_handler",
             role=self.segment_caching_lambda_role,
@@ -182,3 +186,43 @@ class ChaliceApp(Stack):
         )
         self.mre_caching_events_rule.node.add_dependency(self.event_bus)
         self.mre_caching_events_rule.node.add_dependency(self.segment_caching_lambda)
+
+        
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-DDB3",
+                    "reason": "DynamoDB Point-in-time Recovery not required in the default deployment mode. Customers can turn it on if required"
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "appliesTo": [
+                        
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::*",
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
+                        },
+                        {
+                            "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
+                        }
+                    ]
+                }
+            ]
+        )
+
+        NagSuppressions.add_resource_suppressions_by_path(self,
+            "aws-mre-segment-caching/Mre-SegmentCaching/Resource",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "aws-mre-segment-caching lambda function does not require the latest runtime version"
+                }
+            ]
+        )

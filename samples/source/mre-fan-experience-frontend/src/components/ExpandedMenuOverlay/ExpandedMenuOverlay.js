@@ -44,7 +44,7 @@ export const ExpandedMenuOverlay = (props) => {
     const classes = useStyles();
 
     const [segmentsCopy, setSegmentsCopy] = React.useState([]);
-    debugger;
+    //debugger;
     React.useEffect(() => {
         let segmentsTemp = [];
 

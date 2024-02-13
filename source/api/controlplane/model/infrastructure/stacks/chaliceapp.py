@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_iam as iam
 )
 from chalice.cdk import Chalice
+from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append('../../../../')
@@ -55,7 +56,7 @@ class ChaliceApp(Stack):
                     "logs:PutLogEvents"
                 ],
                 resources=[
-                    "arn:*:logs:*:*:*"
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ]
             )
         )
@@ -104,6 +105,22 @@ class ChaliceApp(Stack):
             }
         )
 
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Chalice IAM role policy requires wildcard permissions for CloudWatch and DynamoDB",
+                    "appliesTo": [
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:*",
+                        {
+                            "regex": "/^Resource::.*/index/\\*$/"
+                        }
+                    ]
+                }
+            ]
+        )
 
         CfnOutput(self, "mre-model-api-url", value=self.chalice.sam_template.get_output("EndpointURL").value, description="MRE Model API Url", export_name="mre-model-api-url" )
         

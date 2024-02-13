@@ -10,12 +10,12 @@ import {ListRenderer} from "../../components/ListRenderer/ListRenderer";
 import Link from "@material-ui/core/Link";
 import {REPLAY_SUMMARY_FORM} from "../../common/Constants";
 import _ from "lodash";
-import {useHistory} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 
 
 export const ReplayList = () => {
-    const history = useHistory();
-
+    const navigate = useNavigate();
+    const {state} = useLocation();
     const getRow = (row) => {
         return [
             <TableCell align="left">{row.Program}</TableCell>,
@@ -37,8 +37,8 @@ export const ReplayList = () => {
         <ListRenderer
             fetchPath={'replay/all'}
             getRow={getRow}
-            eventFilterInitValue={_.get(history, 'location.state.eventFilter')}
-            programFilterInitValue={_.get(history, 'location.state.programFilter')}
+            eventFilterInitValue={_.get(state, 'eventFilter')}
+            programFilterInitValue={_.get(state, 'programFilter')}
             createLink={"/addReplay"}
             header={{
                 title: "Replay List",

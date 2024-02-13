@@ -10,11 +10,11 @@ import moment from "moment";
 import Link from "@material-ui/core/Link";
 import {ListRenderer} from "../../components/ListRenderer/ListRenderer";
 import Button from "@material-ui/core/Button";
-import {useHistory} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 
 
 export const EventList = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
     const [contentGroup, setContentGroup] = React.useState("ALL")
     const [toFilter, setToFilter] = React.useState(undefined);
     const [queryParams, setQueryParams] = React.useState(undefined)
@@ -33,8 +33,7 @@ export const EventList = () => {
     }, []);
 
     const handleDetailsView = (row) => {
-        history.push({
-            pathname: "/viewEvent", state: {
+        navigate("/viewEvent", {state: {
                 back: {
                     name: "Events List",
                     link: "/listEvents"
@@ -81,6 +80,7 @@ export const EventList = () => {
     const handleTimeChange = (filterName, dateTime) => {
         let queryParamsCopy = _.cloneDeep(queryParams);
         queryParamsCopy[filterName] = moment(dateTime).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z";
+        setToFilter(queryParamsCopy[filterName])
         setQueryParams(queryParamsCopy);
     };
 

@@ -10,7 +10,7 @@ from aws_cdk import (
     aws_amplify_alpha as aws_amplify,
     aws_cognito
 )
-
+from cdk_nag import NagSuppressions
 
 class MreFanExperienceFrontendStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
@@ -73,7 +73,7 @@ class MreFanExperienceFrontendStack(Stack):
 
         authenticated_role.add_to_policy(aws_iam.PolicyStatement(
             effect=aws_iam.Effect.ALLOW,
-            resources=["*"],
+            resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"],
             actions=[
                 "execute-api:Invoke",
                 "execute-api:ManageConnections"
@@ -114,4 +114,28 @@ class MreFanExperienceFrontendStack(Stack):
         CfnOutput(self, "appClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "identityPoolId", value=identity_pool.ref)
 
-
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-COG1",
+                    "reason": "CDK provisions a default password policy with a length of at least 8 characters, as well as requiring uppercase, numeric, and special characters"
+                },
+                {
+                    "id": "AwsSolutions-COG2",
+                    "reason": "The fan experience frontend UI does not require MFA"
+                },
+                {
+                    "id": "AwsSolutions-COG3",
+                    "reason": "The fan experience frontend UI does not require AdvancedSecurityMode as it is a demo UI"
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Cognito default authenticated role needs wildcard permissions to access the MRE API Gateway endpoint",
+                    "appliesTo": [
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*"
+                    ]
+                }
+            ]
+        )

@@ -18,7 +18,7 @@ charset-normalizer==3.2.0
 click==8.1.7
 decorator==5.1.1
 docutils==0.19
-idna==3.4
+idna==3.7
 imagesize==1.4.1
 inquirer==2.10.1
 Jinja2==3.1.3

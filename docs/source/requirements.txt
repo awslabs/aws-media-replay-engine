@@ -34,7 +34,7 @@ python-dateutil==2.8.2
 python-editor==1.0.4
 PyYAML==6.0.1
 readchar==4.0.5
-requests==2.31.0
+requests==2.32.0
 requests-aws4auth==1.1.1
 rsa==4.7.2
 s3transfer==0.6.2

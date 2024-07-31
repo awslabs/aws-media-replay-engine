@@ -43,14 +43,6 @@ class ChaliceApp(Stack):
         self.gen_ai_prompt_templates_table_name = Fn.import_value("mre-gen-ai-prompt-templates-table-name")
         self.gen_ai_prompt_templates_table_arn = Fn.import_value("mre-gen-ai-prompt-templates-table-arn")
         
-        # Define the Share Link S3 bucket
-        # self.share_link_bucket = s3.Bucket(
-        #     self,
-        #     'WlMreShareLinkBucket',
-        #     enforce_ssl=True,
-        #     encryption=s3.BucketEncryption.S3_MANAGED
-        # )
-        
         # Define the User Favorites table
         self.user_favorites_table = ddb.Table(
             self,
@@ -105,17 +97,6 @@ class ChaliceApp(Stack):
             )
         )
         
-        # Chalice IAM Role: S3 Read permissions
-        # self.chalice_role.add_to_policy(
-        #     iam.PolicyStatement(
-        #         effect=iam.Effect.ALLOW,
-        #         actions=["s3:ListBucket", "s3:*Object"],
-        #         resources=[
-        #             f"arn:aws:s3:::{self.share_link_bucket.bucket_name}",
-        #             f"arn:aws:s3:::{self.share_link_bucket.bucket_name}/*"
-        #         ]
-        #     )
-        # )
         self.chalice_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -153,13 +134,6 @@ class ChaliceApp(Stack):
             )
         )
         
-        # Create a log group
-        # self.log_group = logs.LogGroup(
-        #     self, 
-        #     'LogGroup',
-        #     log_group_name='/aws/lambda/wl-mre-custom-api-APIHandler-indgxS3MhQun',
-        #     removal_policy=cdk.RemovalPolicy.DESTROY)
-        
         self.chalice_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -176,12 +150,11 @@ class ChaliceApp(Stack):
                 "environment_variables": {
                     "PLUGIN_RESULT_TABLE_NAME": self.result_table_name,
                     "EVENTS_TABLE_NAME": self.event_table_name,
-                    # "SHARE_LINK_BUCKET_NAME": self.share_link_bucket.bucket_name,
                     "USER_FAVORITES_TABLE_NAME": self.user_favorites_table.table_name,
                     "GEN_AI_TEMPLATES_TABLE_NAME": self.gen_ai_prompt_templates_table_name
                 },
                 "tags": {
-                    "Project": "WL MRE"
+                    "Project": "Live News Segmenter"
                 },
                 "manage_iam_role": False,
                 "iam_role_arn": self.chalice_role.role_arn,
@@ -222,7 +195,6 @@ class ChaliceApp(Stack):
                         "Action::s3:Get*",
                         "Action::s3:*Object",
                         "Resource::arn:aws:s3:::*",
-                        # "Resource::arn:aws:s3:::<WlMreShareLinkBucket95C286D2>/*",
                         "Resource::arn:aws:medialive:<AWS::Region>:<AWS::AccountId>:channel:*",
                         "Resource::arn:aws:medialive:<AWS::Region>:<AWS::AccountId>:input:*",
                         "Resource::arn:aws:medialive:<AWS::Region>:<AWS::AccountId>:input-device:*",

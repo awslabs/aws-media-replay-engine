@@ -183,7 +183,7 @@ cdk destroy [--profile <aws-profile>]
 5. Choose Delete.
 6. Select the MRE HLS Harvester Sample stack.
 7. Choose Delete.
-8. Select the WL MRE Custom API stack.
+8. Select the Live News Segmenter API stack.
 9. Choose Delete.
 10. Select the Live News Segmenter Frontend stack.
 11. Choose Delete.
@@ -196,7 +196,7 @@ aws cloudformation delete-stack --stack-name <fan-experience-frontend-stack-name
 
 aws cloudformation delete-stack --stack-name <hls-harvester-sample-stack-name> --region <aws-region>
 
-aws cloudformation delete-stack --stack-name <wl-mre-custom-api-stack-name> --region <aws-region>
+aws cloudformation delete-stack --stack-name <live-news-segmenter-api-stack-name> --region <aws-region>
 
 aws cloudformation delete-stack --stack-name <live-news-segmenter-frontend-stack-name> --region <aws-region>
 ```

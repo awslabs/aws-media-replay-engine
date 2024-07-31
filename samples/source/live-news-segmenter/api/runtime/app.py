@@ -13,7 +13,7 @@ from decimal import Decimal
 from chalicelib.common import create_presigned_url
 from chalicelib.user_favorites import user_favorites_api
 
-app = Chalice(app_name='wl-mre-custom-api')
+app = Chalice(app_name='live-news-segmenter-api')
 
 app.register_blueprint(user_favorites_api)
 

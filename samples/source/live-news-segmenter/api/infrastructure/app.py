@@ -8,7 +8,7 @@ from stacks.chaliceapp import ChaliceApp
 from cdk_nag import AwsSolutionsChecks
 
 app = App()
-stack = ChaliceApp(app, 'wl-mre-custom-api')
+stack = ChaliceApp(app, 'live-news-segmenter-api')
 Aspects.of(stack).add(AwsSolutionsChecks(verbose=True))
 
 # Add a tag to all constructs in the stack

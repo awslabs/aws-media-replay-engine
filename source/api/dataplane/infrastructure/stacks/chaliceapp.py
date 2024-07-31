@@ -16,7 +16,8 @@ from aws_cdk import (
     aws_lambda_event_sources as _lambda_es,
     aws_sqs as sqs,
     aws_ssm as ssm,
-    custom_resources as cr
+    custom_resources as cr,
+    CfnOutput
 )
 from chalice.cdk import Chalice
 from cdk_nag import NagSuppressions
@@ -156,6 +157,23 @@ class ChaliceApp(Stack):
                 type=ddb.AttributeType.NUMBER
             )
         )
+
+        # Define the GenAI prompt templates page temp-genai-templates
+        self.gen_ai_templates_table = ddb.Table(
+            self,
+            "GenAIPrompTemplates",
+            partition_key=ddb.Attribute(
+                name="template",
+                type=ddb.AttributeType.STRING
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN
+        )
+         
+        CfnOutput(self, "mre-gen-ai-prompt-templates-table-arn", value=self.gen_ai_templates_table.table_arn,
+                    description="Arn of the MRE gen-ai-prompt-templates table", export_name="mre-gen-ai-prompt-templates-table-arn")
+        CfnOutput(self, "mre-gen-ai-prompt-templates-table-name", value=self.gen_ai_templates_table.table_name,
+                    description="Name of the MRE genAi prompt templates table", export_name="mre-gen-ai-prompt-templates-table-name")
 
         # DynamoDB GSI Handler Lambda IAM Role
         self.gsi_handler_lambda_role = iam.Role(
@@ -611,6 +629,8 @@ class ChaliceApp(Stack):
                     self.replay_request_table_arn,
                     self.replay_results_table.table_arn,
                     f"{self.replay_results_table.table_arn}/index/*",
+                    self.gen_ai_templates_table.table_arn,
+                    f"{self.gen_ai_templates_table.table_arn}/index/*"
                 ]
             )
         )

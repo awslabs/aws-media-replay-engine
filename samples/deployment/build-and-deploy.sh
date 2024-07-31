@@ -8,7 +8,7 @@
 #
 # USAGE:
 #  ./build-and-deploy.sh [-h] [-v] --app {APPLICATION} --region {REGION} --profile {PROFILE}
-#    APPLICATION needs to be one of the following values: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample
+#    APPLICATION needs to be one of the following values: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample, live-news-segmenter, live-news-segmenter-ui, live-news-segmenter-api
 #    REGION needs to be in a format like us-east-1
 #    PROFILE is optional. It's the profile that you have setup in ~/.aws/credentials
 #      that you want to use for the AWS CLI and CDK commands.
@@ -29,7 +29,7 @@ Usage: $(basename "${BASH_SOURCE[0]}") [-h] [-v] [--profile PROFILE] --app APPLI
 Available options:
 -h, --help                      Print this help and exit (optional)
 -v, --verbose                   Print script debug info (optional)
---app                           One of the following MRE Sample applications to deploy: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample
+--app                           One of the following MRE Sample applications to deploy: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample, live-news-segmenter, live-news-segmenter-ui, live-news-segmenter-api
 --region                        AWS Region, formatted like us-east-1
 --profile                       AWS profile for CLI commands (optional)
 EOF
@@ -114,8 +114,8 @@ echo ""
 sleep 3
 
 # Check if a valid application name is given
-if ! [[ "$app" =~ ^(plugin-samples|model-samples|fan-experience-frontend|hls-harvester-sample)$ ]]; then
-  echo "ERROR: Invalid application name: $app. Should be one of the following: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample"
+if ! [[ "$app" =~ ^(plugin-samples|model-samples|fan-experience-frontend|hls-harvester-sample|live-news-segmenter|live-news-segmenter-ui|live-news-segmenter-api)$ ]]; then
+  echo "ERROR: Invalid application name: $app. Should be one of the following: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample, live-news-segmenter, live-news-segmenter-ui, live-news-segmenter-api"
   echo "ERROR: Please rerun this script with the correct application name"
   exit 1
 fi
@@ -370,6 +370,122 @@ if [ "$app" = "fan-experience-frontend" ]; then
   echo "console under 'mre-fan-experience-frontend' application. Once deployed, click  "
   echo "on the URL within the application and login using the credentials sent to your "
   echo "email address.                                                                 "
+  echo "-------------------------------------------------------------------------------"
+fi
+
+if  [ "$app" = "live-news-segmenter" ]    || 
+    [ "$app" = "live-news-segmenter-ui" ] || 
+    [ "$app" = "live-news-segmenter-api" ]; then
+  if [ "$app" = "live-news-segmenter" ] || [ "$app" = "live-news-segmenter-ui" ]; then
+    # Get the email address to send login credentials for the UI
+    echo "Please insert your email address to receive credentials required for the UI login:"
+    read ADMIN_EMAIL
+  fi
+
+  # Get reference for all important folders
+  build_dir="$PWD"
+  source_dir="$build_dir/../source"
+  live_news_segmenter_dir="$source_dir/live-news-segmenter"
+  source_api_dir="$live_news_segmenter_dir/api"
+  source_ui_dir="$live_news_segmenter_dir/ui"
+  api_stack_name="Live News Segmenter API stack"
+  ui_stack_name="Live News Segmenter Frontend stack"
+
+  if [ "$app" = "live-news-segmenter" ] || [ "$app" = "live-news-segmenter-api" ]; then
+    echo "------------------------------------------------------------------------------"
+    echo "$api_stack_name"
+    echo "------------------------------------------------------------------------------"
+    cd "$source_api_dir" || exit 1  
+
+    # Remove cdk.out and chalice deployments in the CDK project to force redeploy when there are changes to configuration
+    [ -e cdk.out ] && rm -rf cdk.out
+    [ -e infrastructure/cdk.out ] && rm -rf infrastructure/cdk.out
+    [ -e infrastructure/chalice.out ] && rm -rf infrastructure/chalice.out
+    [ -e runtime/.chalice/deployments ] && rm -rf runtime/.chalice/deployments  
+
+    echo "Installing Python dependencies"
+    pip3 install -q -r requirements.txt
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install required Python dependencies for the $api_stack_name."
+        exit 1
+    fi
+    echo "Deploying the $api_stack_name"
+    cd "$source_api_dir"/infrastructure
+    cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to deploy the $api_stack_name."
+        exit 1
+    fi
+    echo "Finished deploying the $api_stack_name"
+  fi
+
+
+  if [ "$app" = "live-news-segmenter" ] || [ "$app" = "live-news-segmenter-ui" ]; then
+    echo "------------------------------------------------------------------------------"
+    echo "$ui_stack_name"
+    echo "------------------------------------------------------------------------------"
+    cd "$source_ui_dir/cdk" || exit 1
+
+    # Remove cdk.out and cdk-outputs.json in the CDK project to force redeploy when there are changes to configuration
+    [ -e cdk.out ] && rm -rf cdk.out
+    [ -e stacks/cdk.out ] && rm -rf stacks/cdk.out
+    [ -e cdk-outputs.json ] && rm -rf cdk-outputs.json
+
+    echo "Installing Python dependencies"
+    pip3 install -q -r requirements.txt
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install required Python dependencies for the $ui_stack_name."
+        exit 1
+    fi
+
+    echo "Deploying the $ui_stack_name"
+    cdk deploy --require-approval never --outputs-file ./cdk-outputs.json --parameters adminemail=$ADMIN_EMAIL $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to deploy the $ui_stack_name."
+        exit 1
+    fi
+    echo "Finished deploying the $ui_stack_name"
+
+    echo "Updating Amplify environment variables and custom headers based on the CDK output"
+    (python3 init-amplify.py $region $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to update Amplify environment variables and custom headers."
+        exit 1
+    fi
+
+    echo "Cloning the code from CodeCommit for Amplify deployment"
+    cd "$source_ui_dir" || exit 1
+    git clone "codecommit::$region://$(if [ ! -z $profile ]; then echo "$profile@"; fi)live-news-segmenter-frontend"
+    rsync -r --exclude 'live-news-segmenter-frontend' --exclude 'node_modules' --exclude 'cdk' . live-news-segmenter-frontend
+    
+    echo "Pushing the code to CodeCommit for Amplify deployment"
+    cd "$source_ui_dir"/live-news-segmenter-frontend
+    
+    if git rev-parse --verify master > /dev/null 2>&1; then
+        echo "Branch 'master' exists."
+        git checkout master
+    else
+        echo "Branch 'master' does not exist."
+        git checkout -b master
+    fi
+
+    git add .
+    git commit -m "Initial commit"
+    git push --set-upstream origin master
+    rm -rf "$source_ui_dir"/live-news-segmenter-frontend
+  fi
+
+  echo "-------------------------------------------------------------------------------"
+  echo "Successfully deployed the live-news-segmenter application"
+  if [ "$app" = "live-news-segmenter" ] || [ "$app" = "live-news-segmenter-ui" ]; then
+    echo ""
+    echo "NOTE: Amplify will take a few minutes to provision, build, and deploy the Live  "
+    echo "News Segmenter Frontend application. Please monitor the progress in the AWS Amplify "
+    echo "console under 'live-news-segmenter-frontend' application. Once deployed, click  "
+    echo "on the URL within the application and login using the credentials sent to your "
+    echo "email address.                                                                 "
+  fi
   echo "-------------------------------------------------------------------------------"
 fi
 

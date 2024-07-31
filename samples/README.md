@@ -10,6 +10,7 @@ This repository consists of the following applications, each of which can be dep
 * `model-samples` - Contains the Notebooks to deploy different ML Models used by the sample Plugins. These need to be **manually** deployed and registered in MRE **before** deploying the sample Plugins.
 * `fan-experience-frontend` - CDK to deploy the Fan Experience GUI into your account.
 * `hls-harvester-sample` - CDK to deploy the HLS Harvester Sample application into your account.
+* `live-news-segmenter` - CDK to deploy the Live News Segmenter into your account.
 
 # Install
 
@@ -125,23 +126,31 @@ cd $deployment_dir
 ./build-and-deploy.sh --app hls-harvester-sample --region $REGION [--profile <aws-profile>]
 ```
 
+### live-news-segmenter
+
+```
+cd $deployment_dir
+./build-and-deploy.sh --app [live-news-segmenter || live-news-segmenter-ui || live-news-segmenter-api] --region $REGION [--profile <aws-profile>]
+```
+
 # Code Layout
 
-| Path | Description |
-|:---  |:------------|
-| deployment/ |	shell scripts |
-| deployment/build-and-deploy.sh | shell script to build and deploy plugin-samples and fan-experience-frontend applications using AWS CDK |
-| source/ | source code folder |
-| source/custom-resource/ | source code folder for the Lambda custom resource function to register models, plugins, and profiles in MRE |
-| source/mre-plugin-samples/ | source code folder for the plugin-samples application |
-| source/mre-plugin-samples/cdk/ | plugin-samples CDK application |
-| source/mre-plugin-samples/LambdaLayers/ | Libraries to be manually imported as Lambda Layers |
-| source/mre-plugin-samples/Plugins/ | Lambda code assets for all the sample Plugins |
-| source/mre-model-samples/ | source code folder for the model-samples application |
-| source/mre-model-samples/Models/ | folder containing Notebooks to deploy the sample ML Models |
-| source/mre-profile-samples/ | folder containing sample Profile configurations |
-| source/mre-fan-experience-frontend/ | source code for the fan-experience-frontend application |
-| source/mre-video-ingestion-samples/HLS_Harvester/ | source code for the hls-harvester-sample application |
+| Path                                              | Description                                                                                                                 |
+| :------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------- |
+| deployment/                                       | shell scripts                                                                                                               |
+| deployment/build-and-deploy.sh                    | shell script to build and deploy plugin-samples, fan-experience-frontend and live-news-segmenter applications using AWS CDK |
+| source/                                           | source code folder                                                                                                          |
+| source/custom-resource/                           | source code folder for the Lambda custom resource function to register models, plugins, and profiles in MRE                 |
+| source/mre-plugin-samples/                        | source code folder for the plugin-samples application                                                                       |
+| source/mre-plugin-samples/cdk/                    | plugin-samples CDK application                                                                                              |
+| source/mre-plugin-samples/LambdaLayers/           | Libraries to be manually imported as Lambda Layers                                                                          |
+| source/mre-plugin-samples/Plugins/                | Lambda code assets for all the sample Plugins                                                                               |
+| source/mre-model-samples/                         | source code folder for the model-samples application                                                                        |
+| source/mre-model-samples/Models/                  | folder containing Notebooks to deploy the sample ML Models                                                                  |
+| source/mre-profile-samples/                       | folder containing sample Profile configurations                                                                             |
+| source/mre-fan-experience-frontend/               | source code for the fan-experience-frontend application                                                                     |
+| source/live-news-segmenter/                       | source code for the live-news-segmenter application                                                                         |
+| source/mre-video-ingestion-samples/HLS_Harvester/ | source code for the hls-harvester-sample application                                                                        |
 
 # Uninstall
 
@@ -158,6 +167,12 @@ cdk destroy [--profile <aws-profile>]
 # Delete the hls-harvester-sample application
 cd MRE-Samples/source/mre-video-ingestion-samples/HLS_Harvester/infrastructure
 cdk destroy [--profile <aws-profile>]
+
+# Delete the live-news-segmenter application
+cd MRE-Samples/source/live-news-segmenter/api/infrastructure
+cdk destroy [--profile <aws-profile>]
+cd MRE-Samples/source/live-news-segmenter/ui/cdk
+cdk destroy [--profile <aws-profile>]
 ```
 
 ## Option 2: Uninstall using the AWS Management Console
@@ -168,6 +183,10 @@ cdk destroy [--profile <aws-profile>]
 5. Choose Delete.
 6. Select the MRE HLS Harvester Sample stack.
 7. Choose Delete.
+8. Select the WL MRE Custom API stack.
+9. Choose Delete.
+10. Select the Live News Segmenter Frontend stack.
+11. Choose Delete.
 
 ## Option 3: Uninstall using AWS Command Line Interface
 ```
@@ -176,6 +195,10 @@ aws cloudformation delete-stack --stack-name <plugin-samples-stack-name> --regio
 aws cloudformation delete-stack --stack-name <fan-experience-frontend-stack-name> --region <aws-region>
 
 aws cloudformation delete-stack --stack-name <hls-harvester-sample-stack-name> --region <aws-region>
+
+aws cloudformation delete-stack --stack-name <wl-mre-custom-api-stack-name> --region <aws-region>
+
+aws cloudformation delete-stack --stack-name <live-news-segmenter-frontend-stack-name> --region <aws-region>
 ```
 
 # License

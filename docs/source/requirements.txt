@@ -52,5 +52,5 @@ typing_extensions==4.7.1
 urllib3==1.26.19
 waitress==2.1.2
 wcwidth==0.2.6
-WebOb==1.8.7
+WebOb==1.8.8
 WebTest==3.0.0

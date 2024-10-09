@@ -16,7 +16,7 @@ from aws_cdk import (
     aws_lambda_event_sources as _lambda_es,
     aws_sqs as sqs,
     aws_ssm as ssm,
-    custom_resources as cr
+    custom_resources as cr,
 )
 from chalice.cdk import Chalice
 from cdk_nag import NagSuppressions
@@ -28,19 +28,22 @@ PARTITION_KEY_END_INDEX = "PK_End-index"
 PARTITION_KEY_CHUNK_NUMBER_INDEX = "PK_ChunkNumber-index"
 FRAME_PROGRAM_EVENT_INDEX = "ProgramEvent-index"
 CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX = "ProgramEventTrack-index"
-CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = "ProgramEventClassifierStart-index"
+CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = (
+    "ProgramEventClassifierStart-index"
+)
 PROGRAM_EVENT_LABEL_INDEX = "ProgramEvent_Label-index"
 NON_OPT_SEG_INDEX = "NonOptoSegments-index"
 REPLAY_RESULT_PROGRAM_EVENT_INDEX = "Program_Event-index"
 
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
-sys.path.append('../../../')
+sys.path.append("../../../")
 
 from shared.infrastructure.helpers import common
 
 RUNTIME_SOURCE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
+    os.path.dirname(os.path.dirname(__file__)), os.pardir, "runtime"
+)
 
 
 class ChaliceApp(Stack):
@@ -49,112 +52,81 @@ class ChaliceApp(Stack):
         super().__init__(scope, id, **kwargs)
 
         # Get the existing MRE Segment Cache bucket
-        self.segment_cache_bucket_name = common.MreCdkCommon.get_segment_cache_bucket_name(self)
+        self.segment_cache_bucket_name = (
+            common.MreCdkCommon.get_segment_cache_bucket_name(self)
+        )
 
         # JobTracking Table
         self.job_tracking_table = ddb.Table(
             self,
             "JobTracker",
-            partition_key=ddb.Attribute(
-                name="JobId",
-                type=ddb.AttributeType.STRING
-            ),
+            partition_key=ddb.Attribute(name="JobId", type=ddb.AttributeType.STRING),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
-            time_to_live_attribute="ttl"
+            time_to_live_attribute="ttl",
         )
 
         # Frame Table
         self.frame_table = ddb.Table(
             self,
             "Frame",
-            partition_key=ddb.Attribute(
-                name="Id",
-                type=ddb.AttributeType.STRING
-            ),
-            sort_key=ddb.Attribute(
-                name="FrameNumber",
-                type=ddb.AttributeType.NUMBER
-            ),
+            partition_key=ddb.Attribute(name="Id", type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name="FrameNumber", type=ddb.AttributeType.NUMBER),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # Frame Table: ProgramEvent GSI
         self.frame_table.add_global_secondary_index(
             index_name=FRAME_PROGRAM_EVENT_INDEX,
             partition_key=ddb.Attribute(
-                name="ProgramEvent",
-                type=ddb.AttributeType.STRING
+                name="ProgramEvent", type=ddb.AttributeType.STRING
             ),
-            projection_type=ddb.ProjectionType.KEYS_ONLY
+            projection_type=ddb.ProjectionType.KEYS_ONLY,
         )
 
         # Chunk Table
         self.chunk_table = ddb.Table(
             self,
             "Chunk",
-            partition_key=ddb.Attribute(
-                name="PK",
-                type=ddb.AttributeType.STRING
-            ),
-            sort_key=ddb.Attribute(
-                name="Start",
-                type=ddb.AttributeType.NUMBER
-            ),
+            partition_key=ddb.Attribute(name="PK", type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name="Start", type=ddb.AttributeType.NUMBER),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # Chunk Table: StartPts LSI
         self.chunk_table.add_local_secondary_index(
             index_name=CHUNK_STARTPTS_INDEX,
-            sort_key=ddb.Attribute(
-                name="StartPts",
-                type=ddb.AttributeType.NUMBER
-            )
+            sort_key=ddb.Attribute(name="StartPts", type=ddb.AttributeType.NUMBER),
         )
 
         # PluginResult Table
         self.plugin_result_table = ddb.Table(
             self,
             "PluginResult",
-            partition_key=ddb.Attribute(
-                name="PK",
-                type=ddb.AttributeType.STRING
-            ),
-            sort_key=ddb.Attribute(
-                name="Start",
-                type=ddb.AttributeType.NUMBER
-            ),
+            partition_key=ddb.Attribute(name="PK", type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name="Start", type=ddb.AttributeType.NUMBER),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # PluginResults Table: ProgramEventPluginName_Start GSI
         self.plugin_result_table.add_global_secondary_index(
             index_name=PROGRAM_EVENT_PLUGIN_INDEX,
             partition_key=ddb.Attribute(
-                name="ProgramEventPluginName",
-                type=ddb.AttributeType.STRING
+                name="ProgramEventPluginName", type=ddb.AttributeType.STRING
             ),
-            sort_key=ddb.Attribute(
-                name="Start",
-                type=ddb.AttributeType.NUMBER
-            )
+            sort_key=ddb.Attribute(name="Start", type=ddb.AttributeType.NUMBER),
         )
 
         # PluginResults Table: ProgramEvent_Start GSI
         self.plugin_result_table.add_global_secondary_index(
             index_name=PROGRAM_EVENT_INDEX,
             partition_key=ddb.Attribute(
-                name="ProgramEvent",
-                type=ddb.AttributeType.STRING
+                name="ProgramEvent", type=ddb.AttributeType.STRING
             ),
-            sort_key=ddb.Attribute(
-                name="Start",
-                type=ddb.AttributeType.NUMBER
-            )
+            sort_key=ddb.Attribute(name="Start", type=ddb.AttributeType.NUMBER),
         )
 
         # DynamoDB GSI Handler Lambda IAM Role
@@ -162,20 +134,15 @@ class ChaliceApp(Stack):
             self,
             "DynamoGSIHandlerLambdaRole",
             assumed_by=iam.ServicePrincipal(service="lambda.amazonaws.com"),
-            description="Role used by the MRE DynamoDB GSI Handler Lambda function"
+            description="Role used by the MRE DynamoDB GSI Handler Lambda function",
         )
 
         # DynamoDB GSI Handler Lambda IAM Role: DynamoDB permissions
         self.gsi_handler_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "dynamodb:DescribeTable",
-                    "dynamodb:UpdateTable"
-                ],
-                resources=[
-                    self.plugin_result_table.table_arn
-                ]
+                actions=["dynamodb:DescribeTable", "dynamodb:UpdateTable"],
+                resources=[self.plugin_result_table.table_arn],
             )
         )
 
@@ -186,11 +153,11 @@ class ChaliceApp(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents"
+                    "logs:PutLogEvents",
                 ],
                 resources=[
                     f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
-                ]
+                ],
             )
         )
 
@@ -204,7 +171,7 @@ class ChaliceApp(Stack):
             handler="lambda_function.on_event",
             role=self.gsi_handler_lambda_role,
             memory_size=128,
-            timeout=Duration.minutes(5)
+            timeout=Duration.minutes(5),
         )
 
         # GSI Custom Resource IsComplete Handler Lambda IAM Role
@@ -212,19 +179,15 @@ class ChaliceApp(Stack):
             self,
             "CRIsCompleteHandlerLambdaRole",
             assumed_by=iam.ServicePrincipal(service="lambda.amazonaws.com"),
-            description="Role used by the MRE Custom Resource IsComplete Handler Lambda function"
+            description="Role used by the MRE Custom Resource IsComplete Handler Lambda function",
         )
 
         # GSI Custom Resource IsComplete Handler Lambda IAM Role: DynamoDB permissions
         self.gsi_is_complete_handler_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "dynamodb:DescribeTable"
-                ],
-                resources=[
-                    self.plugin_result_table.table_arn
-                ]
+                actions=["dynamodb:DescribeTable"],
+                resources=[self.plugin_result_table.table_arn],
             )
         )
 
@@ -235,11 +198,11 @@ class ChaliceApp(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents"
+                    "logs:PutLogEvents",
                 ],
                 resources=[
                     f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
-                ]
+                ],
             )
         )
 
@@ -253,7 +216,7 @@ class ChaliceApp(Stack):
             handler="lambda_function.is_complete",
             role=self.gsi_is_complete_handler_lambda_role,
             memory_size=128,
-            timeout=Duration.minutes(5)
+            timeout=Duration.minutes(5),
         )
 
         # GSI Custom Resource Provider
@@ -263,7 +226,7 @@ class ChaliceApp(Stack):
             on_event_handler=self.gsi_handler_lambda,
             is_complete_handler=self.gsi_is_complete_handler_lambda,
             query_interval=Duration.minutes(1),
-            total_timeout=Duration.hours(2)
+            total_timeout=Duration.hours(2),
         )
 
         # PluginResults Table: ProgramEvent_Label GSI via Custom Resource
@@ -275,15 +238,9 @@ class ChaliceApp(Stack):
             properties={
                 "table_name": self.plugin_result_table.table_name,
                 "index_name": PROGRAM_EVENT_LABEL_INDEX,
-                "partition_key": {
-                    "Name": "PK",
-                    "Type": "S"
-                },
-                "sort_key": {
-                    "Name": "LabelCode",
-                    "Type": "S"
-                }
-            }
+                "partition_key": {"Name": "PK", "Type": "S"},
+                "sort_key": {"Name": "LabelCode", "Type": "S"},
+            },
         )
 
         self.programevent_label_gsi_cr.node.add_dependency(self.plugin_result_table)
@@ -297,18 +254,14 @@ class ChaliceApp(Stack):
             properties={
                 "table_name": self.plugin_result_table.table_name,
                 "index_name": NON_OPT_SEG_INDEX,
-                "partition_key": {
-                    "Name": "PK",
-                    "Type": "S"
-                },
-                "sort_key": {
-                    "Name": "NonOptoChunkNumber",
-                    "Type": "N"
-                }
-            }
+                "partition_key": {"Name": "PK", "Type": "S"},
+                "sort_key": {"Name": "NonOptoChunkNumber", "Type": "N"},
+            },
         )
 
-        self.non_opto_segments_gsi_cr.node.add_dependency(self.programevent_label_gsi_cr)
+        self.non_opto_segments_gsi_cr.node.add_dependency(
+            self.programevent_label_gsi_cr
+        )
 
         # PluginResults Table: PK_End GSI via Custom Resource
         self.pk_end_gsi_cr = CustomResource(
@@ -319,15 +272,9 @@ class ChaliceApp(Stack):
             properties={
                 "table_name": self.plugin_result_table.table_name,
                 "index_name": PARTITION_KEY_END_INDEX,
-                "partition_key": {
-                    "Name": "PK",
-                    "Type": "S"
-                },
-                "sort_key": {
-                    "Name": "End",
-                    "Type": "N"
-                }
-            }
+                "partition_key": {"Name": "PK", "Type": "S"},
+                "sort_key": {"Name": "End", "Type": "N"},
+            },
         )
 
         self.pk_end_gsi_cr.node.add_dependency(self.non_opto_segments_gsi_cr)
@@ -341,20 +288,14 @@ class ChaliceApp(Stack):
             properties={
                 "table_name": self.plugin_result_table.table_name,
                 "index_name": PARTITION_KEY_CHUNK_NUMBER_INDEX,
-                "partition_key": {
-                    "Name": "PK",
-                    "Type": "S"
-                },
-                "sort_key": {
-                    "Name": "ChunkNumber",
-                    "Type": "N"
-                }
-            }
+                "partition_key": {"Name": "PK", "Type": "S"},
+                "sort_key": {"Name": "ChunkNumber", "Type": "N"},
+            },
         )
 
         self.pk_chunknumber_gsi_cr.node.add_dependency(self.pk_end_gsi_cr)
 
-        '''
+        """
         # PluginResults Table: ProgramEvent_Label GSI
         self.plugin_result_table.add_global_secondary_index(
             index_name=PROGRAM_EVENT_LABEL_INDEX,
@@ -406,40 +347,32 @@ class ChaliceApp(Stack):
                 type=ddb.AttributeType.NUMBER
             )
         )
-        '''
+        """
 
         # ClipPreviewFeedback Table
         self.clip_preview_feedback_table = ddb.Table(
             self,
             "ClipReviewFeedback",
-            partition_key=ddb.Attribute(
-                name="PK",
-                type=ddb.AttributeType.STRING
-            ),
+            partition_key=ddb.Attribute(name="PK", type=ddb.AttributeType.STRING),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # ClipPreviewFeedback Table: Name GSI
         self.clip_preview_feedback_table.add_global_secondary_index(
             index_name=CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_TRACK_INDEX,
             partition_key=ddb.Attribute(
-                name="ProgramEventTrack",
-                type=ddb.AttributeType.STRING
+                name="ProgramEventTrack", type=ddb.AttributeType.STRING
             ),
-            sort_key=ddb.Attribute(
-                name="Start",
-                type=ddb.AttributeType.NUMBER
-            )
+            sort_key=ddb.Attribute(name="Start", type=ddb.AttributeType.NUMBER),
         )
 
         # ClipPreviewFeedback Table: program#{name}#{classifier}#Start GSI
         self.clip_preview_feedback_table.add_global_secondary_index(
             index_name=CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX,
             partition_key=ddb.Attribute(
-                name="ProgramEventClassifierStart",
-                type=ddb.AttributeType.STRING
-            )
+                name="ProgramEventClassifierStart", type=ddb.AttributeType.STRING
+            ),
         )
 
         # ReplayResults Table
@@ -447,43 +380,35 @@ class ChaliceApp(Stack):
             self,
             "ReplayResults",
             partition_key=ddb.Attribute(
-                name="ProgramEventReplayId",
-                type=ddb.AttributeType.STRING
+                name="ProgramEventReplayId", type=ddb.AttributeType.STRING
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # ReplayResults Table: ProgramEvent GSI
         self.replay_results_table.add_global_secondary_index(
             index_name=REPLAY_RESULT_PROGRAM_EVENT_INDEX,
-            partition_key=ddb.Attribute(
-                name="Program",
-                type=ddb.AttributeType.STRING
-            ),
-            sort_key=ddb.Attribute(
-                name="Event",
-                type=ddb.AttributeType.STRING
-            ),
-            projection_type=ddb.ProjectionType.KEYS_ONLY
+            partition_key=ddb.Attribute(name="Program", type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name="Event", type=ddb.AttributeType.STRING),
+            projection_type=ddb.ProjectionType.KEYS_ONLY,
         )
 
         # Get the EventBridge Event Bus name for MRE from SSM Parameter Store
         self.eb_event_bus_name = ssm.StringParameter.value_for_string_parameter(
-            self,
-            parameter_name="/MRE/EventBridge/EventBusName"
+            self, parameter_name="/MRE/EventBridge/EventBusName"
         )
 
         # Get the Event Deletion SQS Queue ARN from SSM Parameter Store
         self.sqs_queue_arn = ssm.StringParameter.value_for_string_parameter(
-            self,
-            parameter_name="/MRE/ControlPlane/EventDeletionQueueARN"
+            self, parameter_name="/MRE/ControlPlane/EventDeletionQueueARN"
         )
 
         # Get the Control plane Workflow Execution DDB table ARN from SSM Parameter Store
-        self.workflow_execution_table_arn = ssm.StringParameter.value_for_string_parameter(
-            self,
-            parameter_name="/MRE/ControlPlane/WorkflowExecutionTableARN"
+        self.workflow_execution_table_arn = (
+            ssm.StringParameter.value_for_string_parameter(
+                self, parameter_name="/MRE/ControlPlane/WorkflowExecutionTableARN"
+            )
         )
 
         # Get the ReplayRequest table ARN from CfnOutput
@@ -497,7 +422,7 @@ class ChaliceApp(Stack):
             self,
             "ChaliceRole",
             assumed_by=iam.ServicePrincipal(service="lambda.amazonaws.com"),
-            description="Role used by the MRE Data Plane Chalice Lambda function"
+            description="Role used by the MRE Data Plane Chalice Lambda function",
         )
 
         # Chalice IAM Role: DynamoDB permissions
@@ -515,7 +440,7 @@ class ChaliceApp(Stack):
                     "dynamodb:BatchWriteItem",
                     "dynamodb:PutItem",
                     "dynamodb:UpdateItem",
-                    "dynamodb:DeleteItem"
+                    "dynamodb:DeleteItem",
                 ],
                 resources=[
                     self.frame_table.table_arn,
@@ -529,7 +454,7 @@ class ChaliceApp(Stack):
                     f"{self.clip_preview_feedback_table.table_arn}/index/*",
                     self.job_tracking_table.table_arn,
                     f"{self.job_tracking_table.table_arn}/index/*",
-                ]
+                ],
             )
         )
 
@@ -537,13 +462,8 @@ class ChaliceApp(Stack):
         self.chalice_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "s3:Get*",
-                    "s3:List*"
-                ],
-                resources=[
-                    "*"
-                ]
+                actions=["s3:Get*", "s3:List*"],
+                resources=["*"],
             )
         )
 
@@ -554,11 +474,11 @@ class ChaliceApp(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents"
+                    "logs:PutLogEvents",
                 ],
                 resources=[
                     f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
-                ]
+                ],
             )
         )
 
@@ -566,13 +486,10 @@ class ChaliceApp(Stack):
         self.chalice_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "events:DescribeEventBus",
-                    "events:PutEvents"
-                ],
+                actions=["events:DescribeEventBus", "events:PutEvents"],
                 resources=[
                     f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.eb_event_bus_name}"
-                ]
+                ],
             )
         )
 
@@ -581,7 +498,7 @@ class ChaliceApp(Stack):
             self,
             "EventDeletionHandlerLambdaRole",
             assumed_by=iam.ServicePrincipal(service="lambda.amazonaws.com"),
-            description="Role used by the MRE Event Deletion Handler Lambda function"
+            description="Role used by the MRE Event Deletion Handler Lambda function",
         )
 
         # Event Deletion Handler Lambda IAM Role: DynamoDB permissions
@@ -599,7 +516,7 @@ class ChaliceApp(Stack):
                     "dynamodb:BatchWriteItem",
                     "dynamodb:PutItem",
                     "dynamodb:UpdateItem",
-                    "dynamodb:DeleteItem"
+                    "dynamodb:DeleteItem",
                 ],
                 resources=[
                     self.plugin_result_table.table_arn,
@@ -611,7 +528,7 @@ class ChaliceApp(Stack):
                     self.replay_request_table_arn,
                     self.replay_results_table.table_arn,
                     f"{self.replay_results_table.table_arn}/index/*",
-                ]
+                ],
             )
         )
 
@@ -619,15 +536,11 @@ class ChaliceApp(Stack):
         self.event_deletion_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "s3:Get*",
-                    "s3:Delete*",
-                    "s3:List*"
-                ],
+                actions=["s3:Get*", "s3:Delete*", "s3:List*"],
                 resources=[
                     f"arn:aws:s3:::{self.segment_cache_bucket_name}",
-                    f"arn:aws:s3:::{self.segment_cache_bucket_name}/*"
-                ]
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}/*",
+                ],
             )
         )
 
@@ -638,11 +551,11 @@ class ChaliceApp(Stack):
                 actions=[
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
-                    "logs:PutLogEvents"
+                    "logs:PutLogEvents",
                 ],
                 resources=[
                     f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:*"
-                ]
+                ],
             )
         )
 
@@ -668,18 +581,16 @@ class ChaliceApp(Stack):
                 "REPLAY_REQUEST_TABLE_NAME": self.replay_request_table_name,
                 "REPLAY_RESULT_TABLE_NAME": self.replay_results_table.table_name,
                 "REPLAY_RESULT_PROGRAM_EVENT_INDEX": REPLAY_RESULT_PROGRAM_EVENT_INDEX,
-            }
+            },
         )
 
         # Event Deletion Handler Lambda: SQS Event Source
         self.event_deletion_handler_lambda.add_event_source(
             _lambda_es.SqsEventSource(
                 queue=sqs.Queue.from_queue_arn(
-                    self,
-                    "EventDeletionQueue",
-                    queue_arn=self.sqs_queue_arn
+                    self, "EventDeletionQueue", queue_arn=self.sqs_queue_arn
                 ),
-                batch_size=1
+                batch_size=1,
             )
         )
 
@@ -705,15 +616,13 @@ class ChaliceApp(Stack):
                     "JOB_TRACKER_TABLE_NAME": self.job_tracking_table.table_name,
                     "NON_OPTO_SEGMENTS_INDEX": NON_OPT_SEG_INDEX,
                     "PARTITION_KEY_CHUNK_NUMBER_INDEX": PARTITION_KEY_CHUNK_NUMBER_INDEX,
-                    "MAX_DETECTOR_QUERY_WINDOW_SECS": "60"
+                    "MAX_DETECTOR_QUERY_WINDOW_SECS": "60",
                 },
-                "tags": {
-                    "Project": "MRE"
-                },
+                "tags": {"Project": "MRE"},
                 "manage_iam_role": False,
                 "iam_role_arn": self.chalice_role.role_arn,
-                "lambda_memory_size": 512
-            }
+                "lambda_memory_size": 512,
+            },
         )
 
         # Store the API Gateway endpoint output of Chalice in SSM Parameter Store
@@ -723,7 +632,7 @@ class ChaliceApp(Stack):
             string_value=self.chalice.sam_template.get_output("EndpointURL").value,
             parameter_name="/MRE/DataPlane/EndpointURL",
             tier=ssm.ParameterTier.INTELLIGENT_TIERING,
-            description="[DO NOT DELETE] Parameter contains the AWS MRE DataPlane APIEndpoint URL used by the MRE Plugin helper library"
+            description="[DO NOT DELETE] Parameter contains the AWS MRE DataPlane APIEndpoint URL used by the MRE Plugin helper library",
         )
 
         # cdk-nag suppressions
@@ -732,14 +641,14 @@ class ChaliceApp(Stack):
             [
                 {
                     "id": "AwsSolutions-DDB3",
-                    "reason": "DynamoDB Point-in-time Recovery not required as the data stored is non-critical and can be recreated"
+                    "reason": "DynamoDB Point-in-time Recovery not required as the data stored is non-critical and can be recreated",
                 },
                 {
                     "id": "AwsSolutions-IAM4",
                     "reason": "CDK custom resource provider uses AWS Managed Policies",
                     "appliesTo": [
                         "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-                    ]
+                    ],
                 },
                 {
                     "id": "AwsSolutions-IAM5",
@@ -751,17 +660,21 @@ class ChaliceApp(Stack):
                         "Resource::*",
                         "Resource::arn:aws:s3:::mre-segment-cache-bucket-name/*",
                         "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:*",
-                        {
-                            "regex": "/^Resource::<.*.+Arn>:\\*$/"
-                        },
-                        {
-                            "regex": "/^Resource::.*/index/\\*$/"
-                        }
-                    ]
+                        {"regex": "/^Resource::<.*.+Arn>:\\*$/"},
+                        {"regex": "/^Resource::.*/index/\\*$/"},
+                    ],
                 },
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "MRE internal lambda functions do not require the latest runtime version as their dependencies have been tested only on Python 3.11"
-                }
-            ]
+                    "reason": "MRE internal lambda functions do not require the latest runtime version as their dependencies have been tested only on Python 3.11",
+                },
+                {
+                    "id": "AwsSolutions-SF1",
+                    "reason": "CloudWatch Logging can optionally be enabled in production if required",
+                },
+                {
+                    "id": "AwsSolutions-SF2",
+                    "reason": "X-ray tracing not enabled currently but will be included in a future release",
+                },
+            ],
         )

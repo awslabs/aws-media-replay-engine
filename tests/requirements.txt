@@ -45,4 +45,4 @@ typeguard==2.13.3
 typing_extensions==4.7.1
 urllib3==1.26.19
 wcwidth==0.2.6
-cdk-nag
+cdk-nag==2.28.159

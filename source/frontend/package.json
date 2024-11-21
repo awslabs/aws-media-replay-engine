@@ -29,7 +29,8 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "latest"
+    "@babel/plugin-proposal-private-property-in-object": "latest",
+    "ajv": "^7.2.4"
   },
   "scripts": {
     "start": "react-scripts start",

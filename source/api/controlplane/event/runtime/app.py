@@ -78,6 +78,7 @@ def create_event():
             "GenerateOptoClips": boolean,
             "TimecodeSource": string,
             "StopMediaLiveChannel: boolean
+            "Variables": object
         }
 
     Parameters:
@@ -101,6 +102,7 @@ def create_event():
         - GenerateOptoClips: Generate Optimized segment clips if true (Default is true).
         - TimeCodeSource: Source of the embedded TimeCode in the Event video frames (Default is NOT_EMBEDDED).
         - StopMediaLiveChannel: False by default. When MediaLive is the Video chunk source, setting this attribute to True lets MRE stop the channel when the event ends.
+        - Variables: Context Variables (key/value pairs) used to share data across plugin exections
 
     Returns:
 
@@ -846,6 +848,7 @@ def update_event(name, program):
             "GenerateOrigClips": boolean,
             "GenerateOptoClips": boolean,
             "TimecodeSource": string
+            "Variables": object
         }
 
     Returns:
@@ -2273,23 +2276,24 @@ def get_event_context_variables(program, name):
         print(f"Getting the event context variables for '{name}'")
 
         response = metadata_table.get_item(
-            Key={
-                "pk": f'EVENT#{program}#{name}'
-            },
-            ConsistentRead=True
+            Key={"pk": f"EVENT#{program}#{name}"},
+            ConsistentRead=True,
         )
-        
+
         ## We don't want to return an ERROR if there is no metadata
         if "Item" not in response:
+            return {}
+        if "data" not in response["Item"]:
             return {}
 
     except Exception as e:
         print(f"Unable to get event context variables '{name}': {str(e)}")
-        raise ChaliceViewError(f"Unable to get the event context variables '{name}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get the event context variables '{name}': {str(e)}"
+        )
 
     else:
-        return replace_decimals(response["Item"])
-    
+        return replace_decimals(response["Item"]["data"])
 
 @app.route('/event/{name}/program/{program}/context-variables', cors=True, methods=['PATCH'],
            authorizer=authorizer)
@@ -2326,10 +2330,12 @@ def update_event_context_variables(program, name):
         update_expression = []
 
         ## Iterate through items
+        item_count = 0
         for key, value in event_metadata.items():
-            expression_attribute_names[f'#k{key}'] = key
-            expression_attribute_values[f':v{value}'] = value
-            update_expression.append(f"#data.#k{key} = :v{value}")
+            expression_attribute_names[f'#k{item_count}'] = key
+            expression_attribute_values[f':v{item_count}'] = value
+            update_expression.append(f"#data.#k{item_count} = :v{item_count}")
+            item_count += 1
 
         if update_expression:
         ## Send update expression

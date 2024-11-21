@@ -4,6 +4,7 @@
 '''
 
 import boto3
+from botocore.config import Config
 import json
 import sys
 
@@ -14,28 +15,22 @@ def main(region, mode, profile=None):
         cdk_outputs = open('cdk-outputs.json', 'r')
         cdk_outputs_json = json.loads(cdk_outputs.read())
 
-        amplify_app_id = cdk_outputs_json['mre-frontend-stack']['webAppId']
-        user_pool_id = cdk_outputs_json['mre-frontend-stack']['userPoolId']
-        identity_pool_id = cdk_outputs_json['mre-frontend-stack']['identityPoolId']
-        app_client_id = cdk_outputs_json['mre-frontend-stack']['appClientId']
-        web_url = cdk_outputs_json['mre-frontend-stack']['webAppURL']
+        amplify_app_id = cdk_outputs_json["mre-frontend-stack"]["webAppId"]
+        web_url = cdk_outputs_json["mre-frontend-stack"]["webAppURL"]
+        staging_bucket_name = cdk_outputs_json["mre-frontend-stack"][
+            "stagingBucketName"
+        ]
     else:
-        cfn_client = boto3.client('cloudformation', region_name=region)
-        response = cfn_client.describe_stacks(
-            StackName='mre-frontend-stack'
-        )
-        stack_outputs = response['Stacks'][0]['Outputs']
+        cfn_client = boto3.client("cloudformation", region_name=region)
+        response = cfn_client.describe_stacks(StackName="mre-frontend-stack")
+        stack_outputs = response["Stacks"][0]["Outputs"]
         for stack_output in stack_outputs:
-            if 'appClientId' in stack_output['OutputKey']:
-                app_client_id = stack_output['OutputValue']
-            if 'identityPoolId' in stack_output['OutputKey']:
-                identity_pool_id = stack_output['OutputValue']
-            if 'userPoolId' in stack_output['OutputKey']:
-                user_pool_id = stack_output['OutputValue']
-            if 'webAppId' in stack_output['OutputKey']:
-                amplify_app_id = stack_output['OutputValue']
-            if 'webAppURL' in stack_output['OutputKey']:
-                web_url = stack_output['OutputValue']
+            if "webAppId" in stack_output["OutputKey"]:
+                amplify_app_id = stack_output["OutputValue"]
+            if "webAppURL" in stack_output["OutputKey"]:
+                web_url = stack_output["OutputValue"]
+            if "stagingBucketName" in stack_output["OutputKey"]:
+                staging_bucket_name = stack_output["OutputValue"]
 
     if profile:
         boto3.setup_default_session(profile_name=profile)
@@ -66,9 +61,10 @@ def main(region, mode, profile=None):
         Name='/MRE/ControlPlane/MediaOutputDistribution',
         WithDecryption=False
     )
-    mre_cloudfront_domain_name = mre_cloudfront_domain_name_parameter['Parameter']['Value']
-    
-    mre_amplify_build_image = "public.ecr.aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+
+    mre_cloudfront_domain_name = mre_cloudfront_domain_name_parameter["Parameter"][
+        "Value"
+    ]
 
     control_plain_endpoint_domain = '/'.join(
         control_plain_endpoint['Parameter']['Value'].split('/')[0:-2])
@@ -82,7 +78,7 @@ def main(region, mode, profile=None):
 
     amplify_client.update_app(
         appId=amplify_app_id,
-        customHeaders=f'''
+        customHeaders=f"""
         customHeaders:
           - pattern: '**/*'
             headers:
@@ -113,17 +109,7 @@ def main(region, mode, profile=None):
                     https://{mre_cloudfront_domain_name};
                     object-src 'none';frame-ancestors 'none'; font-src 'self'
                     https://{web_url}; manifest-src 'self'
-            ''',
-        environmentVariables={
-            "REACT_APP_BASE_API": control_plain_endpoint['Parameter']["Value"],
-            "REACT_APP_DATA_PLANE_API": data_plane_endpoint['Parameter']["Value"],
-            "REACT_APP_REGION": region,
-            "REACT_APP_USER_POOL_ID": user_pool_id,
-            "REACT_APP_APP_CLIENT_ID": app_client_id,
-            "REACT_APP_IDENTITY_POOL_ID": identity_pool_id,
-            "REACT_APP_CLOUDFRONT_DOMAIN_NAME": mre_cloudfront_domain_name,
-            "_CUSTOM_IMAGE": mre_amplify_build_image
-        },
+            """,
         customRules=[
             {
                 'source': '</^((?!\.(css|gif|ico|jpg|js|png|txt|svg|woff|ttf)$).)*$/>',
@@ -138,7 +124,20 @@ def main(region, mode, profile=None):
     put_default_transition_config(transition_clip_bucket_name, region)
     print("Hydrating Transition Config table ...Done")
 
-    print("IMPORTANT!!! You will need to redeploy the frontend application in the Amplify Console. Choose the 'mre-frontend' app, click on the 'master' branch and then click on 'Redeploy this version' for the latest changes to take effect.")
+    s3_client = boto3.client(
+        "s3", region_name=region, config=Config(signature_version="s3v4")
+    )
+
+    asset_key = "build.zip"
+    s3_client.upload_file(f"../build/{asset_key}", staging_bucket_name, asset_key)
+    source_url = s3_client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": staging_bucket_name, "Key": asset_key},
+        ExpiresIn=300,
+    )
+    amplify_client.start_deployment(
+        appId=amplify_app_id, branchName="main", sourceUrl=source_url
+    )
 
     return 1
 

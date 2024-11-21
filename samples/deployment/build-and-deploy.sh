@@ -31,6 +31,7 @@ Available options:
 -v, --verbose                   Print script debug info (optional)
 --app                           One of the following MRE Sample applications to deploy: plugin-samples, model-samples, fan-experience-frontend, hls-harvester-sample
 --region                        AWS Region, formatted like us-east-1
+--admin-email                   Email address of the admin user for the application
 --profile                       AWS profile for CLI commands (optional)
 EOF
   exit 1
@@ -89,6 +90,10 @@ parse_params() {
       profile="${2}"
       shift
       ;;
+    --admin-email)
+      ADMIN_EMAIL="${2}"
+      shift
+      ;;
     -?*) die "Unknown option: $1" ;;
     *) break ;;
     esac
@@ -109,6 +114,7 @@ msg "Build parameters:"
 msg "- Application: ${app}"
 msg "- Region: ${region}"
 msg "- Profile: ${profile}"
+msg "- Admin Email: ${ADMIN_EMAIL}"
 
 echo ""
 sleep 3
@@ -170,7 +176,7 @@ fi
 export AWS_DEFAULT_REGION=$region
 
 # Check if MRE is already deployed in the region
-aws ssm get-parameter --name " /MRE/ControlPlane/EndpointURL" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi) > /dev/null
+aws ssm get-parameter --name "/MRE/ControlPlane/EndpointURL" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi) > /dev/null
 if [ $? -ne 0 ]; then
     echo "ERROR: Could not find MRE in $region region. Please install it from https://github.com/awslabs/aws-media-replay-engine"
     exit 1
@@ -180,17 +186,6 @@ fi
 echo "------------------------------------------------------------------------------"
 echo "Creating a temporary Python virtualenv for this script"
 echo "------------------------------------------------------------------------------"
-command -v python3 > /dev/null
-if [ $? -ne 0 ]; then
-    echo "ERROR: install Python3 before running this script"
-    exit 1
-fi
-python3 -c "import os; print (os.getenv('VIRTUAL_ENV'))" | grep -q None
-if [ $? -ne 0 ]; then
-    echo "ERROR: Do not run this script inside Virtualenv. Type \`deactivate\` and run again.";
-    exit 1;
-fi
-
 echo "Using python virtual environment:"
 VENV=$(mktemp -d) && echo "$VENV"
 python3 -m venv "$VENV"
@@ -244,7 +239,7 @@ if [ "$app" = "plugin-samples" ]; then
   cp "$source_dir"/custom-resource/handler.py "$source_dir"/custom-resource/package
 
 
-#  Download mre helper layer zip and add to the dockerfile for DockerImage lambda deployment
+  # Download mre helper layer zip and add to the dockerfile for DockerImage lambda deployment
   echo "Downloading the MediaReplayEnginePluginHelper layer for docker build"
 
   for d in ../Plugins/*/; do
@@ -306,8 +301,11 @@ fi
 
 if [ "$app" = "fan-experience-frontend" ]; then
   # Get the email address to send login credentials for the UI
-  echo "Please insert your email address to receive credentials required for the UI login:"
-  read ADMIN_EMAIL
+  # Get the email address to send login credentials for the UI
+  if [[ -z $ADMIN_EMAIL ]]; then
+    echo "Please insert your email address to receive credentials required for the UI login:"
+    read ADMIN_EMAIL
+  fi
 
   # Get reference for all important folders
   build_dir="$PWD"
@@ -338,8 +336,33 @@ if [ "$app" = "fan-experience-frontend" ]; then
       echo "ERROR: Failed to deploy the Fan Experience Frontend stack."
       exit 1
   fi
-  echo "Finished deploying the Fan Experience Frontend stack"
+  echo "Finished deploying the Fan Experience Frontend stack infra"
 
+  echo "Creating env file for frontend deployment"
+  (python3 create-env-file.py $region $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
+
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to create necessary env file"
+      exit 1
+  fi
+
+  cd "$fan_experience_dir"
+  echo "Building the Frontend"
+  npm i --legacy-peer-deps
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to install dependencies for the Frontend."
+      exit 1
+  fi
+  npm run build
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to build the Frontend."
+      exit 1
+  fi
+
+  cd "$fan_experience_dir"/build
+  zip -r -q -X ./build.zip *
+
+  cd "$fan_experience_dir/cdk" || exit 1
   echo "Updating Amplify environment variables and custom headers based on the CDK output"
   (python3 init-amplify.py $region $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
 
@@ -348,26 +371,17 @@ if [ "$app" = "fan-experience-frontend" ]; then
       exit 1
   fi
 
-  echo "Pushing the code to CodeCommit for Amplify deployment"
-
-  cd "$fan_experience_dir" || exit 1
-  git clone "codecommit::$region://$(if [ ! -z $profile ]; then echo "$profile@"; fi)mre-fan-experience-frontend"
-  rsync -r --exclude 'mre-fan-experience-frontend' --exclude 'node_modules' --exclude 'cdk' . mre-fan-experience-frontend
-  cd "$fan_experience_dir"/mre-fan-experience-frontend
-  git checkout -b master
-  # git config user.name mre-fan-experience-user
-  # git config user.email $ADMIN_EMAIL
-  git add .
-  git commit -m "Initial commit"
-  git push --set-upstream origin master
-  rm -rf "$fan_experience_dir"/mre-fan-experience-frontend
+  ## Cleanup build dir
+  cd "$fan_experience_dir"
+  [ -e build ] && rm -rf build
+  [ -e .env ] && rm -rf .env
 
   echo "-------------------------------------------------------------------------------"
   echo "Successfully deployed the fan-experience-frontend application"
   echo ""
-  echo "NOTE: Amplify will take a few minutes to provision, build, and deploy the Fan  "
-  echo "Experience Frontend application. Please monitor the progress in the AWS Amplify"
-  echo "console under 'mre-fan-experience-frontend' application. Once deployed, click  "
+  echo "NOTE: Amplify will take a few seconds to deploy the     "
+  echo "Frontend application. Please monitor the progress in the AWS Amplify console  "
+  echo "under 'mre-fan-experience-frontend' application. Once deployed, click  "
   echo "on the URL within the application and login using the credentials sent to your "
   echo "email address.                                                                 "
   echo "-------------------------------------------------------------------------------"

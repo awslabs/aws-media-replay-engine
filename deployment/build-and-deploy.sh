@@ -88,6 +88,10 @@ parse_params() {
     --no-layer) NO_LAYER=1 ;;
     --disable-ui) NO_GUI=1 ;;
     --enable-ssm-high-throughput) HIGH_THROUGHPUT=1 ;;
+    --admin-email)
+      ADMIN_EMAIL="${2}"
+      shift
+      ;;
     --version)
       version="${2}"
       shift
@@ -136,7 +140,7 @@ deploy_cdk_app() {
   [ -e runtime/.chalice/deployments ] && rm -rf runtime/.chalice/deployments
 
   echo "Installing Python dependencies"
-  pip3 install -q -r requirements.txt
+  pip3 install -U -q -r requirements.txt
   if [ $? -ne 0 ]; then
       echo "ERROR: Failed to install required Python dependencies for the $stack_name stack."
       exit 1
@@ -144,7 +148,6 @@ deploy_cdk_app() {
   echo "Deploying the $stack_name stack"
   cd "$stack_dir"/infrastructure
   cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-  if [ $? -ne 0 ]; then
       echo "ERROR: Failed to deploy the $stack_name stack."
       exit 1
   fi
@@ -156,6 +159,7 @@ msg "Build parameters:"
 msg "- Version: ${version}"
 msg "- Region: ${region}"
 msg "- Profile: ${profile}"
+msg "- Admin Email: ${ADMIN_EMAIL}"
 msg "- Build AWS Lambda layers? $(if [[ -z $NO_LAYER ]]; then echo 'True'; else echo 'False'; fi)"
 msg "- Deploy Frontend? $(if [[ -z $NO_GUI ]]; then echo 'True'; else echo 'False'; fi)"
 msg "- Enable SSM Parameter Store high throughput setting? $(if [[ ! -z $HIGH_THROUGHPUT ]]; then echo 'True'; else echo 'False'; fi)"
@@ -164,9 +168,9 @@ echo ""
 sleep 3
 
 # Verify Python min version
-resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor == 11 else "Invalid Version")')"
+resp="$(python3 -c 'import sys; print("Valid Version" if sys.version_info.major == 3 and sys.version_info.minor == 11 else f"Invalid Version {sys.version_info.major}.{sys.version_info.minor}")')"
 if [[ $resp =~ "Invalid Version" ]]; then
-  echo "ERROR: Invalid Python version:"
+  echo "ERROR: $resp"
   echo "ERROR: Required version: 3.11"
   echo "ERROR: Please install it and rerun this script"
   exit 1
@@ -229,18 +233,23 @@ fi
 export AWS_DEFAULT_REGION=$region
 
 if [[ -z $NO_GUI ]]; then
-  # Check if git is installed
-  if [[ ! -x "$(command -v git)" ]]; then
-    echo "ERROR: Command not found: git"
+  # Check if npm is installed
+  if [[ ! -x "$(command -v npm)" ]]; then
+    echo "ERROR: Command not found: npm"
     echo "ERROR: This script requires git to be installed"
     echo "ERROR: Please install it and rerun this script"
     exit 1
   fi
 
   # Get the email address to send login credentials for the UI
-  echo "Please insert your email address to receive credentials required for the UI login:"
-  read ADMIN_EMAIL
+  if [[ -z $ADMIN_EMAIL ]]; then
+    echo "Please insert your email address to receive credentials required for the UI login:"
+    read ADMIN_EMAIL
+  fi
 fi
+
+# Set architecture for Docker usage
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
 # Get reference for all important folders
 build_dir="$PWD"
@@ -256,16 +265,6 @@ shared_dir="$source_dir/shared"
 echo "------------------------------------------------------------------------------"
 echo "Creating a temporary Python virtualenv for this script"
 echo "------------------------------------------------------------------------------"
-command -v python3 > /dev/null
-if [ $? -ne 0 ]; then
-    echo "ERROR: install Python3 before running this script"
-    exit 1
-fi
-python3 -c "import os; print (os.getenv('VIRTUAL_ENV'))" | grep -q None
-if [ $? -ne 0 ]; then
-    echo "ERROR: Do not run this script inside Virtualenv. Type \`deactivate\` and run again.";
-    exit 1;
-fi
 echo "Using python virtual environment:"
 VENV=$(mktemp -d) && echo "$VENV"
 python3 -m venv "$VENV"
@@ -377,7 +376,8 @@ else
   rm -rf "$lambda_layers_dir"/ffprobe/ffprobe*.zip
   echo "Running build-lambda-layer.sh to build Lambda layers using docker:"
   rm -rf MediaReplayEngine*.zip timecode.zip ffmpeg.zip ffprobe.zip
-  if `./build-lambda-layer.sh > /dev/null`; then
+  ./build-lambda-layer.sh 2>&1 | tee build-lambda-layer.log
+  if [ $? -eq 0 ]; then
     mv MediaReplayEnginePluginHelper.zip "$lambda_layers_dir"/MediaReplayEnginePluginHelper/
     mv MediaReplayEngineWorkflowHelper.zip "$lambda_layers_dir"/MediaReplayEngineWorkflowHelper/
     mv timecode.zip "$lambda_layers_dir"/timecode/
@@ -387,6 +387,7 @@ else
     echo "Lambda layer build script completed.";
   else
     echo "ERROR: Failed to build Lambda layers using docker"
+    echo "ERROR: Check build-lambda-layer.log for details"
     exit 1
   fi
   cd "$build_dir" || exit 1
@@ -415,45 +416,45 @@ echo "--------------------------------------------------------------------------
 echo "Unblocking CloudFormation cross-stack export references"
 echo "------------------------------------------------------------------------------"
 # Check if MRE is already deployed in the region
-controlplane_endpoint_param=$(aws ssm describe-parameters --output text --parameter-filters "Key=Name,Values=/MRE/ControlPlane/EndpointURL" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+controlplane_endpoint_param=$(aws ssm describe-parameters --output text --parameter-filters "Key=Name,Values=/MRE/ControlPlane/EndpointURL" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
 if [[ -z "${controlplane_endpoint_param}" ]]; then
   echo "No unblocking needed as an existing version of MRE is not found in $region region"
 else
-  workflow_layer_param=$(aws ssm describe-parameters --output text --parameter-filters "Key=Name,Values=/MRE/WorkflowHelperLambdaLayerArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+  workflow_layer_param=$(aws ssm describe-parameters --output text --parameter-filters "Key=Name,Values=/MRE/WorkflowHelperLambdaLayerArn" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
   if [[ -z "${workflow_layer_param}" ]]; then
     echo "Proceeding with the unblocking operation as the existing version of MRE found in $region region is earlier than v2.9.0"
     echo "Getting the latest timecode layer version arn"
-    timecode_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_timecode --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    timecode_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_timecode --query "LayerVersions[0].LayerVersionArn" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
     if [ $? -ne 0 ]; then
         msg "ERROR: Failed to get the latest timecode layer version arn"
         die 1
     fi
     echo "Getting the latest ffmpeg layer version arn"
-    ffmpeg_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_ffmpeg --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    ffmpeg_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_ffmpeg --query "LayerVersions[0].LayerVersionArn" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
     if [ $? -ne 0 ]; then
         msg "ERROR: Failed to get the latest ffmpeg layer version arn"
         die 1
     fi
     echo "Getting the latest ffprobe layer version arn"
-    ffprobe_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_ffprobe --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    ffprobe_layer_arn=$(aws lambda list-layer-versions --output text --layer-name aws_mre_ffprobe --query "LayerVersions[0].LayerVersionArn" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
     if [ $? -ne 0 ]; then
         msg "ERROR: Failed to get the latest ffprobe layer version arn"
         die 1
     fi
     echo "Getting the latest MediaReplayEngineWorkflowHelper layer version arn"
-    workflow_helper_layer_arn=$(aws lambda list-layer-versions --output text --layer-name MediaReplayEngineWorkflowHelper --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    workflow_helper_layer_arn=$(aws lambda list-layer-versions --output text --layer-name MediaReplayEngineWorkflowHelper --query "LayerVersions[0].LayerVersionArn" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
     if [ $? -ne 0 ]; then
         msg "ERROR: Failed to get the latest MediaReplayEngineWorkflowHelper layer version arn"
         die 1
     fi
     echo "Getting the latest MediaReplayEnginePluginHelper layer version arn"
-    plugin_helper_layer_arn=$(aws lambda list-layer-versions --output text --layer-name MediaReplayEnginePluginHelper --query "LayerVersions[0].LayerVersionArn" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    plugin_helper_layer_arn=$(aws lambda list-layer-versions --output text --layer-name MediaReplayEnginePluginHelper --query "LayerVersions[0].LayerVersionArn" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
     if [ $? -ne 0 ]; then
         msg "ERROR: Failed to get the latest MediaReplayEnginePluginHelper layer version arn"
         die 1
     fi
     echo "Getting the system dynamodb table arn from CloudFormation outputs"
-    system_table_arn=$(aws cloudformation describe-stacks --output text --stack-name aws-mre-shared-resources --query "Stacks[0].Outputs[?OutputKey=='mresystemtablearn'].OutputValue" $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
+    system_table_arn=$(aws cloudformation describe-stacks --output text --stack-name aws-mre-shared-resources --query "Stacks[0].Outputs[?OutputKey=='mresystemtablearn'].OutputValue" --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi))
     if [ $? -ne 0 ]; then
         msg "ERROR: Failed to get the system dynamodb table arn from CloudFormation outputs"
         die 1
@@ -461,13 +462,13 @@ else
     system_table_name=$(echo "$system_table_arn" | cut -d/ -f2)
 
     # Create SSM parameters with the retrieved arns
-    aws ssm put-parameter --name "/MRE/TimecodeLambdaLayerArn" --value $timecode_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    aws ssm put-parameter --name "/MRE/FfmpegLambdaLayerArn" --value $ffmpeg_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    aws ssm put-parameter --name "/MRE/FfprobeLambdaLayerArn" --value $ffprobe_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    aws ssm put-parameter --name "/MRE/WorkflowHelperLambdaLayerArn" --value $workflow_helper_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    aws ssm put-parameter --name "/MRE/PluginHelperLambdaLayerArn" --value $plugin_helper_layer_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    aws ssm put-parameter --name "/MRE/ControlPlane/SystemTableArn" --value $system_table_arn --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
-    aws ssm put-parameter --name "/MRE/ControlPlane/SystemTableName" --value $system_table_name --type String $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/TimecodeLambdaLayerArn" --value $timecode_layer_arn --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/FfmpegLambdaLayerArn" --value $ffmpeg_layer_arn --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/FfprobeLambdaLayerArn" --value $ffprobe_layer_arn --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/WorkflowHelperLambdaLayerArn" --value $workflow_helper_layer_arn --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/PluginHelperLambdaLayerArn" --value $plugin_helper_layer_arn --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/ControlPlane/SystemTableArn" --value $system_table_arn --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+    aws ssm put-parameter --name "/MRE/ControlPlane/SystemTableName" --value $system_table_name --type String --region $region $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
 
     # Deploy all the cross-stacks where the export references are found
     # Segment Caching stack
@@ -591,7 +592,7 @@ else
 
   cd "$frontend_dir"/cdk
   echo "Installing Python dependencies"
-  pip3 install -q -r requirements.txt
+  pip3 install -U -q -r requirements.txt
   if [ $? -ne 0 ]; then
       echo "ERROR: Failed to install required Python dependencies for the Frontend stack."
       exit 1
@@ -604,6 +605,32 @@ else
   fi
   echo "Finished deploying the Frontend stack"
 
+  echo "Creating env file for frontend deployment"
+  mode="New"
+  (python3 create-env-file.py $region $mode $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
+
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to create necessary env file"
+      exit 1
+  fi
+
+  cd "$frontend_dir"
+  echo "Building the Frontend"
+  npm i --legacy-peer-deps
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to install dependencies for the Frontend."
+      exit 1
+  fi
+  npm run build
+  if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to build the Frontend."
+      exit 1
+  fi
+
+  cd "$frontend_dir"/build
+  zip -r -q -X ./build.zip *
+
+  cd "$frontend_dir"/cdk
   echo "Updating Amplify environment variables and custom headers based on the CDK output"
   mode="New"
   (python3 init-amplify.py $region $mode $(if [ ! -z $profile ]; then echo "$profile"; fi)) 2>&1
@@ -613,24 +640,15 @@ else
       exit 1
   fi
 
-  echo "Pushing the code to CodeCommit for Amplify deployment"
-
-  cd "$frontend_dir" || exit 1
-  git clone "codecommit::$region://$(if [ ! -z $profile ]; then echo "$profile@"; fi)mre-frontend"
-  rsync -r --exclude 'mre-frontend' --exclude 'node_modules' --exclude 'cdk' . mre-frontend
-  cd "$frontend_dir"/mre-frontend
-  git checkout -b master
-  git config user.name mre-frontend-user
-  git config user.email $ADMIN_EMAIL
-  git add .
-  git commit -m "Initial commit"
-  git push --set-upstream origin master
-  rm -rf "$frontend_dir"/mre-frontend
+  ## Cleanup build dir
+  cd "$frontend_dir"
+  [ -e build ] && rm -rf build
+  [ -e .env ] && rm -rf .env
   
   echo "------------------------------------------------------------------------------"
   echo "Successfully deployed the Frontend stack"
   echo ""
-  echo "NOTE: Amplify will take a few minutes to provision, build, and deploy the     "
+  echo "NOTE: Amplify will take a few seconds to deploy the     "
   echo "Frontend application. Please monitor the progress in the AWS Amplify console  "
   echo "under 'mre-frontend' application. Once deployed, click on the URL within the  "
   echo "application and login using the credentials sent to your email address.       "

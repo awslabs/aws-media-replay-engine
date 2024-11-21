@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2024-11-20
+
+### Fixed
+- Removed dependency on AWS CodeCommit for Amplify frontend deployment
+- Removed dependency on AWS CodeCommit for Amplify fan experience frontend deployment  
+- Removed dependency on Amazon Cloud9 from main deployment workflow
+- Updated default Amplify branch name from 'master' to 'main' to align with [GitHub naming conventions](https://github.com/github/renaming)
+- Fixed issue with context variables
+
+### Added
+- Support for single-execution deployment using 'admin-email' parameter (`--admin-email me@domain.com`)
+- Uninstallation script for complete removal of CloudFormation stack resources (S3 Buckets are persisted)
+- CDK Nag security scanning for frontend stack
+
 ## [2.9.0] - 2024-02-13
 - Upgraded the Python version used in the framework (control/data plane API handlers, plugin/workflow helper layers, etc.) and sample plugins from 3.8 to 3.11.
     > ⚠️ This is a breaking change for existing MRE plugins which now need to be upgraded to use the Python 3.11 lambda runtime.

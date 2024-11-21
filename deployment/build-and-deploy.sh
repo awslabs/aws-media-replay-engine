@@ -148,6 +148,7 @@ deploy_cdk_app() {
   echo "Deploying the $stack_name stack"
   cd "$stack_dir"/infrastructure
   cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+  if [ $? -ne 0 ]; then
       echo "ERROR: Failed to deploy the $stack_name stack."
       exit 1
   fi

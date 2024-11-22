@@ -55,7 +55,7 @@
         "ssm:PutParameter*",
         "ssm:DeleteParameter*"
       ],
-      "Resource": "arn:aws:ssm:${AWS_REGION}:${AWS_ACCOUNT_ID}:parameter/cdk-bootstrap/*"
+      "Resource": "arn:aws:ssm:${AWS_REGION}:${AWS_ACCOUNT_ID}:parameter/*"
     },
     {
       "Sid": "AllowAmplifyAppUpdates",

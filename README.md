@@ -26,11 +26,22 @@ To get a head start in building automated video clipping pipelines using the MRE
 * npm >= 10.2.3
 * git
 
-> **NOTE:** If using an AWS Cloud9 environment to install MRE:
-> - Choose Amazon Linux 2 as the platform for your Cloud9 environment.
-> - Resize the EBS volume to at least 15 GB by following [this guide](https://docs.aws.amazon.com/cloud9/latest/user-guide/move-environment.html#move-environment-resize).
-> - Ensure the installed version of Python is 3.11. There is a [script](/deployment/install-python311-cloud9.sh) that will do this for you on Cloud9 Amazon Linux 2 environments.
-
+> **NOTE:** Using an Amazon EC2 Instance is the **SUPPORTED and RECOMMENDED** method to install MRE:
+>
+> * Use the `env-init.sh` script as User Data when launching your EC2 instance to automatically install all prerequisites
+> * Configure permissions as appropriate for CDK usage (see `env-role-permissions.json` for policy statement example)
+> * Tested configuration:
+>   * *Amazon Linux 2023 (AL2023)*
+>   * *Architecture: x86_64*
+>   * *Instance Type: t2.large*
+>   * *EBS Storage: 16 GB gp3 (minimum requirement)*
+>
+> Before deployment:
+> * Activate the Python virtual environment created by `env-init.sh`:
+>   * `source mredeploy-env/bin/activate` (located in `/home/ec2-user/mredeploy/`)
+> * Ensure your environment variables are set as needed
+>
+> **IMPORTANT:** You are responsible for stopping or terminating your EC2 instance after deployment to avoid unnecessary charges
 ## Greenfield Deployment
 
 Greenfield deployment of MRE is suitable for customers who are looking to install from scratch.
@@ -39,11 +50,11 @@ Run the following commands to build and deploy MRE. Be sure to define values for
 
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.9.0
+VERSION=2.9.1
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
-./build-and-deploy.sh --enable-ssm-high-throughput --version $VERSION --region $REGION [--profile <aws-profile>]
+./build-and-deploy.sh --enable-ssm-high-throughput --version $VERSION --region $REGION [--profile <aws-profile> --admin-email <admin-email>]
 ```
 
 ## Upgrading
@@ -52,7 +63,7 @@ cd deployment
 In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
 ```
 REGION=[specify the AWS region. For example, us-east-1]
-VERSION=2.9.0
+VERSION=2.9.1
 git clone https://github.com/awslabs/aws-media-replay-engine
 cd aws-media-replay-engine
 cd deployment
@@ -61,39 +72,39 @@ cd deployment
 
 ### MRE Frontend
 
-MRE uses AWS Amplify which offers a fully managed CI/CD and hosting service to deploy frontend apps on AWS by connecting to a Git repository such as AWS CodeCommit. As a part of MRE Greenfield deployment, a repository named **mre-frontend** is already created in AWS CodeCommit.
+MRE uses AWS Amplify which offers a fully managed CI/CD and hosting service to deploy frontend apps on AWS by connecting to a Git repository such as GitHub or GitLab. As a part of MRE Greenfield deployment, AWS Amplify temporarily uses Amazon S3 to store the branch assets while deploying.
 
 To upgrade MRE Frontend to the latest version, follow the below steps. Be sure to define a value for `REGION` which is typically where MRE Frontend is already deployed.
 
-- After cloning the repo from GitHub, navigate to **aws-media-replay-engine/source/frontend/cdk** folder.
-- Run the following commands to update the Amplify Environment variables and/or Custom headers.
-	```
-	python3 -m venv venv
-	source venv/bin/activate
-	pip install -r requirements.txt
-	python3 init-amplify.py $REGION Update [$AWS_PROFILE]
-	```
-	> **NOTE:** The warning message about redeploying the frontend application after running the above command can be ignored as we will be doing that shortly.
-- Navigate to **aws-media-replay-engine/source/frontend** folder and clone the existing **mre-frontend** repository from AWS CodeCommit.
-- Copy all the files and subfolders (except **node_modules/** and **cdk/** subfolders) from **aws-media-replay-engine/source/frontend** folder to the **mre-frontend** folder using the below command.
-	```
-	rsync -r --exclude 'mre-frontend' --exclude 'node_modules' --exclude 'cdk' . mre-frontend
-	```
-- Finally, navigate to **aws-media-replay-engine/source/frontend/mre-frontend** folder, commit and push the changes to AWS CodeCommit.
-- AWS Amplify CI/CD pipeline should now automatically build and deploy the updated MRE Frontend application.
+* After cloning the repo from GitHub, navigate to **aws-media-replay-engine/source/frontend/cdk** folder.
+* Run the following commands to update the Amplify Environment variables and/or Custom headers.
+
+ ```
+ python3 -m venv venv
+ source venv/bin/activate
+ pip install -r requirements.txt
+ ```
+
+ > **NOTE:** The warning message about redeploying the frontend application after running the above command can be ignored as we will be doing that shortly.
+* Run ```python3 create-env-file.py $REGION```
+* Run ```npm i --legacy-peer-deps and npm run build``` from **aws-media-replay-engine/source/frontend** folder.
+* Zip the build assets located in **aws-media-replay-engine/source/frontend/build** folder ```zip -r -q -X ./build.zip *```.
+* Run ```python3 init-amplify.py $REGION Update```
 
 #### Run Frontend Locally
 
 If you have the MRE Framework deployed to AWS you can configure and run the MRE frontend without having to redeploy the frontend stack. This can be useful if you want to quickly experiment and tinker with the user interface.
 
-- Firstly you want to configure the frontend to use the correct AWS resources, you can create a .env file in the **aws-media-replay-engine/source/frontend** folder by copying the env.template file.
-- Fill in this env file with the correct information, this can all be found in the outputs of the MRE cloudformation stacks.
-- Once the .env file is filled you can now install and run the MRE frontend from your local machine with the below commands:
-	```
-	npm i --legacy-peer-deps
-	npm run start
-	```
-- This will install the packages needed by the frontend and then run it on localhost:3000. Be sure that you have Node 20.10.0 installed for this to work as intended.
+* Firstly you want to configure the frontend to use the correct AWS resources, you can create a .env file in the **aws-media-replay-engine/source/frontend** folder by copying the env.template file (executing ```python3 create-env-file.py $REGION``` will also create a .env file for you)
+* Fill in this env file with the correct information, this can all be found in the outputs of the MRE cloudformation stacks.
+* Once the .env file is filled you can now install and run the MRE frontend from your local machine with the below commands:
+
+ ```
+ npm i --legacy-peer-deps
+ npm run start
+ ```
+
+* This will install the packages needed by the frontend and then run it on localhost:3000. Be sure that you have Node 20.10.0 installed for this to work as intended.
 
 ## Outputs
 
@@ -290,7 +301,10 @@ cd aws-media-replay-engine/source/shared/infrastructure
 cdk destroy [--profile <aws-profile>]
 ```
 
-## Option 2: Uninstall using the AWS Management Console
+## Option 2: Uninstall using script
+1. Execute `uninstall.sh`
+
+## Option 3: Uninstall using the AWS Management Console
 1. Sign-in to the AWS CloudFormation console.
 2. Select the MRE Frontend stack.
 3. Choose Delete.

@@ -6,7 +6,6 @@ from aws_cdk import (
     CfnParameter,
     Stack,
     aws_iam,
-    aws_codecommit,
     aws_amplify_alpha as aws_amplify,
     aws_cognito
 )
@@ -92,43 +91,42 @@ class MreFanExperienceFrontendStack(Stack):
         # endregion
 
         # region App
-        repository = aws_codecommit.Repository(
-            self, "mre-fan-experience-frontend",
-            repository_name="mre-fan-experience-frontend"
-        )
 
-        app = aws_amplify.App(
-            self, "app",
-            app_name='mre-fan-experience-frontend',
-            source_code_provider=aws_amplify.CodeCommitSourceCodeProvider(repository=repository)
-        )
+        app = aws_amplify.App(self, "app", app_name="mre-fan-experience-frontend")
 
-        app.add_branch('master')
+        app.add_branch("main", stage="PRODUCTION")
 
         # endregion App
 
-        CfnOutput(self, "webAppURL", value="master." + app.default_domain)
+        CfnOutput(self, "webAppURL", value="main." + app.default_domain)
         CfnOutput(self, "webAppId", value=app.app_id)
         CfnOutput(self, "region", value=self.region)
         CfnOutput(self, "userPoolId", value=user_pool.user_pool_id)
         CfnOutput(self, "appClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "identityPoolId", value=identity_pool.ref)
-
+        CfnOutput(self, "stagingBucketName", value=f'cdk-{self.synthesizer.bootstrap_qualifier}-assets-{self.account}-{self.region}')
         # cdk-nag suppressions
         NagSuppressions.add_stack_suppressions(
             self,
             [
                 {
                     "id": "AwsSolutions-COG1",
-                    "reason": "CDK provisions a default password policy with a length of at least 8 characters, as well as requiring uppercase, numeric, and special characters"
+                    "reason": "CDK provisions a default password policy with a length of at least 8 characters, as well as requiring uppercase, numeric, and special characters",
                 },
                 {
                     "id": "AwsSolutions-COG2",
-                    "reason": "The fan experience frontend UI does not require MFA"
+                    "reason": "The fan experience frontend UI does not require MFA",
                 },
                 {
                     "id": "AwsSolutions-COG3",
-                    "reason": "The fan experience frontend UI does not require AdvancedSecurityMode as it is a demo UI"
+                    "reason": "The fan experience frontend UI does not require AdvancedSecurityMode as it is a demo UI",
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "CDK custom resource provider uses AWS Managed Policies",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ],
                 },
                 {
                     "id": "AwsSolutions-IAM5",

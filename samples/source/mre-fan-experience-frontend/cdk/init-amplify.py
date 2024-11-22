@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 
 import boto3
+from botocore.config import Config
 import json
 import sys
 
@@ -10,11 +11,11 @@ def main(region, profile=None):
     cdk_outputs = open('cdk-outputs.json', 'r')
     cdk_outputs_json = json.loads(cdk_outputs.read())
 
-    amplify_app_id = cdk_outputs_json['mre-fan-experience-frontend-stack']['webAppId']
-    user_pool_id = cdk_outputs_json['mre-fan-experience-frontend-stack']['userPoolId']
-    identity_pool_id = cdk_outputs_json['mre-fan-experience-frontend-stack']['identityPoolId']
-    app_client_id = cdk_outputs_json['mre-fan-experience-frontend-stack']['appClientId']
-    web_url = cdk_outputs_json['mre-fan-experience-frontend-stack']['webAppURL']
+    amplify_app_id = cdk_outputs_json["mre-fan-experience-frontend-stack"]["webAppId"]
+    web_url = cdk_outputs_json["mre-fan-experience-frontend-stack"]["webAppURL"]
+    staging_bucket_name = cdk_outputs_json["mre-fan-experience-frontend-stack"][
+        "stagingBucketName"
+    ]
 
     if profile:
         boto3.setup_default_session(profile_name=profile)
@@ -47,13 +48,11 @@ def main(region, profile=None):
 
     cloudfront_url = f"https://{media_output_distro['Parameter']['Value']}"
 
-    mre_amplify_build_image = "public.ecr.aws/codebuild/amazonlinux2-x86_64-standard:5.0"
-
-    amplify_client = boto3.client('amplify', region_name=region)
+    amplify_client = boto3.client("amplify", region_name=region)
 
     amplify_client.update_app(
         appId=amplify_app_id,
-        customHeaders=f'''
+        customHeaders=f"""
         customHeaders:
           - pattern: '**/*'
             headers:
@@ -94,24 +93,29 @@ def main(region, profile=None):
                     font-src 'self'
                     https://{web_url}/;
                     manifest-src 'self'
-            ''',
-        environmentVariables={
-            "REACT_APP_BASE_API": control_plain_endpoint['Parameter']["Value"],
-            "REACT_APP_DATA_PLANE_API": data_plane_endpoint['Parameter']["Value"],
-            "REACT_APP_REGION": region,
-            "REACT_APP_USER_POOL_ID": user_pool_id,
-            "REACT_APP_APP_CLIENT_ID": app_client_id,
-            "REACT_APP_IDENTITY_POOL_ID": identity_pool_id,
-            "REACT_APP_CLOUDFRONT_PREFIX": cloudfront_url,
-            "_CUSTOM_IMAGE": mre_amplify_build_image
-        },
+            """,
         customRules=[
             {
                 'source': '</^((?!\.(css|gif|ico|jpg|js|png|txt|svg|woff|ttf)$).)*$/>',
                 'target': '/index.html',
                 'status': '200'
             }
-        ]
+        ],
+    )
+
+    s3_client = boto3.client(
+        "s3", region_name=region, config=Config(signature_version="s3v4")
+    )
+
+    asset_key = "build.zip"
+    s3_client.upload_file(f"../build/{asset_key}", staging_bucket_name, asset_key)
+    source_url = s3_client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": staging_bucket_name, "Key": asset_key},
+        ExpiresIn=300,
+    )
+    amplify_client.start_deployment(
+        appId=amplify_app_id, branchName="main", sourceUrl=source_url
     )
 
     return 1

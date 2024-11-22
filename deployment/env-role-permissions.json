@@ -1,0 +1,79 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSTSAssumeRoleAndIAMRoleAccess",
+      "Effect": "Allow",
+      "Action": ["sts:AssumeRole", "iam:*Role*"],
+      "Resource": ["arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-*"]
+    },
+    {
+      "Sid": "AllowCDKDeploymentPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole",
+        "lambda:ListLayerVersions",
+        "ssm:DescribeParameters"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowCloudFormationFullAccess",
+      "Action": ["cloudformation:*"],
+      "Resource": [
+        "arn:aws:cloudformation:${AWS_REGION}:${AWS_ACCOUNT_ID}:stack/*"
+      ],
+      "Effect": "Allow"
+    },
+    {
+      "Sid": "AllowFullS3Access",
+      "Effect": "Allow",
+      "Action": ["s3:*"],
+      "Resource": ["*"]
+    },
+    {
+      "Sid": "AllowECRRepositoryManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:SetRepositoryPolicy",
+        "ecr:GetLifecyclePolicy",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:DescribeRepositories",
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:PutLifecyclePolicy"
+      ],
+      "Resource": [
+        "arn:aws:ecr:${AWS_REGION}:${AWS_ACCOUNT_ID}:repository/cdk-*"
+      ]
+    },
+    {
+      "Sid": "AllowSSMParameterManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter*",
+        "ssm:PutParameter*",
+        "ssm:DeleteParameter*"
+      ],
+      "Resource": "arn:aws:ssm:${AWS_REGION}:${AWS_ACCOUNT_ID}:parameter/*"
+    },
+    {
+      "Sid": "AllowAmplifyAppUpdates",
+      "Effect": "Allow",
+      "Action": ["amplify:UpdateApp", "amplify:StartDeployment"],
+      "Resource": "arn:aws:amplify:${AWS_REGION}:${AWS_ACCOUNT_ID}:apps/*"
+    },
+    {
+      "Sid": "AllowDynamoDBTableHydration",
+      "Effect": "Allow",
+      "Action": ["dynamodb:PutItem"],
+      "Resource": "arn:aws:dynamodb:${AWS_REGION}:${AWS_ACCOUNT_ID}:table/aws-mre*"
+    },
+    {
+      "Sid": "AllowLambdaLayerAccess",
+      "Effect": "Allow",
+      "Action": ["lambda:GetLayerVersion"],
+      "Resource": ["*"]
+    }
+  ]
+}

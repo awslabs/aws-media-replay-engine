@@ -9,9 +9,9 @@ from aws_cdk import (
     Stack,
     aws_iam,
     aws_cognito,
-    aws_codecommit,
     aws_amplify_alpha as aws_amplify,
 )
+from cdk_nag import NagSuppressions
 
 
 class MreFrontendStack(Stack):
@@ -73,13 +73,24 @@ class MreFrontendStack(Stack):
                 assume_role_action="sts:AssumeRoleWithWebIdentity")
         )
 
-        authenticated_role.add_to_policy(aws_iam.PolicyStatement(
-            effect=aws_iam.Effect.ALLOW,
-            resources=["*"],
-            actions=[
-                "execute-api:Invoke",
-                "execute-api:ManageConnections"
-            ])
+        authenticated_role.add_to_policy(
+            aws_iam.PolicyStatement(
+                effect=aws_iam.Effect.ALLOW,
+                resources=[
+                    f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"
+                ],
+                actions=["execute-api:Invoke", "execute-api:ManageConnections"],
+            )
+        )
+
+        authenticated_role.add_to_policy(
+            aws_iam.PolicyStatement(
+                effect=aws_iam.Effect.ALLOW,
+                resources=[
+                    f"arn:aws:lambda:{Stack.of(self).region}:{Stack.of(self).account}:function:*"
+                ],
+                actions=["lambda:InvokeFunctionUrl"],
+            )
         )
 
         aws_cognito.CfnIdentityPoolRoleAttachment(
@@ -94,26 +105,46 @@ class MreFrontendStack(Stack):
         # endregion
 
         # region App
-        repository = aws_codecommit.Repository(
-            self, "mre-frontend",
-            repository_name="mre-frontend"
-        )
+        app = aws_amplify.App(self, "app", app_name="mre-frontend")
 
-        app = aws_amplify.App(
-            self, "app",
-            app_name='mre-frontend',
-            source_code_provider=aws_amplify.CodeCommitSourceCodeProvider(repository=repository),
-        )
-
-        app.add_branch('master')
-
+        app.add_branch("main", stage="PRODUCTION")
         # endregion App
 
-        CfnOutput(self, "webAppURL", value="master." + app.default_domain)
+        CfnOutput(self, "webAppURL", value="main." + app.default_domain)
         CfnOutput(self, "webAppId", value=app.app_id)
         CfnOutput(self, "region", value=self.region)
         CfnOutput(self, "userPoolId", value=user_pool.user_pool_id)
         CfnOutput(self, "appClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "identityPoolId", value=identity_pool.ref)
+        CfnOutput(
+            self,
+            "stagingBucketName",
+            value=f"cdk-{self.synthesizer.bootstrap_qualifier}-assets-{self.account}-{self.region}",
+        )
 
-
+        # cdk-nag suppressions
+        NagSuppressions.add_stack_suppressions(
+            self,
+            [
+                {
+                    "id": "AwsSolutions-COG1",
+                    "reason": "CDK provisions a default password policy with a length of at least 8 characters, as well as requiring uppercase, numeric, and special characters",
+                },
+                {
+                    "id": "AwsSolutions-COG2",
+                    "reason": "The frontend UI does not require MFA",
+                },
+                {
+                    "id": "AwsSolutions-COG3",
+                    "reason": "The frontend UI does not require AdvancedSecurityMode as it is a demo UI",
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Cognito default authenticated role needs wildcard permissions to access the MRE API Gateway endpoint",
+                    "appliesTo": [
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
+                    ],
+                },
+            ],
+        )

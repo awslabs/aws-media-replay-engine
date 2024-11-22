@@ -169,7 +169,8 @@ def create_profile():
                     ]
                 },
                 ...
-            ]
+            ],
+            "Variables": object
         }
 
     Parameters:
@@ -184,6 +185,7 @@ def create_profile():
         - Featurers: A List of Featurer plugins. Each Dict which represents a Featurer Plugin. Refer to the Plugin API for details on Plugin Parameters.
         - Optimizer:The Dict which represents a Optimizer Plugin. Refer to the Plugin API for details on Plugin Parameters.
         - Labeler:The Dict which represents a Labeler Plugin. Refer to the Plugin API for details on Plugin Parameters.
+        - Variables: Context Variables (key/value pairs) used to share data across plugin exections
 
     Returns:
 
@@ -976,7 +978,8 @@ def update_profile(name):
                     ]
                 },
                 ...
-            ]
+            ],
+            "Variables": object
         }
 
     Returns:
@@ -1319,10 +1322,12 @@ def get_profile_metadata(name):
         ## We don't want to return an ERROR if there is no metadata
         if "Item" not in response:
             return {}
+        if "data" not in response["Item"]:
+            return {}
 
     except Exception as e:
         print(f"Unable to get the processing profile '{name}': {str(e)}")
         raise ChaliceViewError(f"Unable to get the processing profile '{name}': {str(e)}")
 
     else:
-        return replace_decimals(response["Item"])
+        return replace_decimals(response["Item"]["data"])

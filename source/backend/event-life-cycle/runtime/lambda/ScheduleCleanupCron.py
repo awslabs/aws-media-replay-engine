@@ -9,12 +9,11 @@
 # 
 ##############################################################################
 
-import boto3
 import traceback
-import json
 from datetime import datetime, timedelta
-from botocore.config import Config
 
+import boto3
+from botocore.config import Config
 
 boto_config = Config(
                 retries = {

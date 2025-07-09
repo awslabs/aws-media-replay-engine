@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "title": "model_path_validation",
+  "properties": {
+    "PluginClass": {
+      "$id": "#/properties/PluginClass",
+      "type": "string",
+      "title": "The PluginClass Schema",
+      "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
+    },
+    "ContentGroup": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 50,
+      "pattern": "^(.*)$"
+    },
+    "Name": {
+      "$id": "#/properties/Name",
+      "type": "string",
+      "title": "The Name Schema",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "Version": {
+      "$id": "#/properties/Version",
+      "type": "string",
+      "title": "The Version Schema",
+      "pattern": "^(.*)$",
+      "examples": ["v0", "v1"],
+      "minLength": 1,
+      "maxLength": 5
+    }
+  }
+}

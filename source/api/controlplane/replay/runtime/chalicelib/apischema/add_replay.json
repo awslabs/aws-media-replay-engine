@@ -6,34 +6,59 @@
   "definitions": {},
   "properties": {
     "Program": {
-      "$id": "#/properties/Program",
+      "$id": "#/properties/Program", 
       "type": "string",
-      "title": "The Program Schema"
+      "title": "The Program Schema",
+      "minLength": 3,
+      "maxLength": 150,
+      "pattern": "^(.*)$"
     },
     "Event": {
       "$id": "#/properties/Event",
-      "type": "string",
-      "title": "The Event Schema"
+      "type": "string", 
+      "title": "The Event Schema",
+      "minLength": 3,
+      "maxLength": 150,
+      "pattern": "^(.*)$"
     },
     "AudioTrack": {
       "$id": "#/properties/AudioTrack",
       "type": "number",
-      "title": "The AudioTrack Schema"
+      "title": "The AudioTrack Schema",
+      "minimum": 1,
+      "maximum": 20
     },
     "Description": {
       "$id": "#/properties/Description",
       "type": "string",
-      "title": "The Description Schema"
+      "title": "The Description Schema", 
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^(.*)$"
     },
     "UxLabel": {
       "$id": "#/properties/UxLabel",
       "type": "string",
-      "title": "The UxLabel Schema"
+      "title": "The UxLabel Schema",
+      "minLength": 3,
+      "maxLength": 150,
+      "pattern": "^(.*)$"
     },
     "Requester": {
       "$id": "#/properties/Requester",
       "type": "string",
-      "title": "The Requester Schema"
+      "title": "The Requester Schema",
+      "minLength": 3,
+      "maxLength": 50,
+      "pattern": "^(.*)$"
+    },
+    "SpecifiedTimestamps":{
+      "$id": "#/properties/SpecifiedTimestamps",
+      "type": "string",
+      "title": "List of Start and End timestamps",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^\\s*\\d+(\\.\\d+)?\\s*,\\s*\\d+(\\.\\d+)?\\s*(\\r?\\n\\s*\\d+(\\.\\d+)?\\s*,\\s*\\d+(\\.\\d+)?\\s*)*$"
     },
     "DurationbasedSummarization": {
       "$id": "#/properties/DurationbasedSummarization",
@@ -43,7 +68,9 @@
         "Duration": {
           "$id": "#/properties/DurationbasedSummarization/Duration",
           "type": "number",
-          "title": "The Duration Schema"
+          "title": "The Duration Schema",
+          "minimum": 1,
+          "maximum": 10000          
         },
         "FillToExact": {
           "$id": "#/properties/DurationbasedSummarization/FillToExact",
@@ -58,7 +85,9 @@
         "ToleranceMaxLimitInSecs": {
           "$id": "#/properties/DurationbasedSummarization/ToleranceMaxLimitInSecs",
           "type": "number",
-          "title": "The ToleranceMaxLimitInSecs Schema"
+          "title": "The ToleranceMaxLimitInSecs Schema",
+          "minimum": 1,
+          "maximum": 10000
         }
       },
       "additionalProperties": false,
@@ -66,7 +95,7 @@
     },
     "Priorities": {
       "$id": "#/properties/Priorities",
-      "type": "object",
+      "type": "object", 
       "title": "The Priorities Schema",
       "properties": {
           "CustomPrioritiesEngine":{
@@ -77,7 +106,10 @@
               "CustomPrioritiesEngineName": {
                 "$id": "#/properties/Priorities/CustomPrioritiesEngine/CustomPrioritiesEngineEnabled",
                 "type": "string",
-                "title": "Name of CustomPrioritiesEngine Schema"
+                "title": "Name of CustomPrioritiesEngine Schema",
+                "minLength": 1,
+                "maxLength": 150,
+                "pattern": "^(.*)$"
               },
               "CustomPrioritiesEngineEndpointPathVariables":{
                 "$id": "#/properties/Priorities/CustomPrioritiesEngine/CustomPrioritiesEngineEndpointPathVariables",
@@ -96,12 +128,17 @@
               "Name": {
                 "$id": "#/properties/Priorities/Clips/Name",
                 "type": "string",
-                "title": "The Name Schema"
+                "title": "The Name Schema",
+                "minLength": 1,
+                "maxLength": 150,
+                "pattern": "^(.*)$"
               },
               "Weight": {
                 "$id": "#/properties/Priorities/Clips/Weight",
                 "type": "number",
-                "title": "The Weight Schema"
+                "title": "The Weight Schema",
+                "minimum": 1,
+                "maximum": 100
               },
               "Include": {
                 "$id": "#/properties/Priorities/Clips/Include",
@@ -111,7 +148,10 @@
               "Duration": {
                 "$id": "#/properties/Priorities/Clips/Duration",
                 "type": "string",
-                "title": "The Duration Schema"
+                "title": "The Duration Schema",
+                "minLength": 1,
+                "maxLength": 50,
+                "pattern": "^(.*)$"
               },
               "AttribValue": {
                 "$id": "#/properties/Priorities/Clips/AttribValue",
@@ -121,12 +161,32 @@
               "AttribName": {
                 "$id": "#/properties/Priorities/Clips/AttribName",
                 "type": "string",
-                "title": "The AttribName Schema"
+                "title": "The AttribName Schema",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^(.*)$"
               },
               "PluginName": {
                 "$id": "#/properties/Priorities/Clips/PluginName",
                 "type": "string",
-                "title": "The PluginName Schema"
+                "title": "The PluginName Schema",
+                "minLength": 1,
+                "maxLength": 150,
+                "pattern": "^(.*)$"
+              },
+              "StartTime": {
+                "$id": "#/properties/Priorities/Clips/StartTime",
+                "type": "number",
+                "title": "The StartTime Schema",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "EndTime": {
+                "$id": "#/properties/Priorities/Clips/EndTime",
+                "type": "number",
+                "title": "The EndTime Schema",
+                "minimum": 0,
+                "maximum": 10000
               }
             },
             "additionalProperties": true,
@@ -181,7 +241,10 @@
     "TransitionName": {
       "$id": "#/properties/TransitionName",
       "type": "string",
-      "title": "The TransitionName Schema"
+      "title": "The TransitionName Schema",
+      "minLength": 3,
+      "maxLength": 50,
+      "pattern": "^(.*)$"
     },
     "TransitionOverride": {
       "$id": "#/properties/TransitionOverride",
@@ -191,12 +254,16 @@
         "FadeInMs" : {
           "$id": "#/properties/TransitionOverride/FadeInMs",
           "type": "number",
-          "title": "The FadeInMs Schema"
+          "title": "The FadeInMs Schema",
+          "minimum": 1,
+          "maximum": 100000
         },
         "FadeOutMs" : {
           "$id": "#/properties/TransitionOverride/FadeOutMs",
           "type": "number",
-          "title": "The FadeOutMs Schema"
+          "title": "The FadeOutMs Schema",
+          "minimum": 1,
+          "maximum": 100000
         }
       }
     },
@@ -208,12 +275,18 @@
             "ChannelName" : {
                 "$id": "#/properties/CreateHls/MediaTailorChannel/ChannelName",
                 "type": "string",
-                "title": "The ChannelName Schema"
+                "title": "The ChannelName Schema",
+                "minLength": 1,
+                "maxLength": 150,
+                "pattern": "^(.*)$"
             },
             "AdInsertionConfig" : {
                 "$id": "#/properties/CreateHls/MediaTailorChannel/AdInsertionConfig",
                 "type": "string",
-                "title": "The AdInsertionConfig Schema"
+                "title": "The AdInsertionConfig Schema",
+                "minLength": 1,
+                "maxLength": 150,
+                "pattern": "^(.*)$"
             },
             "PositionAtBeginning" : {
                 "$id": "#/properties/CreateHls/MediaTailorChannel/PositionAtBeginning",
@@ -228,12 +301,16 @@
                     "ScheduleInMins" : {
                         "$id": "#/properties/CreateHls/MediaTailorChannel/AdSetting/ScheduleInMins",
                         "type": "number",
-                        "title": "The ChannelName Schema"
+                        "title": "The ChannelName Schema",
+                        "minimum": 1,
+                        "maximum": 1000
                     },
                     "ScheduleDimensionInMins" : {
                         "$id": "#/properties/CreateHls/MediaTailorChannel/AdSetting/ScheduleDimensionInMins",
                         "type": "boolean",
-                        "title": "The ScheduleDimensionInMins Schema"
+                        "title": "The ScheduleDimensionInMins Schema",
+                        "minimum": 1,
+                        "maximum": 1000
                     }
                 },
                 "additionalProperties": false,

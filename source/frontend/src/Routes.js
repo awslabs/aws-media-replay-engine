@@ -25,6 +25,8 @@ import {ProfileList} from "./containers/Profile/ProfileList";
 import {ProfileCreate} from "./containers/Profile/ProfileCreate";
 import {ClipPreview} from "./containers/Event/ClipPreview";
 import {HlsViewer} from "./containers/Replay/HlsViewer";
+import { PromptList } from "./containers/Prompt/PromptList";
+import { PromptCreate } from "./containers/Prompt/PromptCreate";
 
 export default () => {
     return (
@@ -35,6 +37,9 @@ export default () => {
             <Route path="/listModels" element={<AuthenticatedRoute exact component={ModelList}/>}/>
             <Route path="/addModel" element={<AuthenticatedRoute exact component={ModelCreate}/>}/>
             <Route path="/viewModel" element={<AuthenticatedRoute exact component={SummaryView}/>}/>
+            <Route path="/listPrompts" element={<AuthenticatedRoute exact component={PromptList}/>}/>
+            <Route path="/addPrompt" element={<AuthenticatedRoute exact component={PromptCreate}/>}/>
+            <Route path="/viewPrompt" element={<AuthenticatedRoute exact component={SummaryView}/>}/>
             <Route path="/addPlugin" element={<AuthenticatedRoute exact component={PluginCreate}/>}/>
             <Route path="/listPlugins" element={<AuthenticatedRoute exact component={PluginList}/>}/>
             <Route path="/viewPlugin" element={<AuthenticatedRoute exact component={SummaryView}/>}/>

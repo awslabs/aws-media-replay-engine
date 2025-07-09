@@ -1,0 +1,29 @@
+Name: DetectSceneLabelsPrompt
+Description: Prompt that can be used to detect labels from an image.
+ContentGroups:
+  - All
+Template: |
+  Please analyze the provided image thoroughly and generate descriptive labels that capture the following:
+  1. People, objects and physical items
+  2. Actions and activities
+  3. Scene and location
+  4. Attributes (colors, styles, moods, time of day, weather, etc.)
+
+  Return the labels in a JSON object with a "Labels" array, removing any duplicates.
+  Use the examples given below for reference and guidance.
+
+  <example_1>{"Labels":["Flag", "US Capitol", "Podium", "Joe Biden", "Kamala Haris", "Presentation to congress", "Congress\'s Role", "The state of the union"]}</example_1>
+  <example_2>{"Labels":["Live", "State of the Union", "Joe Biden", "Kamala Haris", "Congress", "Podium", "US Capitol"]}</example_2>
+
+  <instructions>
+  1. Use simple, clear terms.
+  2. Include only what you can see with high confidence.
+  3. Return as valid JSON with "Labels" array as the only field.
+  4. Remove duplicate labels.
+  5. Use single or compound words (e.g., "Coffee cup", "Living room").
+  6. Limit to maximum 25 most relevant labels.
+  7. Use present continuous for actions (e.g., "running", "eating").
+  8. Don't add descriptions or explanations outside the JSON.
+  9. Include both concrete and abstract concepts.
+  10. Properly escape any special characters in labels using backslashes (e.g., "Children\'s playground", "\"Family time\"").
+  </instructions>

@@ -9,28 +9,91 @@
             "$id": "#/properties/Program",
             "type": "string",
             "title": "The Program Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 1,
+            "maxLength": 128
         },
         "Event": {
             "$id": "#/properties/Event",
             "type": "string",
             "title": "The Event Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 1,
+            "maxLength": 128
         },
         "Filename": {
             "$id": "#/properties/Filename",
             "type": "string",
             "title": "The Filename Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 1,
+            "maxLength": 256
         },
         "Frames": {
             "$id": "#/properties/Frames",
             "type": "array",
             "items": {
                 "type": "object",
-                "minProperties": 1
+                "properties": {
+                    "ExecutionId": {
+                        "$id": "#/properties/Frames/properties/ExecutionId",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^(.*)$"
+                    },
+                    "Filename": {
+                        "$id": "#/properties/Frames/properties/Filename",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "pattern": "^(.*)$"
+                    },
+                    "FrameNumber": {
+                        "$id": "#/properties/Frames/properties/FrameNumber",
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "FramePtsTime": {
+                        "$id": "#/properties/Frames/properties/FramePtsTime",
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "FrameTime": {
+                        "$id": "#/properties/Frames/properties/FrameTime",
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "KeyFrame": {
+                        "$id": "#/properties/Frames/properties/KeyFrame",
+                        "type": "integer",
+                        "enum": [0, 1]
+                    },
+                    "PictType": {
+                        "$id": "#/properties/Frames/properties/PictType",
+                        "type": "string",
+                        "enum": ["I", "P", "B"]
+                    },
+                    "DurationTime": {
+                        "$id": "#/properties/Frames/properties/DurationTime",
+                        "type": "number",
+                        "minimum": 0
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "ExecutionId",
+                    "Filename",
+                    "FrameNumber",
+                    "FramePtsTime",
+                    "FrameTime",
+                    "KeyFrame",
+                    "PictType",
+                    "DurationTime"
+                ]
             },
             "minItems": 1,
+            "maxItems": 50,
             "title": "The Frames Schema"
         }
     },

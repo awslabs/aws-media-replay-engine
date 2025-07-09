@@ -8,7 +8,10 @@
         "Name": {
             "$id": "#/properties/Name",
             "type": "string",
-            "title": "The Name Schema"
+            "title": "The Name Schema",
+            "minLength": 3,
+            "maxLength": 150,
+            "pattern": "^(.*)$"
         },
         "Value": {
             "$id": "#/properties/Value",

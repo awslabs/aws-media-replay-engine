@@ -1,11 +1,12 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import requests
-import boto3
 import json
-from botocore.client import ClientError
+
+import boto3
+import requests
 from aws_lambda_powertools import Logger
+from botocore.client import ClientError
 
 logger = Logger()
 secrets_client = boto3.client('secretsmanager')

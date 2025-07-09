@@ -10,20 +10,22 @@ from aws_cdk import (
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
     aws_mediaconvert as media_convert,
-    lambda_layer_awscli as awscli
+    lambda_layer_awscli as awscli,
 )
 from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
-sys.path.append('../../../')
+sys.path.append("../../../")
 
 from shared.infrastructure.helpers import common
 
 RUNTIME_SOURCE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
+    os.path.dirname(os.path.dirname(__file__)), os.pardir, "runtime"
+)
 
 
 MRE_EVENT_BUS = "aws-mre-event-bus"
+
 
 class ReplayStack(Stack):
 
@@ -34,17 +36,29 @@ class ReplayStack(Stack):
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
 
         # Get the MediaConvert Regional endpoint
-        self.media_convert_endpoint = common.MreCdkCommon.get_media_convert_endpoint(self)
+        self.media_convert_endpoint = common.MreCdkCommon.get_media_convert_endpoint(
+            self
+        )
 
-        self.event_media_convert_role_arn = common.MreCdkCommon.get_media_convert_role_arn()
+        self.event_media_convert_role_arn = (
+            common.MreCdkCommon.get_media_convert_role_arn()
+        )
 
-        self.media_convert_output_bucket_name = common.MreCdkCommon.get_media_convert_output_bucket_name(self)
+        self.media_convert_output_bucket_name = (
+            common.MreCdkCommon.get_media_convert_output_bucket_name(self)
+        )
         self.data_export_bucket_name = common.MreCdkCommon.get_data_export_bucket_name()
-        self.segment_cache_bucket_name = common.MreCdkCommon.get_segment_cache_bucket_name(self)
+        self.segment_cache_bucket_name = (
+            common.MreCdkCommon.get_segment_cache_bucket_name(self)
+        )
 
         # Get Layers
-        self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
-        self.mre_plugin_helper_layer = common.MreCdkCommon.get_mre_plugin_helper_layer_from_arn(self)
+        self.mre_workflow_helper_layer = (
+            common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
+        )
+        self.mre_plugin_helper_layer = (
+            common.MreCdkCommon.get_mre_plugin_helper_layer_from_arn(self)
+        )
         self.timecode_layer = common.MreCdkCommon.get_timecode_layer_from_arn(self)
         self.powertools_layer = common.MreCdkCommon.get_powertools_layer_from_arn(self)
 
@@ -53,33 +67,37 @@ class ReplayStack(Stack):
         self.replay_lambda_role = iam.Role(
             self,
             "MREReplayIamRole",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
         )
 
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "events:DescribeEventBus",
-                    "events:PutEvents"
-                ],
+                actions=["events:DescribeEventBus", "events:PutEvents"],
                 resources=[
                     f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
-                ]
+                ],
             )
         )
 
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
+                actions=["logs:CreateLogStream", "logs:PutLogEvents"],
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:/aws/lambda/{Stack.of(self).stack_name}-*",
+                ],
+            )
+        )
+        self.replay_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
                 actions=[
                     "logs:CreateLogGroup",
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
                 ],
                 resources=[
                     f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
-                ]
+                ],
             )
         )
 
@@ -95,62 +113,56 @@ class ReplayStack(Stack):
                     "mediaconvert:CreatePreset",
                     "mediaconvert:CreateQueue",
                     "mediaconvert:CreateJobTemplate",
-                    "mediaconvert:CreateJob"
+                    "mediaconvert:CreateJob",
                 ],
                 resources=[
-                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobTemplates/*",
-                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:presets/*",
-                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:queues/*",
-                            f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobs/*"
-                        ]
+                    f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobTemplates/*",
+                    f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:presets/*",
+                    f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:queues/*",
+                    f"arn:aws:mediaconvert:{Stack.of(self).region}:{Stack.of(self).account}:jobs/*",
+                ],
             )
         )
 
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "s3:GetObject",
-                    "s3:PutObject"
-                ],
+                actions=["s3:GetObject", "s3:PutObject"],
                 resources=[
                     f"arn:aws:s3:::{self.media_convert_output_bucket_name}/*",
-                    f"arn:aws:s3:::{self.segment_cache_bucket_name}/*"
-                ]
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}/*",
+                ],
             )
         )
-        
+
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "s3:ListBucket"
-                ],
+                actions=["s3:ListBucket"],
                 resources=[
                     f"arn:aws:s3:::{self.media_convert_output_bucket_name}",
-                    f"arn:aws:s3:::{self.segment_cache_bucket_name}"
-                ]
+                    f"arn:aws:s3:::{self.segment_cache_bucket_name}",
+                ],
             )
         )
 
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "cloudwatch:PutMetricData"
-                ],
-                resources=["*"]     # Selected actions only support the all resources wildcard('*').
+                actions=["cloudwatch:PutMetricData"],
+                resources=[
+                    "*"
+                ],  # Selected actions only support the all resources wildcard('*').
             )
         )
 
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "execute-api:Invoke",
-                    "execute-api:ManageConnections"
+                actions=["execute-api:Invoke", "execute-api:ManageConnections"],
+                resources=[
+                    f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ],
-                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -160,21 +172,19 @@ class ReplayStack(Stack):
                 actions=[
                     "ssm:DescribeParameters",
                     "ssm:GetParameter",
-                    "ssm:GetParameters"
+                    "ssm:GetParameters",
                 ],
-                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
+                resources=[
+                    f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"
+                ],
             )
         )
 
         self.replay_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "iam:PassRole"
-                ],
-                resources=[
-                    self.event_media_convert_role_arn
-                ]
+                actions=["iam:PassRole"],
+                resources=[self.event_media_convert_role_arn],
             )
         )
 
@@ -182,7 +192,8 @@ class ReplayStack(Stack):
             self,
             "mre-replay-hls-accelerated-queue",
             description="Accelerated queue for MRE Replay HLS jobs",
-            name="mre-replay-hls-accelerated-queue")
+            name="mre-replay-hls-accelerated-queue",
+        )
 
         self.replay_environment_config = {
             "MediaConvertRole": self.event_media_convert_role_arn,
@@ -196,8 +207,7 @@ class ReplayStack(Stack):
             "MAX_NUMBER_OF_THREADS": "50",
             "MEDIA_CONVERT_ENDPOINT": self.media_convert_endpoint,
             "LOG_LEVEL": "INFO",
-            "POWERTOOLS_SERVICE_NAME": "MRE-Replay"
-
+            "POWERTOOLS_SERVICE_NAME": "MRE-Replay",
         }
 
         # Function: CreateReplay
@@ -212,15 +222,14 @@ class ReplayStack(Stack):
             memory_size=10240,
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
         self.create_replay_lambda.add_layers(awscli.AwsCliLayer(self, "AwsCliLayer"))
-
-
 
         # Function: GetEligibleReplays
         self.get_eligible_replays_lambda = _lambda.Function(
@@ -234,11 +243,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: MarkReplayComplete
@@ -253,13 +263,13 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
-
 
         # Function: MarkReplayError
         self.mark_replay_error_lambda = _lambda.Function(
@@ -273,11 +283,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(6),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: GenerateMasterPlaylist
@@ -292,11 +303,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: GenerateHlsClips
@@ -311,11 +323,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: check_Hls_job_status
@@ -330,11 +343,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(14),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: GenerateHlsClips
@@ -349,11 +363,12 @@ class ReplayStack(Stack):
             memory_size=4096,
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: UodateMediaConvertJobStatusInDDB
@@ -368,11 +383,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(1),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: check_mp4_job_status
@@ -387,11 +403,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(15),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Function: Update replay with MP4 location
@@ -406,11 +423,12 @@ class ReplayStack(Stack):
             memory_size=256,
             timeout=Duration.minutes(5),
             environment=self.replay_environment_config,
-            layers=[self.mre_workflow_helper_layer,
-                    self.mre_plugin_helper_layer,
-                    self.timecode_layer,
-                    self.powertools_layer
-                    ]
+            layers=[
+                self.mre_workflow_helper_layer,
+                self.mre_plugin_helper_layer,
+                self.timecode_layer,
+                self.powertools_layer,
+            ],
         )
 
         # Start: MRE Replay generation Step Function Definition
@@ -419,111 +437,118 @@ class ReplayStack(Stack):
             self,
             "ReplayGenStepFunctionRole",
             assumed_by=iam.ServicePrincipal(service="states.amazonaws.com"),
-            description="Service role for the Replay Generation Step Functions"
+            description="Service role for the Replay Generation Step Functions",
         )
-
-        
 
         # Step Function IAM Role: Lambda permissions
         self.replay_sfn_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "lambda:InvokeFunction"
-                ],
+                actions=["lambda:InvokeFunction"],
                 resources=[
-                    f"arn:aws:lambda:{Stack.of(self).region}:{Stack.of(self).account}:function:*"
-                ]
+                    self.get_eligible_replays_lambda.function_arn,
+                    self.create_replay_lambda.function_arn,
+                    self.generate_hls_clips_lambda.function_arn,
+                    self.check_Hls_job_status_lambda.function_arn,
+                    self.generate_master_playlist_lambda.function_arn,
+                    self.mark_replay_complete_lambda.function_arn,
+                    self.update_replay_with_mp4_loc_lambda.function_arn,
+                    self.generate_mp4_clips_lambda.function_arn,
+                    self.mark_replay_error_lambda.function_arn,
+                    self.update_media_convert_job_in_ddb.function_arn,
+                ],
             )
         )
 
         getEligibleReplaysTask = tasks.LambdaInvoke(
             self,
             "GetEligibleReplays",
-            lambda_function=_lambda.Function.from_function_arn(self, 'GetEligibleReplaysLambda',
-                                                               self.get_eligible_replays_lambda.function_arn),
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "GetEligibleReplaysLambda",
+                self.get_eligible_replays_lambda.function_arn,
+            ),
             retry_on_service_exceptions=True,
             result_path="$.ReplayResult",
-
         )
-        
 
-        
         createReplayTask = tasks.LambdaInvoke(
             self,
             "CreateReplay",
-            lambda_function=_lambda.Function.from_function_arn(self, 'CreateReplayLambda',
-                                                               self.create_replay_lambda.function_arn),
+            lambda_function=_lambda.Function.from_function_arn(
+                self, "CreateReplayLambda", self.create_replay_lambda.function_arn
+            ),
             retry_on_service_exceptions=True,
-            result_path="$.CurrentReplayResult"
+            result_path="$.CurrentReplayResult",
         )
         generateHlsClipsTask = tasks.LambdaInvoke(
             self,
             "CreateHlsJobs",
-            lambda_function=_lambda.Function.from_function_arn(self, 'GenerateHlsClipsLambda',
-                                                               self.generate_hls_clips_lambda.function_arn),
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "GenerateHlsClipsLambda",
+                self.generate_hls_clips_lambda.function_arn,
+            ),
             result_path="$.CreateHlsJobsResult",
-            retry_on_service_exceptions=True
+            retry_on_service_exceptions=True,
         )
 
         checkHlsJobStatusTask = tasks.LambdaInvoke(
             self,
             "CheckHlsJobStatus",
-            lambda_function=_lambda.Function.from_function_arn(self, 'CheckHlsJobStatusLambda',
-                                                               self.check_Hls_job_status_lambda.function_arn),
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "CheckHlsJobStatusLambda",
+                self.check_Hls_job_status_lambda.function_arn,
+            ),
             result_path="$.CheckHlsJobStatusResult",
-            retry_on_service_exceptions=True
+            retry_on_service_exceptions=True,
         )
 
         generateMasterPlaylistTask = tasks.LambdaInvoke(
             self,
             "GenerateMasterPlaylist",
-            lambda_function=_lambda.Function.from_function_arn(self, 'GenerateMasterPlaylistLambda',
-                                                               self.generate_master_playlist_lambda.function_arn),
-            retry_on_service_exceptions=True
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "GenerateMasterPlaylistLambda",
+                self.generate_master_playlist_lambda.function_arn,
+            ),
+            retry_on_service_exceptions=True,
         )
 
         completeReplayTask = tasks.LambdaInvoke(
             self,
             "CompleteReplay",
-            lambda_function=_lambda.Function.from_function_arn(self, 'MarkReplayCompleteLambda',
-                                                               self.mark_replay_complete_lambda.function_arn),
-            retry_on_service_exceptions=True
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "MarkReplayCompleteLambda",
+                self.mark_replay_complete_lambda.function_arn,
+            ),
+            retry_on_service_exceptions=True,
         )
 
         updateReplayWithMp4Task = tasks.LambdaInvoke(
             self,
             "UpdateReplayWithMp4Loc",
-            lambda_function=_lambda.Function.from_function_arn(self, 'UpdateReplayWithMp4LocLambda',
-                                                               self.update_replay_with_mp4_loc_lambda.function_arn),
-            retry_on_service_exceptions=True
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "UpdateReplayWithMp4LocLambda",
+                self.update_replay_with_mp4_loc_lambda.function_arn,
+            ),
+            retry_on_service_exceptions=True,
         )
 
         waitFiveSecondsTask = sfn.Wait(
-            self,
-            "wait_5_seconds",
-            time=sfn.WaitTime.duration(Duration.seconds(5))
+            self, "wait_5_seconds", time=sfn.WaitTime.duration(Duration.seconds(5))
         )
 
         waitFiveSecondsTaskMp4 = sfn.Wait(
-            self,
-            "wait_5_seconds_mp4",
-            time=sfn.WaitTime.duration(Duration.seconds(5))
+            self, "wait_5_seconds_mp4", time=sfn.WaitTime.duration(Duration.seconds(5))
         )
 
         allOkTask = sfn.Pass(
             self,
             "NoVideoToBeGenerated",
-        )
-
-        doneTask = sfn.Pass(
-            self,
-            "Done",
-        )
-
-        noSupportedTask = sfn.Pass(
-            self,
-            "OutputTypeNotSupported",
         )
 
         ignoreTask = sfn.Pass(
@@ -534,76 +559,113 @@ class ReplayStack(Stack):
         generateMp4ClipsTask = tasks.LambdaInvoke(
             self,
             "CreateMp4Jobs",
-            lambda_function=_lambda.Function.from_function_arn(self, 'GenerateMp4ClipsLambda',
-                                                               self.generate_mp4_clips_lambda.function_arn),
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "GenerateMp4ClipsLambda",
+                self.generate_mp4_clips_lambda.function_arn,
+            ),
             result_path="$.CreateMp4JobsResult",
-            retry_on_service_exceptions=True
+            retry_on_service_exceptions=True,
         )
 
         checkMp4JobStatusTask = tasks.LambdaInvoke(
             self,
             "CheckMp4JobStatus",
-            lambda_function=_lambda.Function.from_function_arn(self, 'CheckMp4JobStatusLambda',
-                                                               self.check_mp4_job_status_lambda.function_arn),
+            lambda_function=_lambda.Function.from_function_arn(
+                self,
+                "CheckMp4JobStatusLambda",
+                self.check_mp4_job_status_lambda.function_arn,
+            ),
             result_path="$.CheckMp4JobStatusResult",
-            retry_on_service_exceptions=True
+            retry_on_service_exceptions=True,
         )
 
         mapTask = sfn.Map(
             self,
             "Map",
-            parameters={
-                "detail.$": "$.detail",
-                "ReplayRequest.$": "$$.Map.Item.Value"
-            },
+            parameters={"detail.$": "$.detail", "ReplayRequest.$": "$$.Map.Item.Value"},
             items_path="$.ReplayResult.Payload.AllReplays",
-            result_path="$.MapResult"
+            result_path="$.MapResult",
         )
 
-    
         replay_definition = getEligibleReplaysTask.next(
             mapTask.iterator(
-                createReplayTask.next(sfn.Choice(
-                    self, "ShouldCatchupReplayBeSkipped?")
-                .when(
-                    sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
-                                                                "Replay Not Processed"),ignoreTask)
+                createReplayTask.next(
+                    sfn.Choice(self, "ShouldCatchupReplayBeSkipped?")
+                    .when(
+                        sfn.Condition.string_equals(
+                            "$.CurrentReplayResult.Payload.Status",
+                            "Replay Not Processed",
+                        ),
+                        ignoreTask,
+                    )
                     .otherwise(
-                        sfn.Choice(self,"GenerateReplayVideoOutput?")
+                        sfn.Choice(self, "GenerateReplayVideoOutput?")
                         .when(
-                            sfn.Condition.and_(sfn.Condition.boolean_equals("$.ReplayRequest.CreateHls", True),
-                                            sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
-                                                                        "Replay Processed")),
+                            sfn.Condition.and_(
+                                sfn.Condition.boolean_equals(
+                                    "$.ReplayRequest.CreateHls", True
+                                ),
+                                sfn.Condition.string_equals(
+                                    "$.CurrentReplayResult.Payload.Status",
+                                    "Replay Processed",
+                                ),
+                            ),
                             generateHlsClipsTask.next(
                                 checkHlsJobStatusTask.next(
                                     sfn.Choice(self, "AreAllHlsJobsComplete?")
-                                        .when(
-                                        sfn.Condition.string_equals("$.CheckHlsJobStatusResult.Payload.Status", "Complete"),
-                                        generateMasterPlaylistTask)
-                                        .otherwise(waitFiveSecondsTask.next(checkHlsJobStatusTask)))))
+                                    .when(
+                                        sfn.Condition.string_equals(
+                                            "$.CheckHlsJobStatusResult.Payload.Status",
+                                            "Complete",
+                                        ),
+                                        generateMasterPlaylistTask,
+                                    )
+                                    .otherwise(
+                                        waitFiveSecondsTask.next(checkHlsJobStatusTask)
+                                    )
+                                )
+                            ),
+                        )
                         .when(
-                            sfn.Condition.and_(sfn.Condition.boolean_equals("$.ReplayRequest.CreateMp4", True),
-                                            sfn.Condition.string_equals("$.CurrentReplayResult.Payload.Status",
-                                                                        "Replay Processed")),
+                            sfn.Condition.and_(
+                                sfn.Condition.boolean_equals(
+                                    "$.ReplayRequest.CreateMp4", True
+                                ),
+                                sfn.Condition.string_equals(
+                                    "$.CurrentReplayResult.Payload.Status",
+                                    "Replay Processed",
+                                ),
+                            ),
                             generateMp4ClipsTask.next(
                                 checkMp4JobStatusTask.next(
                                     sfn.Choice(self, "AreAllMp4JobsComplete?")
-                                        .when(
-                                        sfn.Condition.string_equals("$.CheckMp4JobStatusResult.Payload.Status", "Complete"),
-                                        updateReplayWithMp4Task)
-                                        .otherwise(waitFiveSecondsTaskMp4.next(checkMp4JobStatusTask)))))
+                                    .when(
+                                        sfn.Condition.string_equals(
+                                            "$.CheckMp4JobStatusResult.Payload.Status",
+                                            "Complete",
+                                        ),
+                                        updateReplayWithMp4Task,
+                                    )
+                                    .otherwise(
+                                        waitFiveSecondsTaskMp4.next(
+                                            checkMp4JobStatusTask
+                                        )
+                                    )
+                                )
+                            ),
+                        )
                         .otherwise(allOkTask)
                     )
-            )
-        ).next(completeReplayTask))
-
-
+                )
+            ).next(completeReplayTask)
+        )
 
         self.replay_state_machine = sfn.StateMachine(
             self,
-            'MRE-ReplayGenerationStateMachine',
+            "MRE-ReplayGenerationStateMachine",
             definition=replay_definition,
-            role=self.replay_sfn_role
+            role=self.replay_sfn_role,
         )
 
         # EventBridge: Create Replay Events Rule
@@ -616,19 +678,21 @@ class ReplayStack(Stack):
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["OPTIMIZED_SEGMENT_CACHED", "SEGMENT_CACHED", "EVENT_END", "REPLAY_CREATED", "OPTIMIZED_SEGMENT_CLIP_FEEDBACK", "SEGMENT_CLIP_FEEDBACK"]
-                }
+                    "State": [
+                        "OPTIMIZED_SEGMENT_CACHED",
+                        "SEGMENT_CACHED",
+                        "EVENT_END",
+                        "REPLAY_CREATED",
+                        "OPTIMIZED_SEGMENT_CLIP_FEEDBACK",
+                        "SEGMENT_CLIP_FEEDBACK",
+                    ]
+                },
             ),
-            targets=[
-                events_targets.SfnStateMachine(
-                    machine=self.replay_state_machine
-                )
-            ]
+            targets=[events_targets.SfnStateMachine(machine=self.replay_state_machine)],
         )
 
         self.mre_replay_events_rule.node.add_dependency(self.event_bus)
         self.mre_replay_events_rule.node.add_dependency(self.replay_state_machine)
-
 
         self.mre_replay_media_convert_job_update_rule = events.Rule(
             self,
@@ -638,20 +702,20 @@ class ReplayStack(Stack):
             event_pattern=events.EventPattern(
                 source=["aws.mediaconvert"],
                 detail={
-                    "status": [
-                        "COMPLETE","ERROR"
-                    ],
-                    "userMetadata": {"Source":["Replay"]}
-                }
+                    "status": ["COMPLETE", "ERROR"],
+                    "userMetadata": {"Source": ["Replay"]},
+                },
             ),
             targets=[
                 events_targets.LambdaFunction(
                     handler=self.update_media_convert_job_in_ddb
                 )
-            ]
+            ],
         )
 
-        self.mre_replay_media_convert_job_update_rule.node.add_dependency(self.update_media_convert_job_in_ddb)
+        self.mre_replay_media_convert_job_update_rule.node.add_dependency(
+            self.update_media_convert_job_in_ddb
+        )
 
         # cdk-nag suppressions
         NagSuppressions.add_stack_suppressions(
@@ -659,96 +723,127 @@ class ReplayStack(Stack):
             [
                 {
                     "id": "AwsSolutions-IAM5",
-                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "reason": "Lambda logging requires access to CloudWatch log groups",
                     "appliesTo": [
-                        
                         f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
-                        "Resource::arn:aws:mediaconvert:*:*:*",
-                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:/aws/lambda/{Stack.of(self).stack_name}-*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "MediaConvert requires wildcard permissions for job management",
+                    "appliesTo": [
+                        "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:*",
                         "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:jobTemplates/*",
                         "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:presets/*",
                         "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:queues/*",
                         "Resource::arn:aws:mediaconvert:<AWS::Region>:<AWS::AccountId>:jobs/*",
-                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "SSM parameter access for MRE configuration",
+                    "appliesTo": [
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "EventBridge access for MRE event bus",
+                    "appliesTo": [
+                        f"Resource::arn:aws:events:*:*:event-bus/{self.event_bus.event_bus_name}",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "API Gateway and Lambda function access",
+                    "appliesTo": [
                         "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
                         "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
-                        "Resource::*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "PutMetricData action requires wildcard resource",
+                    "appliesTo": ["Resource::*"],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "S3 bucket access patterns for MRE storage",
+                    "appliesTo": [
                         {
                             "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
                         },
                         {
                             "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
                         },
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Access to MRE replay function resources",
+                    "appliesTo": [
                         {
-                            "regex": "/^Resource::<MREreplayGetEligibleReplays*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayMarkReplayComplete*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayGenerateHlsClips*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayCheckHlsJobsStatus*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayGenerateMasterPlaylist*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayGenerateMp4Clips*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayCheckMp4JobsStatus*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayUpdateReplayWithMp4Loc*.+Arn>:*/"
-                        },
-                        {
-                            "regex": "/^Resource::<MREreplayCreateReplay*.+Arn>:*/"
+                            "regex": "/^Resource::<MREreplay(GetEligibleReplays|MarkReplayComplete|GenerateHlsClips|CheckHlsJobsStatus|GenerateMasterPlaylist|GenerateMp4Clips|CheckMp4JobsStatus|UpdateReplayWithMp4Loc|CreateReplay)*.+Arn>:*/"
                         }
-                    ]
+                    ],
                 },
                 {
                     "id": "AwsSolutions-SF1",
-                    "reason": "Lambda functions have logging enabled. Step functions logs are not used"
+                    "reason": "Lambda functions have logging enabled. Step functions logs are not used",
                 },
-                {
-                    "id": "AwsSolutions-SF2",
-                    "reason": "x-Ray Tracing is not used"
-                },
+                {"id": "AwsSolutions-SF2", "reason": "x-Ray Tracing is not used"},
                 {
                     "id": "AwsSolutions-IAM4",
                     "reason": "AWS managed policies allowed",
                     "appliesTo": [
                         "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-                    ]
-                }
-            ]
+                    ],
+                },
+            ],
         )
 
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/AWS679f53fac002430cb0da5b7982bd2287/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-CreateReplay/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GetEligibleReplays/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-MarkReplayComplete/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-MarkReplayError/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GenerateMasterPlaylist/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GenerateHlsClips/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-CheckHlsJobsStatus/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-GenerateMp4Clips/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-UpdateMediaConvertJobStatusInDDB/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-CheckMp4JobsStatus/Resource", "AwsSolutions-L1")
-        self.__add_resource_suppressions_by_path("aws-mre-replay-handler/MRE-replay-UpdateReplayWithMp4Loc/Resource", "AwsSolutions-L1")
+        self.__add_resource_suppressions_by_construct(
+            self.create_replay_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.get_eligible_replays_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.mark_replay_complete_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.mark_replay_error_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.generate_hls_clips_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.generate_master_playlist_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.check_Hls_job_status_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.generate_mp4_clips_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.check_mp4_job_status_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.update_replay_with_mp4_loc_lambda, "AwsSolutions-L1"
+        )
+        self.__add_resource_suppressions_by_construct(
+            self.update_media_convert_job_in_ddb, "AwsSolutions-L1"
+        )
 
-        
-        
-    
-    def __add_resource_suppressions_by_path(self, path: str, id: str):
-        NagSuppressions.add_resource_suppressions_by_path(self, 
-            path, 
+    def __add_resource_suppressions_by_construct(self, construct, id: str):
+        NagSuppressions.add_resource_suppressions(
+            construct,
             [
                 {
                     "id": id,
-                    "reason": "aws-mre-replay-handler custom resource lambda function has the appropriate runtime version"
+                    "reason": f"{Stack.of(self).stack_name} custom resource lambda function has the appropriate runtime version",
                 }
-            ]
+            ],
         )

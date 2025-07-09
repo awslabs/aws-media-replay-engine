@@ -12,6 +12,7 @@ from jsonschema import validate, ValidationError
 from chalice import Blueprint
 from chalicelib import load_api_schema, replace_decimals
 import urllib.parse
+from aws_lambda_powertools import Logger
 
 CHUNK_TABLE_NAME = os.environ['CHUNK_TABLE_NAME']
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
@@ -30,6 +31,8 @@ API_SCHEMA = load_api_schema()
 EVAL_KEY_INDEX=3
 
 workflow_api = Blueprint(__name__)
+
+logger = Logger(service="aws-mre-dataplane-api")
 
 @workflow_api.route('/workflow/segment/state', cors=True, methods=['POST'], authorizer=authorizer)
 def get_segment_state():
@@ -69,7 +72,7 @@ def get_segment_state():
 
         validate(instance=chunk, schema=API_SCHEMA["get_segment_state"])
 
-        print("Got a valid chunk schema")
+        logger.info("Got a valid chunk schema")
 
         program = chunk["Program"]
         event = chunk["Event"]
@@ -80,7 +83,7 @@ def get_segment_state():
         max_segment_length = chunk["MaxSegmentLength"]
         last_evaluated_keys = chunk['LastEvaluatedKeys'] if 'LastEvaluatedKeys' in chunk else {}
 
-        print(
+        logger.info(
             f"Getting the state of the segment identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}'")
 
         output={}
@@ -94,12 +97,12 @@ def get_segment_state():
         )
 
         if "Items" not in response or len(response["Items"]) < 1:
-            print(
+            logger.info(
                 f"No segment was identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}'")
             start_key_condition = chunk_start - max_segment_length
 
         else:
-            print(
+            logger.info(
                 f"A segment was identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}'")
 
             prior_segment = response["Items"][0]
@@ -109,16 +112,16 @@ def get_segment_state():
             output['PriorSegment'] = prior_segment
 
             if prior_segment_end is None or prior_segment_start == prior_segment_end:  # Partial segment
-                print("Prior segment is partial as only the 'Start' time is identified")
+                logger.info("Prior segment is partial as only the 'Start' time is identified")
                 output['State'] = "Start"
                 start_key_condition = prior_segment_start
 
             else:  # Complete segment
-                print("Prior segment is complete as both the 'Start' and 'End' times are identified")
+                logger.info("Prior segment is complete as both the 'Start' and 'End' times are identified")
                 output['State'] = "End"
                 start_key_condition = prior_segment_end
 
-        print(
+        logger.info(
             f"Retrieving all the labels created by the dependent plugins '{dependent_plugins}' since '{start_key_condition}'")
 
         if dependent_plugins:
@@ -140,7 +143,7 @@ def get_segment_state():
                 query_params['Limit']=int(PAGINATION_QUERY_LIMIT)
 
             if d_plugin in last_evaluated_keys:
-                print(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin]}'")
+                logger.info(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin]}'")
                 query_params["ExclusiveStartKey"]=last_evaluated_keys[d_plugin]
 
             response = plugin_result_table.query(**query_params)
@@ -157,11 +160,11 @@ def get_segment_state():
                     output['DependentPluginResults'][d_plugin] = {"LastEvaluatedKey" : response["LastEvaluatedKey"]}
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the state of the segment identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the state of the segment identified in prior chunks for program '{program}', event '{event}', plugin '{plugin_name}' and chunk number '{chunk_number}': {str(e)}")
@@ -202,7 +205,7 @@ def get_segment_state_for_labeling():
 
         validate(instance=request, schema=API_SCHEMA["get_segment_state_for_labeling"])
 
-        print("Got a valid schema")
+        logger.info("Got a valid schema")
 
         program = request["Program"]
         event = request["Event"]
@@ -213,7 +216,7 @@ def get_segment_state_for_labeling():
 
         ## If the last evaluated keys include the classifier AND one or more of the dependent plugins- we should just GET the classifier object again
 
-        print(
+        logger.info(
             f"Getting the complete, unlabeled segments for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
         output = {}
@@ -229,7 +232,7 @@ def get_segment_state_for_labeling():
         
         # Pass in the StartKey via 'classifier' name
         if classifier in last_evaluated_keys:
-            print(f"Using LastEvaluatedKey '{last_evaluated_keys[classifier]}'")
+            logger.info(f"Using LastEvaluatedKey '{last_evaluated_keys[classifier]}'")
             query_params["ExclusiveStartKey"]=last_evaluated_keys[classifier]
             
         response = ''
@@ -238,7 +241,7 @@ def get_segment_state_for_labeling():
             temp_key = {'PK': last_evaluated_keys[classifier]['PK'], 'Start': last_evaluated_keys[classifier]['Start']}
             ######
             response = plugin_result_table.get_item(Key=temp_key)
-            print(response)
+            logger.info(response)
             ## Add response as Items to keep rest of flow
             response['Items'] = [response['Item']]
             response['LastEvaluatedKey'] =last_evaluated_keys[classifier]
@@ -248,20 +251,20 @@ def get_segment_state_for_labeling():
                 # Use the last evaluated key from the response that returned no items (due to filter)
                 query_params["ExclusiveStartKey"]=response['LastEvaluatedKey']
                 response = plugin_result_table.query(**query_params)
-                print(f'Response from inner query: {response}')
+                logger.info(f'Response from inner query: {response}')
 
         # Remove classifier from input; don't need it anymore
         last_evaluated_keys.pop(classifier,'n/a')
 
-        print(f'Response from query: {response}')
+        logger.info(f'Response from query: {response}')
        
 
         if "Items" not in response or len(response["Items"]) < 1:
-            print(
+            logger.info(
                 f"No unlabeled segments found for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
         else:
-            print(
+            logger.info(
                 f"One or more unlabeled segments found for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
             ## We're only working on 1 segment at a time
@@ -274,7 +277,7 @@ def get_segment_state_for_labeling():
 
             # Get the Labeler dependent plugins output for the segment only if it is complete
             if segment_end is not None and segment_start != segment_end:
-                print(
+                logger.info(
                     f"Getting all the Labeler dependent plugins output between the segment Start '{segment_start}' and End '{segment_end}'")
                 ## last evaluated keys is now pagination w/ out the classifier key
                 dependent_plugins_output = get_labeler_dependent_plugins_output(program, event, dependent_plugins, 
@@ -283,14 +286,14 @@ def get_segment_state_for_labeling():
                 output["DependentPluginsOutput"] = dependent_plugins_output
 
             else:
-                print(f"Skipping the segment with Start '{segment_start}' as it is not a complete segment")
+                logger.info(f"Skipping the segment with Start '{segment_start}' as it is not a complete segment")
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the complete, unlabeled segments along with the associated dependent plugins result for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the complete, unlabeled segments along with the associated dependent plugins result for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}': {str(e)}")
@@ -334,7 +337,7 @@ def get_segment_state_for_optimization():
 
         validate(instance=request, schema=API_SCHEMA["get_segment_state_for_optimization"])
 
-        print("Got a valid schema")
+        logger.info("Got a valid schema")
 
         program = request["Program"]
         event = request["Event"]
@@ -350,7 +353,7 @@ def get_segment_state_for_optimization():
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
-        print(
+        logger.info(
             f"Getting all the non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
         # Put together a value for limiting chunk #
         query_params = {
@@ -360,7 +363,7 @@ def get_segment_state_for_optimization():
             }
         # Pass in the StartKey via 'classifier' name
         if classifier in last_evaluated_keys:
-            print(f"Using LastEvaluatedKey '{last_evaluated_keys[classifier]}'")
+            logger.info(f"Using LastEvaluatedKey '{last_evaluated_keys[classifier]}'")
             query_params["ExclusiveStartKey"]=last_evaluated_keys[classifier]
             
         response = ''
@@ -369,7 +372,7 @@ def get_segment_state_for_optimization():
             temp_key = {'PK': last_evaluated_keys[classifier]['PK']}
             ######
             response = plugin_result_table.get_item(Key=temp_key)
-            print(response)
+            logger.info(response)
             ## Add response as Items to keep rest of flow
             response['Items'] = [response['Item']]
             response['LastEvaluatedKey'] =last_evaluated_keys[classifier]
@@ -379,18 +382,18 @@ def get_segment_state_for_optimization():
                 # Use the last evaluated key from the response that returned no items (due to filter)
                 query_params["ExclusiveStartKey"]=response['LastEvaluatedKey']
                 response = plugin_result_table.query(**query_params)
-                print(f'Response from inner query: {response}')
+                logger.info(f'Response from inner query: {response}')
 
         # Remove classifier from input; don't need it anymore
         last_evaluated_keys.pop(classifier,'n/a')
 
-        print(f'Response from query: {response}')
+        logger.info(f'Response from query: {response}')
        
         if "Items" not in response or len(response["Items"]) < 1:
-            print(f"No non-optimized segment was identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
+            logger.info(f"No non-optimized segment was identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
         else:
-            print(
+            logger.info(
                 f"Got one non-optimized segments identified in the current/prior chunks for program '{program}', event '{event}', classifier '{classifier}' and chunk number '{chunk_number}'")
 
             ## We're only working on 1 segment at a time
@@ -406,21 +409,21 @@ def get_segment_state_for_optimization():
 
             # Get the Labeler dependent plugins output for the segment only if it is complete
             if segment_end is not None and segment_start != segment_end:
-                print(f"Getting all the dependent detectors output around segment End '{segment_end}' within a search window of '{search_win_sec}' seconds")
+                logger.info(f"Getting all the dependent detectors output around segment End '{segment_end}' within a search window of '{search_win_sec}' seconds")
                 ## last evaluated keys is now pagination w/ out the classifier key
                 output["DependentDetectorsOutput"].extend(get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track,
                                                     end=segment_end))
 
     except BadRequestError as e:
-        print(f"Got chalice BadRequestError: {str(e)}")
+        logger.info(f"Got chalice BadRequestError: {str(e)}")
         raise
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the non-optimized segments and dependent detectors output for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
@@ -431,7 +434,7 @@ def get_segment_state_for_optimization():
 
 def get_labeler_dependent_plugins_output(program, event, dependent_plugins, start, end, last_evaluated_keys) -> dict:
     if not dependent_plugins:
-        print(
+        logger.info(
             f"Skipping the retrieval of Labeler dependent plugins output as no dependent plugin is present in the request")
         return {}
 
@@ -469,7 +472,7 @@ def get_labeler_dependent_plugins_output(program, event, dependent_plugins, star
 
 def get_detectors_output_for_segment(program, event, detectors, search_win_sec, audio_track, start=None, end=None):
     if not detectors:
-        print(f"Skipping the retrieval of dependent detectors output as no detector plugin is present in the request")
+        logger.info(f"Skipping the retrieval of dependent detectors output as no detector plugin is present in the request")
         return []
 
     detectors_output = []
@@ -562,7 +565,7 @@ def get_segments_for_clip_generation():
 
         validate(instance=request, schema=API_SCHEMA["get_segments_for_clip_generation"])
 
-        print("Got a valid schema")
+        logger.info("Got a valid schema")
 
         program = request["Program"]
         event = request["Event"]
@@ -590,11 +593,11 @@ def get_segments_for_clip_generation():
             segments['LastEvaluatedKey'] = response['LastEvaluatedKey']
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the non-optimized and optimized segments for program '{program}' and event '{event}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the non-optimized and optimized segments for program '{program}' and event '{event}': {str(e)}")
@@ -634,7 +637,7 @@ def get_chunks_for_segment():
 
         validate(instance=request, schema=API_SCHEMA["get_chunks_for_segment"])
 
-        print("Got a valid schema")
+        logger.info("Got a valid schema")
 
         program = request["Program"]
         event = request["Event"]
@@ -646,7 +649,7 @@ def get_chunks_for_segment():
 
         chunk_table_name = ddb_resource.Table(CHUNK_TABLE_NAME)
 
-        print(
+        logger.info(
             f"Getting the latest chunk metadata before segment Start '{start}' in program '{program}', event '{event}'")
 
         response = chunk_table_name.query(
@@ -666,7 +669,7 @@ def get_chunks_for_segment():
 
         chunks.extend(response["Items"])
 
-        print(
+        logger.info(
             f"Getting metadata of all the chunks between segment Start '{start}' and End '{end}' in program '{program}', event '{event}'")
 
         response = chunk_table_name.query(
@@ -694,11 +697,11 @@ def get_chunks_for_segment():
                 final_chunks.append(chunk)
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get all the chunk metadata for segment Start '{start}' and End '{end}' in program '{program}', event '{event}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get all the chunk metadata for segment Start '{start}' and End '{end}' in program '{program}', event '{event}': {str(e)}")

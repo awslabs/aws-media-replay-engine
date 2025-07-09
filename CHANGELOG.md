@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2025-07-07
+
+### Fixed
+    - Several security related enhancements and defect fixes
+        - All S3 Buckets accept only HTTPS traffic
+        - All MRE frontend applications have an updated security control policy
+        - APIs within API Gateway are now Throttled
+        - All IAM Policies are scoped to least previlege
+        - APIs have extensive data validation
+        - All MRE frontend applications Invalidate sessions on Logout
+        - SQL Injection fixes
+        - Enhanced JWT Token validation
+        - Several updates to API Input payload Schemas to avoid injection of Large Payload
+
+### Added
+- Support for using generative AI in plugins with Amazon Bedrock
+- Support for indexing plugin results into Amazon OpenSearch Service for generative AI search 
+- Replay creation using direct video timestamps and generative ai search results
+- Addition of new plugin samples using Amazon Bedrock for video frame analysis
+- Addition of new live news segmenter sample showcasing generative ai use cases
+- New prompt catalog for bedrock prompt management
+- Expanded test suite coverage
+
 ## [2.9.1] - 2024-11-20
 
 ### Fixed

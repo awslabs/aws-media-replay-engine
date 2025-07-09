@@ -14,7 +14,7 @@ logging.basicConfig()
 logger = logging.getLogger("mre_custom_resource")
 logger.setLevel(LOG_LEVEL)
 
-valid_types = ["plugin", "model", "profile"]
+valid_types = ["plugin", "model", "prompt", "profile"]
 
 
 def on_event(event, context):

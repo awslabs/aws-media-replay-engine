@@ -1,0 +1,63 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://json-schema.org/draft-07/schema#",
+    "title": "create_prompt",
+    "type": "object",
+    "definitions": {},
+    "properties": {
+        "Name": {
+            "$id": "#/properties/Name",
+            "type": "string",
+            "title": "The Name Schema",
+            "examples": [
+                "TestPrompt1",
+                "TestPrompt2"
+            ],
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 50
+        },
+        "Description": {
+            "$id": "#/properties/Description",
+            "type": "string",
+            "title": "The Description Schema",
+            "pattern": "(?s)^(.*)$",
+            "minLength": 3,
+            "maxLength": 150
+            
+        },
+        "ContentGroups": {
+            "$id": "#/properties/ContentGroups",
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^(.*)$",
+                "minLength": 3,
+                "maxLength": 50
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "title": "The ContentGroups Schema",
+            "examples": [
+                [
+                    "Tennis",
+                    "Soccer"
+                ]
+            ]
+        },
+        "Template": {
+            "$id": "#/properties/Template",
+            "type": "string",
+            "title": "The Template Schema",
+            "pattern": "(?s)^(.*)$",
+            "minLength": 3,
+            "maxLength": 1000000
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "Name",
+        "ContentGroups",
+        "Template"
+    ]
+}

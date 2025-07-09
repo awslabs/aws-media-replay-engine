@@ -1,13 +1,8 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import copy
+
 import json
-import os
-import uuid
-import boto3
-from datetime import datetime
-from botocore.config import Config
 
 from MediaReplayEnginePluginHelper import DataPlane
 from MediaReplayEngineWorkflowHelper import ControlPlane

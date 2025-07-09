@@ -121,7 +121,7 @@
         onload="sendAnonVistorId()"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Aws-Mre-Controlplane-Contentgroup-Api" href="controlplane-contentgroup.html" />
+    <link rel="next" title="Aws-Mre-Genai-Search-Api" href="genai-search.html" />
     <link rel="prev" title="Aws-Mre-Gateway-Api" href="gateway.html" />
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
@@ -158,6 +158,9 @@
                     
   <section class="chalice-app" id="aws-mre-dataplane-api">
 <h1 class="chalice-appname">Aws-Mre-Dataplane-Api<a class="headerlink" href="#aws-mre-dataplane-api" title="Permalink to this heading">¶</a></h1>
+<section class="chalice-route" id="get-chunk-thumbnails">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/chunk/thumbnails</span><a class="headerlink" href="#get-chunk-thumbnails" title="Permalink to this heading">¶</a></h2>
+</section>
 <section class="chalice-route" id="record-clip-preview-feedback">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/preview/feedback</span><a class="headerlink" href="#record-clip-preview-feedback" title="Permalink to this heading">¶</a></h2>
 <p>Captures Feedback on the Original and Optimized Clips</p>
@@ -559,6 +562,14 @@ PTS timecodes are ideal for accurately clipping a video given the start and end 
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-plugins-output-filtered-by-attributes">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/program/{program}/event/{event}/start/{start}/end/{end}/plugins/output/attributes</span><a class="headerlink" href="#get-plugins-output-filtered-by-attributes" title="Permalink to this heading">¶</a></h2>
+<p>Gets all plugins output for an event segment.</p>
+<p>Returns:</p>
+<blockquote>
+<div><p>All plugins output for an event segment</p>
+</div></blockquote>
+</section>
 <section class="chalice-route" id="get-replay-features-in-segment">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/feature/in/segment</span><a class="headerlink" href="#get-replay-features-in-segment" title="Permalink to this heading">¶</a></h2>
 <p>Retrieve the value of all the output attributes stored by a plugin between segment start and end.</p>
@@ -769,7 +780,7 @@ return None along with all the labels created by the dependent plugins before th
                         
                         <a href="gateway.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Aws-Mre-Gateway-Api</a>
                         
-                        <a href="controlplane-contentgroup.html" title="next chapter" class="next-page clearfix">Aws-Mre-Controlplane-Contentgroup-Api →</a>
+                        <a href="genai-search.html" title="next chapter" class="next-page clearfix">Aws-Mre-Genai-Search-Api →</a>
                     </section>
                     
                 </article><aside id="right-column" class="side-column hidden-sm" >
@@ -780,11 +791,12 @@ return None along with all the labels created by the dependent plugins before th
                                 
                                 <a href="gateway.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Prev</a>
                                 
-                                <a href="controlplane-contentgroup.html" title="next chapter" class="next-page clearfix">Next →</a>
+                                <a href="genai-search.html" title="next chapter" class="next-page clearfix">Next →</a>
                             </section>
                             
                             <ul>
 <li><a class="reference internal" href="#">Aws-Mre-Dataplane-Api</a><ul>
+<li><a class="reference internal" href="#get-chunk-thumbnails"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/chunk/thumbnails</span></a></li>
 <li><a class="reference internal" href="#record-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/clip/preview/feedback</span></a></li>
 <li><a class="reference internal" href="#get-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/classifier/{classifier}/start/{start_time}/track/{audio_track}/feedback</span></a></li>
 <li><a class="reference internal" href="#get-all-clip-preview-feedback"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/clip/preview/program/{program}/event/{event}/track/{audio_track}/feedback</span></a></li>
@@ -811,6 +823,7 @@ return None along with all the labels created by the dependent plugins before th
 <li><a class="reference internal" href="#get-timecode-of-frame"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/metadata/timecode/{program}/{event}/{filename}/{frame_number}</span></a></li>
 <li><a class="reference internal" href="#get-dependent-plugins-output"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/plugin/dependentplugins/output</span></a></li>
 <li><a class="reference internal" href="#store-plugin-result"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/plugin/result</span></a></li>
+<li><a class="reference internal" href="#get-plugins-output-filtered-by-attributes"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/program/{program}/event/{event}/start/{start}/end/{end}/plugins/output/attributes</span></a></li>
 <li><a class="reference internal" href="#get-replay-features-in-segment"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/feature/in/segment</span></a></li>
 <li><a class="reference internal" href="#get-plugin-output-attributes-values"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/feature/program/{program}/event/{event}/outputattribute/{pluginattribute}/plugin/{pluginname}</span></a></li>
 <li><a class="reference internal" href="#update-replay-results"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/result</span></a></li>

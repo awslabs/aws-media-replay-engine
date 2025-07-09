@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Aws-Mre-Genai-Search-Api &#8212; AWS Media Replay Engine</title><link rel="stylesheet" href="../_static/bootstrap-reboot.css" type="text/css" />
+    
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/default.css" />
+    <link rel="stylesheet" href="../_static/custom-tabs.css" type="text/css" />
+    
+
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="_static/aws-sdk-2.826.0.min.js"></script>
+    <script type="text/javascript">
+        function _scroll(subjectId) {
+            var subjectElement = $(subjectId);
+            var actualSubjectHeight = subjectElement.height();
+            var startingPosition = subjectElement[0].getBoundingClientRect().top;
+            return function() {
+                var availableHeight = $(window).height() - startingPosition;
+                // Subtract the scroll position to account for sticky movement.
+                availableHeight += Math.min($(window).scrollTop(), 40);
+                var cappedHeight = Math.min(actualSubjectHeight, availableHeight);
+                if (subjectElement.css("height") !== cappedHeight) {
+                    subjectElement.css("height", cappedHeight);
+                }
+            };
+        }
+
+        // Scroll and resize the the columns when scrolled.
+        $(function() {
+            var rightScroll = _scroll("#right-column > .column-body");
+            var scrollFn = function() {
+                rightScroll.call(this, arguments);
+            };
+            scrollFn();
+            $(window).scroll(scrollFn);
+            $(window).resize(scrollFn);
+        });
+
+        // Scroll spy to change highlighted navigation element.
+        $(function() {
+            var section = document.querySelectorAll(".section");
+            var sections = {};
+            var i = 0;
+            Array.prototype.forEach.call(section, function(e) {
+                sections[e.id] = e.offsetTop;
+            });
+            var scrollSpy = function() {
+                var scrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+                for (i in sections) {
+                    if (sections[i] <= scrollPosition) {
+                        $('#right-column .current').removeClass('current');
+                        $("#right-column a[href='#" + i + "']").addClass('current');
+                    }
+                }
+            };
+            $(window).scroll(scrollSpy);
+            scrollSpy();
+        });
+        
+        $(function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+                }
+            );
+        });
+
+        $(function sendAnonVistorId() {
+            FingerprintJS.load().then(fp => {
+                // The FingerprintJS agent is ready.
+                // Get a visitor identifier when you'd like to.
+                fp.get().then(result => {
+                    AWS.config.region = 'us-west-2'; 
+                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: 'us-west-2:a2573bbc-f734-4ef9-84ba-30b702b5b958'});
+                    var pinpoint = new AWS.Pinpoint({apiVersion: '2016-12-01'});
+                    
+                    // This is the anonymous visitor identifier:
+                    const anonVisitorId = result.visitorId;
+                    var param = {
+                    ApplicationId: 'fea7ddb98ab9411787a3cf43d835a0d7',
+                    EventsRequest: {
+                        BatchItem: {}
+                        }
+                    };
+
+                    /* create the event parameter */
+                    var eventParam = {
+                        Endpoint: {
+                            Address: anonVisitorId,
+                            ChannelType: 'CUSTOM',
+                            }
+                        };
+
+                    /* attach the event values */
+                    eventParam['Events'] = [{
+                        EventType: 'mre_docs_page_view',
+                        Timestamp: (new Date()).toISOString()
+                    }];
+
+                    var endpointId = eventParam.Endpoint.Address + 'DOCS'
+                    param.EventsRequest.BatchItem[endpointId] = eventParam; 
+
+                    pinpoint.putEvents(param, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else     console.log(data);
+                    });
+                        });
+                    });
+        });
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"
+        onload="sendAnonVistorId()"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Aws-Mre-Controlplane-Contentgroup-Api" href="controlplane-contentgroup.html" />
+    <link rel="prev" title="Aws-Mre-Dataplane-Api" href="dataplane.html" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  </head><body>
+    <header>
+        <div class="header-flex width-wrapper">
+            <div class="site-logo">
+                
+		  <span class="logo-icon"><img src="../_static/img/MRE_Color.png" style="width:55px;height:50px"/></span>
+                </a>
+            </div>
+
+            <ul id="page-navigation">
+                
+                <li class="site-page"><a href="../main.html">Documentation</a></li>
+                
+                <li class="site-search hidden-sm">
+                    <form action="../search.html" method="get">
+                        <input type="hidden" name="check_keywords" value="yes" />
+                        <input type="hidden" name="area" value="default" />
+                        <input class="search-input" autocomplete="off" type="search" name="q" placeholder="Search" />
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </header>
+    
+        
+        
+        <section id="page-container">
+            <div class="width-wrapper flex">
+                <article id="document-body">
+                    
+                    
+  <section class="chalice-app" id="aws-mre-genai-search-api">
+<h1 class="chalice-appname">Aws-Mre-Genai-Search-Api<a class="headerlink" href="#aws-mre-genai-search-api" title="Permalink to this heading">¶</a></h1>
+<p>The MRE GenAI Search API provides natural language search capabilities for video content using generative AI. This API uses a Lambda Function URL instead of API Gateway and supports streaming responses for real-time interaction.</p>
+<section class="chalice-route" id="natural-language-search">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/</span><a class="headerlink" href="#natural-language-search" title="Permalink to this heading">¶</a></h2>
+<p>Perform natural language search on video content using generative AI models. This endpoint streams responses in real-time and maintains conversation history for contextual interactions.</p>
+<p><strong>Authentication:</strong> AWS IAM (AWS_IAM)</p>
+<p><strong>Response Mode:</strong> Streaming</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;SessionId&quot;</span><span class="p">:</span> <span class="s2">&quot;unique-session-identifier&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="s2">&quot;program-name&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="s2">&quot;event-name&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Query&quot;</span><span class="p">:</span> <span class="s2">&quot;natural language search query&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ModelId&quot;</span><span class="p">:</span> <span class="s2">&quot;bedrock-model-id&quot;</span> <span class="p">(</span><span class="n">optional</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><strong>SessionId</strong> (string, required): Unique identifier for the conversation session. Used to maintain chat history and context across multiple queries.</p></li>
+<li><p><strong>Program</strong> (string, required): Name of the MRE program containing the video content to search.</p></li>
+<li><p><strong>Event</strong> (string, required): Name of the MRE event within the program to search.</p></li>
+<li><p><strong>Query</strong> (string, required): Natural language query describing what you want to find in the video content.</p></li>
+<li><p><strong>ModelId</strong> (string, optional): Amazon Bedrock model ID to use for generating responses. Defaults to system configuration or "amazon.nova-pro-v1:0".</p></li>
+</ul>
+<p><strong>Example Request:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;SessionId&quot;</span><span class="p">:</span> <span class="s2">&quot;user-123-session-456&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="s2">&quot;SportsHighlights&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Event&quot;</span><span class="p">:</span> <span class="s2">&quot;Championship2024&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Query&quot;</span><span class="p">:</span> <span class="s2">&quot;Show me all the goals scored in the first half&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ModelId&quot;</span><span class="p">:</span> <span class="s2">&quot;amazon.nova-pro-v1:0&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns:</p>
+<blockquote>
+<div><p>Streaming JSON response containing search results with timestamps and content analysis</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Summary&quot;</span><span class="p">:</span> <span class="s2">&quot;Found 3 goals scored in the first half of the match&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Details&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="mi">180</span><span class="p">,</span>
+            <span class="s2">&quot;End&quot;</span><span class="p">:</span> <span class="mi">195</span><span class="p">,</span>
+            <span class="s2">&quot;Title&quot;</span><span class="p">:</span> <span class="s2">&quot;First Goal - Opening Score&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Content&quot;</span><span class="p">:</span> <span class="s2">&quot;Player scores the opening goal with a powerful shot&quot;</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Start&quot;</span><span class="p">:</span> <span class="mi">1245</span><span class="p">,</span>
+            <span class="s2">&quot;End&quot;</span><span class="p">:</span> <span class="mi">1260</span><span class="p">,</span>
+            <span class="s2">&quot;Title&quot;</span><span class="p">:</span> <span class="s2">&quot;Second Goal - Quick Counter&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Content&quot;</span><span class="p">:</span> <span class="s2">&quot;Fast counter-attack leads to second goal&quot;</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p><strong>Response Format:</strong></p>
+<ul class="simple">
+<li><p><strong>Summary</strong> (string): Concise summary of the search results and context analysis</p></li>
+<li><p><strong>Details</strong> (array): List of relevant video segments, sorted by start time</p><ul>
+<li><p><strong>Start</strong> (number): Start timestamp in seconds</p></li>
+<li><p><strong>End</strong> (number): End timestamp in seconds</p></li>
+<li><p><strong>Title</strong> (string): Short descriptive title for the segment</p></li>
+<li><p><strong>Content</strong> (string): Description of what happens in the segment</p></li>
+</ul>
+</li>
+<li><p><strong>OutOfContext</strong> (boolean, optional): Present when the query cannot be answered from available context</p></li>
+</ul>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p><strong>Vector Search</strong>: Uses OpenSearch with embeddings to find relevant video segments</p></li>
+<li><p><strong>Conversation History</strong>: Maintains context across multiple queries in the same session</p></li>
+<li><p><strong>Multi-language Support</strong>: Responds in the same language as the query</p></li>
+<li><p><strong>Tool Integration</strong>: Uses calculator, number comparison, and sorting tools for accurate analysis</p></li>
+<li><p><strong>Streaming Response</strong>: Real-time response streaming for better user experience</p></li>
+</ul>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>400 - Bad Request (Invalid JSON body or missing required parameters)
+404 - Not Found (Invalid path or method)
+500 - Internal Server Error (Processing error or model unavailable)</p>
+</dd>
+</dl>
+<p><strong>Usage Notes:</strong></p>
+<ul class="simple">
+<li><p>This API requires AWS IAM authentication with appropriate permissions</p></li>
+<li><p>The SessionId should be unique per user session to maintain proper conversation history</p></li>
+<li><p>Responses are streamed, so clients should handle streaming JSON data</p></li>
+<li><p>The API uses Amazon Bedrock models, ensure proper model access permissions</p></li>
+<li><p>Vector embeddings are generated using Amazon Titan Embed Text v2 model</p></li>
+</ul>
+</section>
+</section>
+
+
+                    
+                    <section class="relations">
+                        
+                        <a href="dataplane.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Aws-Mre-Dataplane-Api</a>
+                        
+                        <a href="controlplane-contentgroup.html" title="next chapter" class="next-page clearfix">Aws-Mre-Controlplane-Contentgroup-Api →</a>
+                    </section>
+                    
+                </article><aside id="right-column" class="side-column hidden-sm" >
+                    <div class="column-body" style="width: 600px">
+                        <section class="sidebar">
+                            
+                            <section class="next-previous">
+                                
+                                <a href="dataplane.html" title="previous chapter" class="previous-page clearfix hidden-xs">← Prev</a>
+                                
+                                <a href="controlplane-contentgroup.html" title="next chapter" class="next-page clearfix">Next →</a>
+                            </section>
+                            
+                            <ul>
+<li><a class="reference internal" href="#">Aws-Mre-Genai-Search-Api</a><ul>
+<li><a class="reference internal" href="#natural-language-search"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/</span></a></li>
+</ul>
+</li>
+</ul>
+
+                        </section>
+                    </div>
+                </aside></div>
+        </section>
+        
+    
+<footer id="footer">
+    <div class="width-wrapper">
+        <div class="copyright">
+            <p>©2023, Amazon Web Services, Inc or its affiliates. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
+  </body>
+</html>

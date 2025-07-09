@@ -1,26 +1,32 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "http://json-schema.org/draft-07/schema#",
-    "title": "update_custom_priorities_engine",
-    "type": "object",
-    "definitions": {},
-    "properties": {
-        "Description": {
-            "$id": "#/properties/Description",
-            "type": "string",
-            "title": "The Description Schema",
-            "pattern": "^(.*)$"
-        },
-        "EndpointSsmParam": {
-            "$id": "#/properties/EndpointSsmParam",
-            "type": "string",
-            "title": "The EndpointSsmParam Schema"
-        },
-        "SecretsManagerApiKeyArn": {
-            "$id": "#/properties/SecretsManagerApiKeyArn",
-            "type": "string",
-            "title": "The SecretsManagerApiKeyArn Schema"
-        }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://json-schema.org/draft-07/schema#",
+  "title": "update_custom_priorities_engine",
+  "type": "object",
+  "definitions": {},
+  "properties": {
+    "Description": {
+      "$id": "#/properties/Description",
+      "type": "string",
+      "title": "The Description Schema",
+      "minLength": 3,
+      "maxLength": 250,
+      "pattern": "^(.*)$"
     },
-    "additionalProperties": false
+    "EndpointSsmParam": {
+      "$id": "#/properties/EndpointSsmParam",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 150,
+      "title": "The EndpointSsmParam Schema"
+    },
+    "SecretsManagerApiKeyArn": {
+      "$id": "#/properties/SecretsManagerApiKeyArn",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 150,
+      "title": "The SecretsManagerApiKeyArn Schema"
+    }
+  },
+  "additionalProperties": false
 }

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://json-schema.org/draft-07/schema#",
+  "title": "plugin_path_validation",
+  "type": "object",
+  "definitions": {},
+  "properties": {
+    "Class": {
+      "type": "string",
+      "title": "The Class Schema",
+      "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
+    },
+    "ContentGroup": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 50,
+      "pattern": "^(.*)$"
+    },
+    "Name": {
+      "type": "string",
+      "title": "The Name Schema",
+      "examples": [
+        "silence-detection-ffmpeg-plugin",
+        "scene-detection-rekognition-plugin"
+      ],
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "Version": {
+      "type": "string",
+      "title": "The Version Schema",
+      "pattern": "^(.*)$",
+      "minLength": 1,
+      "maxLength": 5
+    }
+  }
+}

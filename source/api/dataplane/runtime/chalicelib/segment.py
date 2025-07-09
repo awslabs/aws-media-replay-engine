@@ -1,25 +1,25 @@
 # Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import json
+import os
 import urllib.parse
-import boto3
-import decimal
 from decimal import Decimal
-from chalice import Blueprint
-from chalice import IAMAuthorizer
-from chalice import ChaliceViewError, BadRequestError, NotFoundError
-from botocore.client import ClientError
-from boto3.dynamodb.conditions import Key, Attr
-from jsonschema import validate, ValidationError
-from chalicelib import load_api_schema, replace_decimals
-from chalicelib.segment_helper import get_event_segment_metadata_v2, get_clip_metadata
-from chalicelib.common import get_event_segment_metadata
 
+import boto3
+from boto3.dynamodb.conditions import Key
+from botocore.client import ClientError
+from chalice import (BadRequestError, Blueprint, ChaliceViewError,
+                     IAMAuthorizer, NotFoundError)
+from chalicelib import load_api_schema, replace_decimals
+from chalicelib.common import get_event_segment_metadata
+from chalicelib.segment_helper import (get_clip_metadata,
+                                       get_event_segment_metadata_v2)
+from jsonschema import ValidationError, validate
+from aws_lambda_powertools import Logger
 
 segment_api = Blueprint(__name__)
-
+logger = Logger(service="aws-mre-dataplane-api")
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 CLIP_PREVIEW_FEEDBACK_TABLE_NAME = os.environ['CLIP_PREVIEW_FEEDBACK_TABLE_NAME']
@@ -31,7 +31,6 @@ PROGRAM_EVENT_PLUGIN_INDEX=os.environ["PROGRAM_EVENT_PLUGIN_INDEX"]
 authorizer = IAMAuthorizer()
 
 ddb_resource = boto3.resource("dynamodb")
-s3_client = boto3.client("s3")
 eb_client = boto3.client("events")
 
 API_SCHEMA = load_api_schema()
@@ -66,16 +65,16 @@ def store_clip_result():
 
         validate(instance=result, schema=API_SCHEMA["store_clip_result"])
 
-        print("Got a valid clip result schema")
+        logger.info("Got a valid clip result schema")
 
         program = result["Program"]
         event = result["Event"]
         classifier = result["Classifier"]
         results = result["Results"]
 
-        print(
+        logger.info(
             f"Storing the result of Clip Generation Engine for program '{program}' and event '{event}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}'")
-        print(f"Number of items to store: {len(results)}")
+        logger.info(f"Number of items to store: {len(results)}")
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
@@ -137,19 +136,19 @@ def store_clip_result():
                 )
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
         error = e.response['Error']['Message']
-        print(
+        logger.info(
             f"Unable to store the result of Clip Generation Engine for program '{program}' and event '{event}': {str(error)}")
         raise ChaliceViewError(
             f"Unable to store the result of Clip Generation Engine for program '{program}' and event '{event}': {str(error)}")
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to store the result of Clip Generation Engine for program '{program}' and event '{event}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to store the result of Clip Generation Engine for program '{program}' and event '{event}': {str(e)}")
@@ -414,11 +413,11 @@ def record_clip_preview_feedback():
             )
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(f"Unable to save clip preview program '{program}' and event '{event}': {str(e)}")
+        logger.info(f"Unable to save clip preview program '{program}' and event '{event}': {str(e)}")
         raise ChaliceViewError(f"Unable to save clip preview program '{program}' and event '{event}': {str(e)}")
     else:
         return {}
@@ -505,8 +504,8 @@ def get_all_event_segments():
     last_start_value = input["LastStartValue"] if 'LastStartValue' in input else None
 
     
-    print(f"output_attributes ...... {output_attributes}")
-    print(f"plugins_in_profile ...... {plugins_in_profile}")
+    logger.info(f"output_attributes ...... {output_attributes}")
+    logger.info(f"plugins_in_profile ...... {plugins_in_profile}")
 
     
     try:
@@ -609,13 +608,13 @@ def get_all_event_segments():
             all_segments.append(segment_info)
 
     except NotFoundError as e:
-        print(e)
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(e)
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(e)
-        print(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
+        logger.info(e)
+        logger.info(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
         raise ChaliceViewError(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
 
     else:
@@ -703,7 +702,7 @@ def get_replay_features_in_segment():
         endtime = request["End"]
         output_attrs = request["OutputAttributes"]
 
-        print(f"Getting the value of all the {len(output_attrs)} output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}'")
+        logger.info(f"Getting the value of all the {len(output_attrs)} output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}'")
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
@@ -740,7 +739,7 @@ def get_replay_features_in_segment():
             replay_features.extend(response["Items"])
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the value of all the output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the value of all the output attributes stored by the plugin '{plugin_name}' between segment start '{starttime}' and end '{endtime}': {str(e)}")
@@ -790,7 +789,7 @@ def add_attribute_to_existing_segment(name, program, classifier, start, attrName
         )
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to add a new attribute '{attrName}' with value '{attrVal}' to an existing segment with start '{start}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to add a new attribute '{attrName}' with value '{attrVal}' to an existing segment with start '{start}': {str(e)}")

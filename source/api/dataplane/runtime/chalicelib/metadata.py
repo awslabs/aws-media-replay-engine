@@ -10,11 +10,13 @@ from chalice import Blueprint
 from chalice import IAMAuthorizer
 from chalice import ChaliceViewError, NotFoundError
 from botocore.client import ClientError
-from boto3.dynamodb.conditions import Key, Attr, In
+from boto3.dynamodb.conditions import Key, Attr
 from jsonschema import validate
 from chalicelib import load_api_schema, replace_decimals
+from aws_lambda_powertools import Logger
 
 metadata_api = Blueprint(__name__)
+logger = Logger(service="aws-mre-dataplane-api")
 
 # Environment variables defined in the CDK stack
 FRAME_TABLE_NAME = os.environ['FRAME_TABLE_NAME']
@@ -54,14 +56,14 @@ def store_frame():
 
         validate(instance=frame, schema=API_SCHEMA["store_frame"])
 
-        print("Got a valid frame schema")
+        logger.info("Got a valid frame schema")
 
         program = frame["Program"]
         event = frame["Event"]
         filename = frame["Filename"]
         frames = frame["Frames"]
 
-        print(
+        logger.info(
             f"Storing '{len(frames)}' frames of file '{filename}' for program '{program}' and event '{event}' in the DynamoDB table '{FRAME_TABLE_NAME}'")
 
         frame_table = ddb_resource.Table(FRAME_TABLE_NAME)
@@ -76,15 +78,15 @@ def store_frame():
                 )
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
         error = e.response['Error']['Message']
-        print(
+        logger.info(
             f"Unable to store one or more frames of file '{filename}' for program '{program}' and event '{event}': {str(error)}")
         raise ChaliceViewError(
             f"Unable to store one or more frames of file '{filename}' for program '{program}' and event '{event}': {str(error)}")
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to store one or more frames of file '{filename}' for program '{program}' and event '{event}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to store one or more frames of file '{filename}' for program '{program}' and event '{event}': {str(e)}")
@@ -126,13 +128,13 @@ def store_chunk_metadata():
 
         validate(instance=chunk, schema=API_SCHEMA["store_chunk_metadata"])
 
-        print("Got a valid chunk schema")
+        logger.info("Got a valid chunk schema")
 
         program = chunk["Program"]
         event = chunk["Event"]
         filename = chunk["Filename"]
 
-        print(
+        logger.info(
             f"Storing the metadata of the HLS Segment (Chunk) '{filename}' for program '{program}' and event '{event}' in the DynamoDB table '{CHUNK_TABLE_NAME}'")
 
         chunk_table = ddb_resource.Table(CHUNK_TABLE_NAME)
@@ -144,15 +146,15 @@ def store_chunk_metadata():
         )
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
         error = e.response['Error']['Message']
-        print(
+        logger.info(
             f"Unable to store the metadata of the HLS Segment (Chunk) '{filename}' for program '{program}' and event '{event}': {str(error)}")
         raise ChaliceViewError(
             f"Unable to store the metadata of the HLS Segment (Chunk) '{filename}' for program '{program}' and event '{event}': {str(error)}")
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to store the metadata of the HLS Segment (Chunk) '{filename}' for program '{program}' and event '{event}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to store the metadata of the HLS Segment (Chunk) '{filename}' for program '{program}' and event '{event}': {str(e)}")
@@ -186,7 +188,7 @@ def get_chunk_start_time(program, event, profile, reference_time):
         profile = urllib.parse.unquote(profile)
         reference_time = urllib.parse.unquote(reference_time)
 
-        print(
+        logger.info(
             f"Getting the chunk start time for program '{program}' and event '{event}' based on the reference time '{reference_time}'")
 
         chunk_table = ddb_resource.Table(CHUNK_TABLE_NAME)
@@ -223,12 +225,12 @@ def get_chunk_start_time(program, event, profile, reference_time):
             )
 
         if "Items" not in response or len(response["Items"]) < 1:
-            print(
+            logger.info(
                 f"Chunk start time not found for program '{program}' and event '{event}' based on the reference time '{reference_time}'")
             return None
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the chunk start time for program '{program}' and event '{event}' based on the reference time '{reference_time}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the chunk start time for program '{program}' and event '{event}' based on the reference time '{reference_time}': {str(e)}")
@@ -265,7 +267,7 @@ def get_timecode_of_frame(program, event, filename, frame_number):
         filename = urllib.parse.unquote(filename)
         frame_number = urllib.parse.unquote(frame_number)
 
-        print(
+        logger.info(
             f"Getting the timecode of frame '{frame_number}' in file '{filename}' for program '{program}' and event '{event}'")
 
         # Convert frame_number from a string of integer/float to integer
@@ -308,11 +310,11 @@ def get_timecode_of_frame(program, event, filename, frame_number):
             frame_pts_time = round(key_frame_pts_time + (diff * key_frame_duration), 3)
 
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to get the timecode of frame '{frame_number}' in file '{filename}' for program '{program}' and event '{event}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the timecode of frame '{frame_number}' in file '{filename}' for program '{program}' and event '{event}': {str(e)}")

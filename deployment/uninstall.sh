@@ -8,12 +8,30 @@
 #########################
 
 # Function to delete a CloudFormation stack and wait for completion
+# if the stack does not exist, do not throw an error
 delete_stack() {
-    echo "Deleting stack: $1"
-    aws cloudformation delete-stack --stack-name "$1" || true
-    echo "Waiting for stack deletion to complete: $1"
-    aws cloudformation wait stack-delete-complete --stack-name "$1" || true
-    echo "Stack deletion complete: $1"
+    if aws cloudformation describe-stacks --stack-name "$1" > /dev/null 2>&1; then
+        echo "Deleting stack: $1"
+        aws cloudformation delete-stack --stack-name "$1" || true
+        echo "Waiting for stack deletion to complete: $1"
+        aws cloudformation wait stack-delete-complete --stack-name "$1" || true
+        
+        # Check if stack still exists and its status after wait completes or times out
+        if aws cloudformation describe-stacks --stack-name "$1" > /dev/null 2>&1; then
+            # Get the stack status
+            stack_status=$(aws cloudformation describe-stacks --stack-name "$1" --query "Stacks[0].StackStatus" --output text)
+            if [[ $stack_status == *"FAILED"* || $stack_status == *"IN_PROGRESS"* ]]; then
+                echo "WARNING: Stack deletion failed or is still in progress: $1 (Status: $stack_status)"
+                echo "You may need to manually resolve issues with this stack in the AWS Console."
+            else
+                echo "Stack status after wait: $1 (Status: $stack_status)"
+            fi
+        else
+            echo "Stack deletion complete: $1"
+        fi
+    else
+        echo "Stack does not exist: $1, skipping..."
+    fi
 }
 
 #######################
@@ -31,6 +49,14 @@ delete_stack "mre-frontend-stack"
 # Delete Gateway stack 
 echo "Starting deletion of Gateway stack..."
 delete_stack "aws-mre-gateway"
+
+#######################
+# GenAI Search        #
+#######################
+
+# Delete GenAI Search stack 
+echo "Starting deletion of Gateway GenAI Search stack..."
+delete_stack "aws-mre-genai-search"
 
 #######################
 # Dataplane Resources #
@@ -51,6 +77,7 @@ declare -a controlplane_stacks=(
     "aws-mre-controlplane-event"
     "aws-mre-controlplane-workflow"
     "aws-mre-controlplane-profile"
+    "aws-mre-controlplane-prompt-catalog"
     "aws-mre-controlplane-plugin"
     "aws-mre-controlplane-model"
     "aws-mre-controlplane-system"

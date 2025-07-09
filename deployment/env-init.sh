@@ -6,7 +6,7 @@
 # Tested Environment Configuration:
 # Amazon Linux 2023 (AML2023)
 # Architecture: x86_64
-# Instance Type: t2.large (uses about 60% of CPU)
+# Instance Type: t3.large (uses about 60% of CPU)
 # EBS Storage: 16 GB gp3
 ###############################################################################
 
@@ -100,13 +100,3 @@ echo "Working directory: $(pwd)"
 echo "Configuring Python virtual environment..."
 cd $MRE_DEPLOYMENT_DIR
 python3.11 -m venv mredeploy-env
-
-# Example deployment command (uncomment and configure as needed):
-# Before running deployment:
-# 1. Make sure ADMIN_EMAIL is set above
-# 2. Ensure you are in the correct AWS region
-# 3. The virtual environment must be activated first
-# source mredeploy-env/bin/activate
-# Then run the deployment script with required parameters:
-# ./build-and-deploy.sh --version 1.0 --region $REGION --admin-email $ADMIN_EMAIL
-# Monitor the CloudFormation console for deployment progress

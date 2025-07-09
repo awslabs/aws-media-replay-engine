@@ -1,12 +1,12 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from timecode import Timecode
-from boto3 import client
-import uuid
 import os
-import boto3
 import time
+import uuid
+
+import boto3
+from timecode import Timecode
 
 MEDIA_CONVERT_ENDPOINT = os.environ['MEDIA_CONVERT_ENDPOINT']
 

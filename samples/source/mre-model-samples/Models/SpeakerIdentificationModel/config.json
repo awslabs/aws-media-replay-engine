@@ -1,0 +1,9 @@
+{
+  "Name": "SpeakerIdentificationModel",
+  "Description": "Identify the speaker name from their voice",
+  "PluginClass": "Featurer",
+  "ContentGroups": [
+    "All"
+  ],
+  "Endpoint": "SAGEMAKER_HOSTED_MODEL_ENDPOINT"
+}

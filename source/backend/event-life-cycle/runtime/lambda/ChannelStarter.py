@@ -8,9 +8,10 @@
 #
 ##############################################################################
 
-import boto3
-import traceback
 import json
+import traceback
+
+import boto3
 
 medialive_client = boto3.client("medialive")
 def lambda_handler(event, context):

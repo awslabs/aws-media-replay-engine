@@ -20,9 +20,9 @@ export const ReplayList = () => {
         return [
             <TableCell align="left">{row.Program}</TableCell>,
             <TableCell align="left">{row.Event}</TableCell>,
-            <TableCell align="left">{row.Duration}</TableCell>,
+            <TableCell align="left">{row.UxLabel}</TableCell>,
             <TableCell align="left">{row.Requester}</TableCell>,
-            <TableCell align="left">{row.AudioTrack}</TableCell>,
+            <TableCell align="left">{row.Mode}</TableCell>,
             <TableCell align="left">
                 {
                     row.CatchUp &&
@@ -49,9 +49,9 @@ export const ReplayList = () => {
             tableHeaders={[
                 <TableCell align="left">Program</TableCell>,
                 <TableCell align="left" style={{minWidth: 150}}>Event</TableCell>,
-                <TableCell align="left" style={{maxWidth: 100}}>Duration (Secs)</TableCell>,
+                <TableCell align="left" style={{maxWidth: 100}}>Label</TableCell>,
                 <TableCell align="left">Requester</TableCell>,
-                <TableCell align="left">Audio Track</TableCell>,
+                <TableCell align="left">Creation Mode</TableCell>,
                 <TableCell align="left">Catch-up</TableCell>,
                 <TableCell align="left">Status</TableCell>,
                 <TableCell align="left">Actions</TableCell>
@@ -63,7 +63,7 @@ export const ReplayList = () => {
                         path: "/viewReplay",
                         name: "Replay List",
                         link: "/listReplays",
-                        tooltip: "View Replay",
+                        tooltip: "View Replay Config",
                         replayDetails: `replay/program/#Program/event/#Event/replayid/#ReplayId`, //replace #Program with row.Program, #Event with row.Event and #ReplayId with row.ReplayId in Child
                         inputFieldsMap: REPLAY_SUMMARY_FORM,
                     },

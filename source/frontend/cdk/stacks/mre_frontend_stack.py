@@ -4,12 +4,14 @@
 '''
 from constructs import Construct
 from aws_cdk import (
+    Fn,
     CfnOutput,
     CfnParameter,
     Stack,
     aws_iam,
     aws_cognito,
     aws_amplify_alpha as aws_amplify,
+    Duration
 )
 from cdk_nag import NagSuppressions
 
@@ -38,18 +40,26 @@ class MreFrontendStack(Stack):
         )
 
         user_pool_client = aws_cognito.UserPoolClient(
-            self, "MRE-frontend-UserPoolClient",
-            user_pool=user_pool
+            self, "MRE-frontend-UserPoolClient", user_pool=user_pool,
+            # Set token validity durations
+            access_token_validity=Duration.minutes(60),
+            id_token_validity=Duration.minutes(60),
+            refresh_token_validity=Duration.hours(10),
+            # Enable token revocation
+            enable_token_revocation=True,
         )
 
         identity_pool = aws_cognito.CfnIdentityPool(
             self, "MRE-frontend-IdentityPool",
             identity_pool_name="MRE-frontend-IdentityPool",
-            cognito_identity_providers=[{
-                "clientId": user_pool_client.user_pool_client_id,
-                "providerName": user_pool.user_pool_provider_name
-            }],
-            allow_unauthenticated_identities=False
+            cognito_identity_providers=[
+                {
+                    "clientId": user_pool_client.user_pool_client_id,
+                    "providerName": user_pool.user_pool_provider_name,
+                    "serverSideTokenCheck": True, #Amazon Cognito no longer accepts a signed-out user's ID token in a GetId request to an identity pool with ServerSideTokenCheck enabled for its user pool IdP configuration in CognitoIdentityProvider.
+                }
+            ],
+            allow_unauthenticated_identities=False,
         )
 
         unauthenticated_role = aws_iam.Role(
@@ -77,7 +87,20 @@ class MreFrontendStack(Stack):
             aws_iam.PolicyStatement(
                 effect=aws_iam.Effect.ALLOW,
                 resources=[
-                    f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/GET/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/POST/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/DELETE/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/OPTIONS/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/PUT/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/PATCH/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-dataplane-api-rest-id")}/*/@connections/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/GET/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/POST/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/DELETE/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/OPTIONS/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/PUT/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/PATCH/*',
+                    f'arn:aws:execute-api:{self.region}:{self.account}:{Fn.import_value("mre-default-api-gateway-rest-api-id")}/*/@connections/*'
                 ],
                 actions=["execute-api:Invoke", "execute-api:ManageConnections"],
             )
@@ -87,7 +110,7 @@ class MreFrontendStack(Stack):
             aws_iam.PolicyStatement(
                 effect=aws_iam.Effect.ALLOW,
                 resources=[
-                    f"arn:aws:lambda:{Stack.of(self).region}:{Stack.of(self).account}:function:*"
+                    Fn.import_value("mre-genai-search-arn")
                 ],
                 actions=["lambda:InvokeFunctionUrl"],
             )
@@ -144,6 +167,21 @@ class MreFrontendStack(Stack):
                     "appliesTo": [
                         "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
                         "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/GET/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/POST/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/DELETE/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/OPTIONS/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/PUT/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/PATCH/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-dataplane-api-rest-id/*/@connections/*",
+                        "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:mre-genai-search-fn-*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/GET/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/POST/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/DELETE/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/OPTIONS/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/PUT/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/PATCH/*",
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:mre-default-api-gateway-rest-api-id/*/@connections/*"
                     ],
                 },
             ],

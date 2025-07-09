@@ -1,12 +1,11 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from logging import exception
+import os
+
 import boto3
 import urllib3
-from boto3 import client
 from botocore.config import Config
-import os
 
 urllib3.disable_warnings()
 s3 = boto3.resource('s3')
@@ -225,7 +224,7 @@ def create_final_manifest(bucket, keyPrefix):
             final_manifest_content = read_first_manifest(all_manifests[0], bucket)
             final_manifest_content.extend(process_other_manifests(all_manifests, bucket))
             final_manifest_content.append("#EXT-X-ENDLIST")
-    except exception as e:
+    except Exception as e:
         pass
     
     return final_manifest_content

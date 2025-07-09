@@ -8,17 +8,18 @@ from aws_cdk import (
     aws_iam as iam,
     aws_lambda as _lambda,
     aws_s3 as s3,
-    aws_s3_notifications as s3n
+    aws_s3_notifications as s3n,
 )
 from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
-sys.path.append('../../../')
+sys.path.append("../../../")
 
 from shared.infrastructure.helpers import common
 
 RUNTIME_SOURCE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
+    os.path.dirname(os.path.dirname(__file__)), os.pardir, "runtime"
+)
 
 
 class ChaliceApp(Stack):
@@ -26,7 +27,9 @@ class ChaliceApp(Stack):
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
 
-        self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
+        self.mre_workflow_helper_layer = (
+            common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
+        )
         self.mre_media_source_bucket = common.MreCdkCommon.get_media_source_bucket(self)
 
         ### START: TriggerMREWorkflow LAMBDA ###
@@ -35,7 +38,7 @@ class ChaliceApp(Stack):
         self.trigger_mre_lambda_role = iam.Role(
             self,
             "TriggerMREWorkflowLambdaRole",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
         )
 
         # TriggerMREWorkflowLambdaRole: CloudWatch Logs permissions
@@ -44,10 +47,19 @@ class ChaliceApp(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "logs:CreateLogGroup",
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
                 ],
-                resources=[f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"]
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
+                ],
+            )
+        )
+        self.trigger_mre_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["logs:CreateLogStream", "logs:PutLogEvents"],
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:/aws/lambda/{Stack.of(self).stack_name}-*",
+                ],
             )
         )
 
@@ -58,9 +70,11 @@ class ChaliceApp(Stack):
                 actions=[
                     "ssm:DescribeParameters",
                     "ssm:GetParameter",
-                    "ssm:GetParameters"
+                    "ssm:GetParameters",
                 ],
-                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
+                resources=[
+                    f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"
+                ],
             )
         )
 
@@ -68,11 +82,10 @@ class ChaliceApp(Stack):
         self.trigger_mre_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "execute-api:Invoke",
-                    "execute-api:ManageConnections"
+                actions=["execute-api:Invoke", "execute-api:ManageConnections"],
+                resources=[
+                    f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ],
-                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -80,12 +93,10 @@ class ChaliceApp(Stack):
         self.trigger_mre_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "states:StartExecution"
-                ],
+                actions=["states:StartExecution"],
                 resources=[
-                    f"arn:aws:states:{Stack.of(self).region}:{Stack.of(self).account}:stateMachine:*"
-                ]
+                    f"arn:aws:states:{Stack.of(self).region}:{Stack.of(self).account}:stateMachine:aws-mre-*-state-machine"
+                ],
             )
         )
 
@@ -100,14 +111,14 @@ class ChaliceApp(Stack):
             role=self.trigger_mre_lambda_role,
             memory_size=128,
             timeout=Duration.minutes(1),
-            layers=[self.mre_workflow_helper_layer]
+            layers=[self.mre_workflow_helper_layer],
         )
 
         # S3 Event Source for TriggerMREWorkflow Lambda
         self.mre_media_source_bucket.add_event_notification(
             s3.EventType.OBJECT_CREATED,
             s3n.LambdaDestination(self.trigger_mre_workflow_lambda),
-            s3.NotificationKeyFilter(suffix=".ts")
+            s3.NotificationKeyFilter(suffix=".ts"),
         )
 
         # BYOB permissions to allow S3 buckets to invoke SF
@@ -121,36 +132,56 @@ class ChaliceApp(Stack):
             principal="s3.amazonaws.com",
         )
 
-        CfnOutput(self, "mre-trigger-workflow-lambda-arn", value=self.trigger_mre_workflow_lambda.function_arn,
-                      description="ARN of the Lambda function to invoke with S3 Trigger",
-                      export_name="mre-trigger-workflow-lambda-arn")
+        CfnOutput(
+            self,
+            "mre-trigger-workflow-lambda-arn",
+            value=self.trigger_mre_workflow_lambda.function_arn,
+            description="ARN of the Lambda function to invoke with S3 Trigger",
+            export_name="mre-trigger-workflow-lambda-arn",
+        )
 
         ### END: TriggerMREWorkflow LAMBDA ###
 
         NagSuppressions.add_stack_suppressions(
             self,
             [
-                
                 {
                     "id": "AwsSolutions-IAM4",
                     "reason": "AWS managed policies allowed",
                     "appliesTo": [
                         "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-                    ]
+                    ],
                 },
                 {
                     "id": "AwsSolutions-IAM5",
-                    "reason": "Role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "reason": "SSM parameter store requires wildcard permissions for MRE parameters",
+                    "appliesTo": [
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "API Gateway invoke permissions require wildcard access",
+                    "appliesTo": [
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "State Machine execution requires wildcard permissions",
+                    "appliesTo": [
+                        "Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:stateMachine:aws-mre-*-state-machine",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Lambda logging requires access to CloudWatch log groups",
                     "appliesTo": [
                         f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
-                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
-                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
-                        "Resource::arn:aws:lambda:<AWS::Region>:<AWS::AccountId>:function:*",
-                        "Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:stateMachine:*",
-                        "Resource::*"
-                    ]
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:/aws/lambda/{Stack.of(self).stack_name}-*",
+                    ],
                 },
-            ]
+            ],
         )
         NagSuppressions.add_resource_suppressions_by_path(
             self,
@@ -158,7 +189,20 @@ class ChaliceApp(Stack):
             [
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "TriggerMREWorkflow lambda function does not require the latest runtime version"
+                    "reason": "TriggerMREWorkflow lambda function does not require the latest runtime version",
                 }
-            ]
+            ],
+        )
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            "/aws-mre-workflow-trigger/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/DefaultPolicy/Resource",
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "appliesTo": [
+                        "Resource::*",
+                    ],
+                    "reason": "CDK uses BucketNotificationsHandler to manage S3 bucket notifications which requires broader IAM permissions",
+                }
+            ],
         )

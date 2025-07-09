@@ -1,0 +1,53 @@
+{
+  "Lambda": {
+    "Handler": "DetectCelebrities.lambda_handler",
+    "MemorySize": 512,
+    "TimeoutSecs": 60,
+    "IAMPolicyDocument": [
+      {
+        "Actions": ["rekognition:RecognizeCelebrities"],
+        "Resources": ["*"]
+      },
+      {
+        "Actions": ["bedrock:InvokeModel"],
+        "Resources": [
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:region:account-id:inference-profile/*.amazon.nova-lite-v1:0"
+        ]
+      },
+      {
+        "Actions": ["bedrock:ListInferenceProfiles"],
+        "Resources": ["arn:aws:bedrock:region:account-id:inference-profile/*"]
+      }
+    ],
+    "Layers": ["av", "pillow"]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectCelebrities",
+      "Description": "A plugin to detect celebrities using either Amazon Rekognition or Amazon Bedrock",
+      "Class": "Featurer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": ["All"],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "minimum_confidence": 60,
+        "celebrity_list": "[\"Joe Biden\",\"Donald Trump\",\"Tom Cruise\",\"Kamala Harris\",\"Kevin McCarthy\"]",
+        "mode": "LLM",
+        "bedrock_model_id": "amazon.nova-lite-v1:0",
+        "prompt_template_name": "DetectCelebritiesPrompt"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "",
+          "flag_celebrity1": "",
+          "flag_celebrity2": "",
+          "flag_celebrity3": "",
+          "flag_celebrity4": "",
+          "flag_celebrity5": ""
+        }
+      }
+    }
+  }
+}

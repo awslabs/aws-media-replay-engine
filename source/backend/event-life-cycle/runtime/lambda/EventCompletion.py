@@ -8,11 +8,12 @@
 # 
 ##############################################################################
 
-import boto3
-import traceback
 import json
 import os
-from datetime import datetime, timedelta
+import traceback
+from datetime import datetime
+
+import boto3
 from MediaReplayEngineWorkflowHelper import ControlPlane
 
 controlplane = ControlPlane()

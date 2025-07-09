@@ -1,15 +1,18 @@
 {
     "Plugins": [
-        "SegmentBySceneChange",
-        "DetectTennisScoreBoxData",
-        "DetectCameraScene",
-        "LabelTennisScore",
         "DetectAudioPeaks",
+        "DetectViaPrompt",
         "SegmentByKeyMoment",
         "LabelBasic",
         "OptimizePassThrough",
         "SegmentPassThrough100",
         "LabelPassThrough",
-        "DetectPassThrough100"
+        "DetectPassThrough100",
+        "DetectSpeech",
+        "DetectSentiment",
+        "DetectCelebrities",
+        "DetectSceneLabels",
+        "SegmentNews",
+        "LabelNews"
     ]
 }

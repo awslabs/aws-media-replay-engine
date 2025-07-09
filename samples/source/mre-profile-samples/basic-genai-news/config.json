@@ -1,0 +1,44 @@
+{
+  "ChunkSize": 20,
+  "ProcessingFrameRate": 1,
+  "MaxSegmentLengthSeconds": 300,
+  "Classifier": {
+    "Name": "SegmentNews",
+    "Configuration": {
+      "min_segment_length": 30,
+      "search_window_seconds": 200,
+      "bedrock_model_id": "amazon.nova-pro-v1:0",
+      "prompt_template_name": "SegmentNewsPrompt"
+    },
+    "DependentPlugins": [
+      {
+        "Name": "DetectSentiment",
+        "DependentFor": ["SegmentNews"]
+      },
+      {
+        "Name": "DetectCelebrities",
+        "DependentFor": ["SegmentNews"]
+      },
+      {
+        "Name": "DetectSceneLabels",
+        "DependentFor": ["SegmentNews"]
+      },
+      {
+        "Name": "DetectSpeech",
+        "DependentFor": ["DetectSentiment"],
+        "ModelEndpoint": {
+          "Version": "v0",
+          "Name": "SpeakerIdentificationModel"
+        }
+      }
+    ]
+  },
+  "Labeler": {
+    "Name": "LabelNews"
+  },
+  "ContentGroups": ["News"],
+  "Name": "BasicGenAINews",
+  "Variables": {
+    "Last_Theme": "none"
+  }
+}

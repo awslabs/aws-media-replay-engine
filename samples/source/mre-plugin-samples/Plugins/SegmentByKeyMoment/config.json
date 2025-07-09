@@ -2,7 +2,7 @@
     "Lambda": {
       "Handler": "SegmentByKeyMoment.lambda_handler",
       "MemorySize": 128,
-      "TimeoutSecs": 3
+      "TimeoutSecs": 30
     },
     "MRE": {
       "Plugin": {

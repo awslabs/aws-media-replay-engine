@@ -21,7 +21,8 @@
                   },
                   "SceneChangeDetect": "TRANSITION_DETECTION"
                 }
-              }
+              },
+              "ScalingBehavior": "FILL"
             },
             "AudioDescriptions": [
               {

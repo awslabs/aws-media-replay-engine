@@ -1,38 +1,54 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import os
 import json
-from decimal import Decimal
+import os
 import urllib.parse
-import boto3
 from datetime import datetime
+from decimal import Decimal
+
+import boto3
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.validation import (SchemaValidationError,
+                                                        validate)
 from botocore.client import ClientError
-from chalice import Chalice
-from chalice import IAMAuthorizer
-from chalice import ChaliceViewError, BadRequestError, ConflictError, NotFoundError
-from chalicelib import DecimalEncoder
-from jsonschema import validate, ValidationError
-from chalicelib import load_api_schema
+from chalice import (BadRequestError, Chalice, ChaliceViewError, ConflictError,
+                     IAMAuthorizer, NotFoundError)
+from chalicelib import DecimalEncoder, load_api_schema
+from aws_lambda_powertools import Logger
 
-app = Chalice(app_name='aws-mre-controlplane-custompriorities-api')
+app = Chalice(app_name="aws-mre-controlplane-custompriorities-api")
 
-API_VERSION = '1.0.0'
+logger = Logger(service="ws-mre-controlplane-custompriorities-api")
+
+API_VERSION = "1.0.0"
 authorizer = IAMAuthorizer()
 
 API_SCHEMA = load_api_schema()
 
 ddb_resource = boto3.resource("dynamodb")
 
-CUSTOM_PRIORITIES_TABLE_NAME = os.environ['CUSTOM_PRIORITIES_TABLE_NAME']
+CUSTOM_PRIORITIES_TABLE_NAME = os.environ["CUSTOM_PRIORITIES_TABLE_NAME"]
 
-@app.route('/custompriorities', cors=True, methods=['POST'], authorizer=authorizer)
+# Create middleware to inject request context
+@app.middleware('all')
+def inject_request_context(event, get_response):
+    # event is a Chalice Request object
+    request_id = event.context.get('requestId', 'N/A')
+    
+    # Add request ID to persistent logger context
+    logger.append_keys(request_id=request_id)
+    
+    response = get_response(event)
+    return response
+
+@app.route("/custompriorities", cors=True, methods=["POST"], authorizer=authorizer)
 def create_custom_priorities_engine():
     """
     Create a new Custom Priorities Engine configuration. A Custom Priorities Engine configuration is a collection of attributes
-    that define's the required elements to integrate with an external API that provides segment level significance or weights 
+    that define's the required elements to integrate with an external API that provides segment level significance or weights
     for replay generation
-    
+
     Body:
 
     .. code-block:: python
@@ -43,7 +59,7 @@ def create_custom_priorities_engine():
             "EndpointSsmParam": string,
             "SecretsManagerApiKeyArn": string
         }
-    
+
     Parameters:
 
         - Name: Name of the Custom Priorities Engine configuration
@@ -66,14 +82,21 @@ def create_custom_priorities_engine():
         500 - ChaliceViewError
     """
     try:
-        custom_priorities_engine = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
+        custom_priorities_engine = json.loads(
+            app.current_request.raw_body.decode(), parse_float=Decimal
+        )
 
-        validate(instance=custom_priorities_engine, schema=API_SCHEMA["create_custom_priorities_engine"])
+        validate(
+            event=custom_priorities_engine,
+            schema=API_SCHEMA["create_custom_priorities_engine"],
+        )
 
-        print("Got a valid profile schema")
+        logger.info("Got a valid profile schema")
 
         name = custom_priorities_engine["Name"]
-        custom_priorities_engine["Created"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        custom_priorities_engine["Created"] = datetime.utcnow().strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         custom_priorities_engine["LastModified"] = custom_priorities_engine["Created"]
         custom_priorities_engine["Enabled"] = True
 
@@ -82,29 +105,32 @@ def create_custom_priorities_engine():
         custom_priorities_table.put_item(
             Item=custom_priorities_engine,
             ConditionExpression="attribute_not_exists(#Name)",
-            ExpressionAttributeNames={
-                "#Name": "Name"
-            }
+            ExpressionAttributeNames={"#Name": "Name"},
         )
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise ValidationError(e.message)
-    
+    except SchemaValidationError as e:
+        logger.error(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.error(f"Got DynamoDB ClientError: {str(e)}")
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise ConflictError(f"Custom Priorities Engine '{name}' already exists")
         else:
             raise
 
     except Exception as e:
-        print(f"Unable to create a new custom priorities engine '{name}': {str(e)}")
-        raise ChaliceViewError(f"Unable to create a new custom priorities engine '{name}': {str(e)}")
+        logger.error(
+            f"Unable to create a new custom priorities engine '{name}': {str(e)}"
+        )
+        raise ChaliceViewError(
+            f"Unable to create a new custom priorities engine '{name}': {str(e)}"
+        )
 
     else:
         return {}
 
-@app.route('/custompriorities/all', cors=True, methods=['GET'], authorizer=authorizer)
+
+@app.route("/custompriorities/all", cors=True, methods=["GET"], authorizer=authorizer)
 def list_custompriorities():
     """
     List all the custom priorities engine configurations.
@@ -128,32 +154,34 @@ def list_custompriorities():
         500 - ChaliceViewError
     """
     try:
-        print("Listing all the custom priorities engine")
+        logger.info("Listing all the custom priorities engine")
 
         custom_priorities_table = ddb_resource.Table(CUSTOM_PRIORITIES_TABLE_NAME)
 
-        response = custom_priorities_table.scan(
-            ConsistentRead=True
-        )
+        response = custom_priorities_table.scan(ConsistentRead=True)
 
         custom_priorities_engine = response["Items"]
 
         while "LastEvaluatedKey" in response:
             response = custom_priorities_table.scan(
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-                ConsistentRead=True
+                ExclusiveStartKey=response["LastEvaluatedKey"], ConsistentRead=True
             )
 
             custom_priorities_engine.extend(response["Items"])
 
     except Exception as e:
-        print(f"Unable to list all the custom priorities engine: {str(e)}")
-        raise ChaliceViewError(f"Unable to list all the custom priorities engine: {str(e)}")
+        logger.error(f"Unable to list all the custom priorities engine: {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to list all the custom priorities engine: {str(e)}"
+        )
 
     else:
         return custom_priorities_engine
-    
-@app.route('/custompriorities/{name}', cors=True, methods=['GET'], authorizer=authorizer)
+
+
+@app.route(
+    "/custompriorities/{name}", cors=True, methods=["GET"], authorizer=authorizer
+)
 def get_custompriorities(name):
     """
     Get a custom priorities engine configuration by name.
@@ -179,32 +207,38 @@ def get_custompriorities(name):
     try:
         name = urllib.parse.unquote(name)
 
-        print(f"Getting the custom priorities engine '{name}'")
+        validate_path_parameters({"Name": name})
+
+        logger.info(f"Getting the custom priorities engine '{name}'")
 
         custom_priorities_table = ddb_resource.Table(CUSTOM_PRIORITIES_TABLE_NAME)
 
         response = custom_priorities_table.get_item(
-            Key={
-                "Name": name
-            },
-            ConsistentRead=True
+            Key={"Name": name}, ConsistentRead=True
         )
 
         if "Item" not in response:
             raise NotFoundError(f"Custom Priorities Engine '{name}' not found")
-
+    except SchemaValidationError as e:
+        logger.error(f"ValidationError: {str(e)}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.error(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to get the custom priorities engine '{name}': {str(e)}")
-        raise ChaliceViewError(f"Unable to get the custom priorities engine '{name}': {str(e)}")
+        logger.error(f"Unable to get the custom priorities engine '{name}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to get the custom priorities engine '{name}': {str(e)}"
+        )
 
     else:
         return response["Item"]
-    
-@app.route('/custompriorities/{name}', cors=True, methods=['PUT'], authorizer=authorizer)
+
+
+@app.route(
+    "/custompriorities/{name}", cors=True, methods=["PUT"], authorizer=authorizer
+)
 def update_custom_priorities_engine(name):
     """
     Update a custom priorities engine configuration by name.
@@ -230,71 +264,106 @@ def update_custom_priorities_engine(name):
     """
     try:
         name = urllib.parse.unquote(name)
-        custom_priorities_engine = json.loads(app.current_request.raw_body.decode(), parse_float=Decimal)
 
-        validate(instance=custom_priorities_engine, schema=API_SCHEMA["update_custom_priorities_engine"])
+        validate_path_parameters({"Name": name})
 
-        print("Got a valid custom priorities engine schema")
+        custom_priorities_engine = json.loads(
+            app.current_request.raw_body.decode(), parse_float=Decimal
+        )
 
-        print(f"Updating the custom priorities engine '{name}'")
+        validate(
+            event=custom_priorities_engine,
+            schema=API_SCHEMA["update_custom_priorities_engine"],
+        )
+
+        logger.info("Got a valid custom priorities engine schema")
+
+        logger.info(f"Updating the custom priorities engine '{name}'")
 
         custom_priorities_table = ddb_resource.Table(CUSTOM_PRIORITIES_TABLE_NAME)
 
         response = custom_priorities_table.get_item(
-            Key={
-                "Name": name
-            },
-            ConsistentRead=True
+            Key={"Name": name}, ConsistentRead=True
         )
 
         if "Item" not in response:
             raise NotFoundError(f"Custom Priorities Engine '{name}' not found")
-        
-        custom_priorities_engine["Description"] = custom_priorities_engine["Description"] if "Description" in custom_priorities_engine else (
-            response["Item"]["Description"] if "Description" in response["Item"] else "")
-        
-        custom_priorities_engine["EndpointSsmParam"] = custom_priorities_engine["EndpointSsmParam"] if "EndpointSsmParam" in custom_priorities_engine else (
-            response["Item"]["EndpointSsmParam"] if "EndpointSsmParam" in response["Item"] else "")
-        
-        custom_priorities_engine["SecretsManagerApiKeyArn"] = custom_priorities_engine["SecretsManagerApiKeyArn"] if "SecretsManagerApiKeyArn" in custom_priorities_engine else (
-            response["Item"]["SecretsManagerApiKeyArn"] if "SecretsManagerApiKeyArn" in response["Item"] else "")
-        
+
+        custom_priorities_engine["Description"] = (
+            custom_priorities_engine["Description"]
+            if "Description" in custom_priorities_engine
+            else (
+                response["Item"]["Description"]
+                if "Description" in response["Item"]
+                else ""
+            )
+        )
+
+        custom_priorities_engine["EndpointSsmParam"] = (
+            custom_priorities_engine["EndpointSsmParam"]
+            if "EndpointSsmParam" in custom_priorities_engine
+            else (
+                response["Item"]["EndpointSsmParam"]
+                if "EndpointSsmParam" in response["Item"]
+                else ""
+            )
+        )
+
+        custom_priorities_engine["SecretsManagerApiKeyArn"] = (
+            custom_priorities_engine["SecretsManagerApiKeyArn"]
+            if "SecretsManagerApiKeyArn" in custom_priorities_engine
+            else (
+                response["Item"]["SecretsManagerApiKeyArn"]
+                if "SecretsManagerApiKeyArn" in response["Item"]
+                else ""
+            )
+        )
+
         custom_priorities_table.update_item(
-            Key={
-                "Name": name
-            },
+            Key={"Name": name},
             UpdateExpression="SET #Description = :Description, #EndpointSsmParam = :EndpointSsmParam, #SecretsManagerApiKeyArn = :SecretsManagerApiKeyArn, #LastModified = :LastModified",
             ExpressionAttributeNames={
                 "#Description": "Description",
                 "#EndpointSsmParam": "EndpointSsmParam",
                 "#SecretsManagerApiKeyArn": "SecretsManagerApiKeyArn",
-                "#LastModified": "LastModified"
+                "#LastModified": "LastModified",
             },
             ExpressionAttributeValues={
                 ":Description": custom_priorities_engine["Description"],
                 ":EndpointSsmParam": custom_priorities_engine["EndpointSsmParam"],
-                ":SecretsManagerApiKeyArn": custom_priorities_engine["SecretsManagerApiKeyArn"],
-                ":LastModified": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-            }
+                ":SecretsManagerApiKeyArn": custom_priorities_engine[
+                    "SecretsManagerApiKeyArn"
+                ],
+                ":LastModified": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
         )
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
+    except SchemaValidationError as e:
+        logger.error(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
 
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.error(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to update the custom priorities engine '{name}': {str(e)}")
-        raise ChaliceViewError(f"Unable to update the custom priorities engine '{name}': {str(e)}")
+        logger.error(
+            f"Unable to update the custom priorities engine '{name}': {str(e)}"
+        )
+        raise ChaliceViewError(
+            f"Unable to update the custom priorities engine '{name}': {str(e)}"
+        )
 
     else:
-        print(f"Successfully updated the profile: {json.dumps(custom_priorities_engine, cls=DecimalEncoder)}")
+        logger.info(
+            f"Successfully updated the profile: {json.dumps(custom_priorities_engine, cls=DecimalEncoder)}"
+        )
 
         return {}
-    
-@app.route('/custompriorities/{name}/status', cors=True, methods=['PUT'], authorizer=authorizer)
+
+
+@app.route(
+    "/custompriorities/{name}/status", cors=True, methods=["PUT"], authorizer=authorizer
+)
 def update_custom_priorities_engine_status(name):
     """
     Enable or Disable custom priorities engine by name.
@@ -318,50 +387,53 @@ def update_custom_priorities_engine_status(name):
     """
     try:
         name = urllib.parse.unquote(name)
+
+        validate_path_parameters({"Name": name})
+
         status = json.loads(app.current_request.raw_body.decode())
 
-        validate(instance=status, schema=API_SCHEMA["update_status"])
+        validate(event=status, schema=API_SCHEMA["update_status"])
 
-        print("Got a valid status schema")
+        logger.info("Got a valid status schema")
 
-        print(f"Updating the status of the custom priorities engine '{name}'")
+        logger.info(f"Updating the status of the custom priorities engine '{name}'")
 
         custom_priorities_table = ddb_resource.Table(CUSTOM_PRIORITIES_TABLE_NAME)
 
         custom_priorities_table.update_item(
-            Key={
-                "Name": name
-            },
+            Key={"Name": name},
             UpdateExpression="SET #Enabled = :Status",
             ConditionExpression="attribute_exists(#Name)",
-            ExpressionAttributeNames={
-                "#Enabled": "Enabled",
-                "#Name": "Name"
-            },
-            ExpressionAttributeValues={
-                ":Status": status["Enabled"]
-            }
+            ExpressionAttributeNames={"#Enabled": "Enabled", "#Name": "Name"},
+            ExpressionAttributeValues={":Status": status["Enabled"]},
         )
 
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
+    except SchemaValidationError as e:
+        logger.error(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.error(f"Got DynamoDB ClientError: {str(e)}")
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise NotFoundError(f"Custom Priorities Engine '{name}' not found")
         else:
             raise
 
     except Exception as e:
-        print(f"Unable to update the status of custom priorities engine '{name}': {str(e)}")
-        raise ChaliceViewError(f"Unable to update the status of custom priorities engine '{name}': {str(e)}")
+        logger.error(
+            f"Unable to update the status of custom priorities engine '{name}': {str(e)}"
+        )
+        raise ChaliceViewError(
+            f"Unable to update the status of custom priorities engine '{name}': {str(e)}"
+        )
 
     else:
         return {}
-    
-@app.route('/custompriorities/{name}', cors=True, methods=['DELETE'], authorizer=authorizer)
+
+
+@app.route(
+    "/custompriorities/{name}", cors=True, methods=["DELETE"], authorizer=authorizer
+)
 def delete_custom_priorities_engine(name):
     """
     Delete a custom priorities engine configuration by name.
@@ -377,28 +449,37 @@ def delete_custom_priorities_engine(name):
     try:
         name = urllib.parse.unquote(name)
 
-        print(f"Deleting the custom priorities engine '{name}'")
+        validate_path_parameters({"Name": name})
+
+        logger.info(f"Deleting the custom priorities engine '{name}'")
 
         custom_priorities_table = ddb_resource.Table(CUSTOM_PRIORITIES_TABLE_NAME)
 
         response = custom_priorities_table.delete_item(
-            Key={
-                "Name": name
-            },
-            ReturnValues="ALL_OLD"
+            Key={"Name": name}, ReturnValues="ALL_OLD"
         )
 
         if "Attributes" not in response:
             raise NotFoundError(f"Custom Priorities Engine '{name}' not found")
 
+    except SchemaValidationError as e:
+        logger.error(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.error(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to delete custom priorities engine '{name}': {str(e)}")
-        raise ChaliceViewError(f"Unable to delete custom priorities engine '{name}': {str(e)}")
+        logger.error(f"Unable to delete custom priorities engine '{name}': {str(e)}")
+        raise ChaliceViewError(
+            f"Unable to delete custom priorities engine '{name}': {str(e)}"
+        )
 
     else:
-        print(f"Deletion of custom priorities engine '{name}' successful")
+        logger.info(f"Deletion of custom priorities engine '{name}' successful")
         return {}
+
+
+def validate_path_parameters(params: dict):
+    validate(event=params, schema=API_SCHEMA["custom_priorities_path_validation"])

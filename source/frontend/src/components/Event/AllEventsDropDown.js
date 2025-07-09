@@ -39,7 +39,7 @@ export const AllEventsDropdown = (props) => {
 
     const fetchData = async (isLoadMore) => {
         initQueryParams["LastEvaluatedKey"] = nextToken || "";
-        let response = await query('get', 'api', 'event/all', initQueryParams);
+        let response = await query('get', 'api', 'event/all', {queryParams: initQueryParams});
         let eventNames = _.map(response.data, 'Name');
 
         setNextToken(response.LastEvaluatedKey ? JSON.stringify(response.LastEvaluatedKey) : "");

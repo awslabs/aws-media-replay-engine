@@ -35,7 +35,9 @@ import {APIHandler} from "../../common/APIHandler/APIHandler";
 import {parseReplayDetails} from "../Replay/common";
 import {EventFilters} from "../../containers/Event/Components/EventFilters";
 import { AllEventsDropdown } from '../Event/AllEventsDropDown';
-
+import SearchIcon from '@material-ui/icons/Search';
+import CloseIcon from '@material-ui/icons/Close';
+import { ChatWindow } from '../../components/Chat/ChatWindow';
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -73,6 +75,8 @@ export const ListRenderer = (props) => {
     const [pluginClassFilter, setPluginClassFilter] = React.useState(pluginClassInit);
     const [nextToken, setNextToken] = React.useState(undefined);
     const [lastPage, setLastPage] = React.useState(0);
+    const [searchOpen, setSearchOpen] = React.useState(false);
+    const [messages, setMessages] = React.useState([]);
 
     React.useEffect(() => {
         (async () => {
@@ -89,10 +93,17 @@ export const ListRenderer = (props) => {
         return await query('get', 'api', `replay/all/contentgroup/${contentGroup}`);
     };
 
+    const openSearchSidebar = () => {
+        setSearchOpen(true);
+    }
+    const closeSearchSidebar = () => {
+        setSearchOpen(false);
+    }
+
     const fetchMoreData = async () => {
         _.set(props.queryParams, "LastEvaluatedKey", JSON.stringify(nextToken));
 
-        let res = await query('get', 'api', props.fetchPath, props.queryParams);
+        let res = await query('get', 'api', props.fetchPath, {queryParams: props.queryParams});
 
         if (res.success) {
             setOriginalTableData(originalTableData.concat(res.data));
@@ -472,23 +483,60 @@ export const ListRenderer = (props) => {
     // endregion
 
     return (
-        <Grid container direction="column" spacing={4}>
-            <Grid container item direction="row" justify="space-between" alignItems="center">
-                <Grid item sm={2} style={{paddingTop: "3vh"}}>
-                    <Typography variant="h1">
-                        {props.header.title}
-                    </Typography>
-                </Grid>
-                <Grid container item direction="row" sm={10} justify="flex-end" alignItems="flex-end" spacing={2}>
+        <Grid container direction="row">
+        <Grid item direction="column" spacing={4} xs={searchOpen ? 9: 12}>
+        <Grid container item direction="row" justify="space-between" alignItems="center">
+            <Typography variant="h1" style={{padding: "15px 15px 15px 0px"}}>
+                {props.header.title}
+            </Typography>
+            <Grid item container direction="row" alignItems="flex-end" justify="flex-end" sm={4} style={{padding: "15px"}}
+                          spacing={1}>
+                        {props.header.hideRemoveFilters !== true &&
+                            <Grid item>
+                                <IconButton size="small" onClick={handleClearFilters}>
+                                    <Tooltip title="Clear filters">
+                                        <DeleteForeverIcon className={classes.iconSize}/>
+                                    </Tooltip>
+                                </IconButton>
+                            </Grid>
+                        }
+
+                        <Grid item>
+                            {props.searchEnabled  && <IconButton size="small" onClick={searchOpen ? closeSearchSidebar: openSearchSidebar}>
+                                <Tooltip title="Search">
+                                    <SearchIcon className={classes.iconSize}/>
+                                </Tooltip>
+                            </IconButton>}
+                            <IconButton size="small" onClick={handleRefresh}>
+                                <Tooltip title="Refresh">
+                                    <AutorenewIcon className={classes.iconSize}/>
+                                </Tooltip>
+                            </IconButton>
+                        </Grid>
+                        <Grid item>
+                            <IconButton size="small" onClick={handleCreate}>
+                                <Tooltip title={props.header.addTooltip}>
+                                    <AddIcon className={classes.iconSize}/>
+                                </Tooltip>
+                            </IconButton>
+                        </Grid>
+                    </Grid>
+            </Grid>
+            <Grid container item direction="row" justify="space-between" alignItems="center" >
+                <Grid container item direction="row" sm={12} justify="space-between" alignItems="flex-end" spacing={2}>
                     {props.header.parentFilters == "events" ?
-                        <Grid container item direction="row" justify="flex-end" alignItems="center" spacing={1} xs={10}
+                        <Grid container item direction="row" justify="flex-end" alignItems="center" spacing={1} xs={12}
                               xl={7}>
                             <EventFilters
                                 onContentGroupChange={props.header.filterHandlers.onContentGroupChange}
+                                onProgramChange={props.header.filterHandlers.onProgramChange}
                                 afterFilterChange={initTable}
                                 selectedContentGroup={props.header.filterHandlers.selectedContentGroup}
-                                toFilter={props.header.filterHandlers.toFilter}
-                                onTimeFilterChange={props.header.filterHandlers.onTimeFilterChange}
+                                selectedProgram={props.header.filterHandlers.selectedProgram}
+                                timeFilterStart={props.header.filterHandlers.timeFilterStart}
+                                onStartTimeFilterChange={props.header.filterHandlers.onStartTimeFilterChange}
+                                timeFilterEnd={props.header.filterHandlers.timeFilterEnd}
+                                onEndTimeFilterChange={props.header.filterHandlers.onEndTimeFilterChange}
                             />
                         </Grid> :
                         <>
@@ -535,37 +583,11 @@ export const ListRenderer = (props) => {
                                     </Grid>
                                 </Grid>}
                         </>}
-                    <Grid item container direction="row" alignItems="flex-end" justify="flex-end" sm={2}
-                          spacing={1}>
-                        {props.header.hideRemoveFilters !== true &&
-                            <Grid item>
-                                <IconButton size="small" onClick={handleClearFilters}>
-                                    <Tooltip title="Clear filters">
-                                        <DeleteForeverIcon className={classes.iconSize}/>
-                                    </Tooltip>
-                                </IconButton>
-                            </Grid>
-                        }
-
-                        <Grid item>
-                            <IconButton size="small" onClick={handleRefresh}>
-                                <Tooltip title="Refresh">
-                                    <AutorenewIcon className={classes.iconSize}/>
-                                </Tooltip>
-                            </IconButton>
-                        </Grid>
-                        <Grid item>
-                            <IconButton size="small" onClick={handleCreate}>
-                                <Tooltip title={props.header.addTooltip}>
-                                    <AddIcon className={classes.iconSize}/>
-                                </Tooltip>
-                            </IconButton>
-                        </Grid>
-                    </Grid>
+                    
 
                 </Grid>
             </Grid>
-            <Grid item>
+            <Grid item style={{marginTop: "20px"}}>
                 {isLoading === true ?
                     <div>
                         <Backdrop open={true} className={classes.backdrop}>
@@ -613,8 +635,8 @@ export const ListRenderer = (props) => {
                                     count={_.size(rows)}
                                     rowsPerPage={rowsPerPage}
                                     page={page}
-                                    onChangePage={handleChangePage}
-                                    onChangeRowsPerPage={handleChangeRowsPerPage}
+                                    onPageChange={handleChangePage}
+                                    onRowsPerPageChange={handleChangeRowsPerPage}
                                 />
                         }
                         {
@@ -628,6 +650,19 @@ export const ListRenderer = (props) => {
                     </>
                 }
             </Grid>
+                
         </Grid>
+        {searchOpen && 
+            <Grid item xs={3}>
+                <ChatWindow
+                    searchContext={{
+                        Program: props.header.selectedProgram
+                    }}
+                    onClose={closeSearchSidebar}
+                    messages={messages}
+                    setMessages={setMessages}
+                ></ChatWindow>
+                </Grid>}
+            </Grid>
     );
 }

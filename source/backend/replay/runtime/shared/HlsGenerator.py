@@ -2,16 +2,12 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import copy
-import decimal
 import json
 import os
 import uuid
 import boto3
 import math
-import urllib3
-from decimal import Decimal
 from datetime import datetime
-from boto3.dynamodb.conditions import Key, Attr
 from botocore.config import Config
 from collections import namedtuple
 from MediaReplayEngineWorkflowHelper import ControlPlane
@@ -139,7 +135,7 @@ class HlsGenerator:
             tc = Timecode(self.__video_framerate, end_time_code)
             tc.sub_frames(no_of_frames)
             logger.info(f"{self.__video_framerate} fps, Endtime = {end_time_code} -> OverlayStartTime = {tc}")
-        except ValueError as e:
+        except ValueError:
             # Timecode.frames should be a positive integer bigger than zero, not -17
             return "00:00:00:00"
         return str(tc)
@@ -189,7 +185,7 @@ class HlsGenerator:
                                     tc = Timecode(self.__video_framerate, start_time_code)
                                     tc.sub_frames(1)
                                     final_start_time_code = str(tc)
-                                except ValueError as e:
+                                except ValueError:
                                     # Timecode.frames should be a positive integer bigger than zero, not -17
                                     # This happens when StartTimeCode is already at 00:00:00:00
                                     final_start_time_code = "00:00:00:00"
@@ -243,7 +239,7 @@ class HlsGenerator:
                                     tc = Timecode(self.__video_framerate, start_time_code)
                                     tc.sub_frames(1)
                                     final_start_time_code = str(tc)
-                                except ValueError as e:
+                                except ValueError:
                                     # Timecode.frames should be a positive integer bigger than zero, not -17
                                     # This happens when StartTimeCode is already at 00:00:00:00
                                     final_start_time_code = "00:00:00:00"
@@ -284,7 +280,7 @@ class HlsGenerator:
                                                                         image_inserter_for_end_time
                                                                     ]
                                                                 }
-                                    logger.info(f"Segment with a single chunk. Updated ImageInserter")
+                                    logger.info("Segment with a single chunk. Updated ImageInserter")
 
 
 
@@ -320,27 +316,41 @@ class HlsGenerator:
         profile_name = event_details['Profile']
 
         output_resolutions = self.__event['ReplayRequest']['Resolutions']
-        
-        # Segments that have been created for the current Replay
-        replay_segments = self._dataplane.get_all_segments_for_replay(self.__program, self.__eventName, replay_id)
 
-        logger.info(f"Replay Segments picked to Create HLS Job Inputs --{replay_segments}")
-        batch_id = f"{str(uuid.uuid4())}"
-
-        # Create Input settings per segment
         input_job_settings = []
-        for segment in replay_segments:
+        
+        batch_id = f"{str(uuid.uuid4())}"
+        if "SpecifiedTimestamps" in self.__event['ReplayRequest']:
+            # Search clips using specified start and end times
+            replay_clips = self.__event["ReplayRequest"]["Priorities"]["Clips"]
+            logger.info(f"Replay Clips picked to Create HLS Job Inputs --{replay_clips}")
+            for clip in replay_clips:
 
-            startTime = segment['OptoStart'] if 'OptoStart' in segment else segment['Start']
-            endTime = segment['OptoEnd'] if 'OptoEnd' in segment else segment['End']
-            chunks = self._dataplane.get_chunks_for_segment(startTime, endTime, self.__program, self.__eventName, profile_name )
+                startTime = clip['StartTime']
+                endTime = clip['EndTime']
+                chunks = self._dataplane.get_chunks_for_segment(startTime, endTime, self.__program, self.__eventName, profile_name )
             
+                input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
+                logger.info(f"Got {len(chunks)} chunks for segment with Start time = {startTime} and End = {endTime}")
+                logger.info(f"HLS INPUT SETTINGS = {json.dumps(input_settings)} for SEGMENT start = {startTime}")
 
-            input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
-            logger.info(f"Got {len(chunks)} chunks for segment with Start time = {segment['Start']} and End = {segment['End']}")
-            logger.info(f"HLS INPUT SETTINGS = {json.dumps(input_settings)} for SEGMENT start = {segment['Start']}")
+                input_job_settings.extend(input_settings)
+        else:
+            # Segments that have been created for the current Replay
+            replay_segments = self._dataplane.get_all_segments_for_replay(self.__program, self.__eventName, replay_id)
+            logger.info(f"Replay Segments picked to Create HLS Job Inputs --{replay_segments}")
 
-            input_job_settings.extend(input_settings)
+            for segment in replay_segments:
+
+                startTime = segment['OptoStart'] if 'OptoStart' in segment else segment['Start']
+                endTime = segment['OptoEnd'] if 'OptoEnd' in segment else segment['End']
+                chunks = self._dataplane.get_chunks_for_segment(startTime, endTime, self.__program, self.__eventName, profile_name )
+
+                input_settings = self.__build_hls_input(chunks, audio_track, startTime, endTime)
+                logger.info(f"Got {len(chunks)} chunks for segment with Start time = {startTime} and End = {endTime}")
+                logger.info(f"HLS INPUT SETTINGS = {json.dumps(input_settings)} for SEGMENT start = {startTime}")
+
+                input_job_settings.extend(input_settings)
         
         logger.info(f'---------------- HLS BEFORE Mutation input_job_settings = {json.dumps(input_job_settings)}')
         
@@ -363,8 +373,6 @@ class HlsGenerator:
         # For each Resolution in the Replay Request, create Media Convert Jobs
         # by configuring the Output Resolution and Input Clip settings using Replay Segment Information
         for resolution in output_resolutions:
-
-            job_output_destinations = []
             # Contains Job IDs for all the HLS Jobs. We will need to 
             # check if all Jobs have completed before creating the Aggregated
             # m3u8 file
@@ -387,7 +395,7 @@ class HlsGenerator:
                 logger.info('---------------- after __create_HLS_clips -----------------------')
                 logger.info(job)
 
-                if job != None:
+                if job is not None:
                     all_hls_clip_job_metadata.append({
                         "JobsId": job['Job']['Id'],
                         "OutputDestination": job_output_destination,
@@ -615,5 +623,3 @@ class HlsGenerator:
             return OutputResTuple(2560, 1440, 9, 6000000)
         elif "4K" in resolution:
             return OutputResTuple(3840, 2160, 9, 6000000)
-            
-    

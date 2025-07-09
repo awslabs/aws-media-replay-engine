@@ -58,15 +58,19 @@ def main(region, profile=None):
             headers:
               - key: 'Strict-Transport-Security'
                 value: 'max-age=31536000; includeSubDomains'
+              - key: 'Cache-Control'
+                value: 'no-store, no-cache'  
+              - key: 'Pragma'
+                value: 'no-cache'    
               - key: 'X-Frame-Options'
-                value: 'SAMEORIGIN'
+                value: 'DENY'
               - key: 'X-XSS-Protection'
                 value: '1; mode=block'
               - key: 'X-Content-Type-Options'
                 value: 'nosniff'
               - key: 'Content-Security-Policy'
                 value: >-
-                    default-src 'none'; style-src 'self' 'unsafe-inline';
+                    default-src 'none'; upgrade-insecure-requests; style-src 'self' 'unsafe-inline';
                     connect-src
                     'self' https://cognito-idp.{region}.amazonaws.com
                     https://cognito-identity.{region}.amazonaws.com

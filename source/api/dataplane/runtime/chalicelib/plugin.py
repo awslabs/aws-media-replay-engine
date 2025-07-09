@@ -1,36 +1,128 @@
 # Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-import os
+import io
 import json
-import boto3
+import os
+import traceback
 import urllib.parse
-from chalice import Blueprint
 from decimal import Decimal
-from chalice import IAMAuthorizer
-from chalice import ChaliceViewError, BadRequestError
+
+import boto3
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.client import ClientError
-from boto3.dynamodb.conditions import Key, Attr
-from jsonschema import validate, ValidationError
+from chalice import BadRequestError, Blueprint, ChaliceViewError, IAMAuthorizer
 from chalicelib import load_api_schema, replace_decimals
+from jsonschema import ValidationError, validate
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
+from opensearchpy.helpers.errors import BulkIndexError
+from aws_lambda_powertools import Logger
 
 
-PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
-EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
-PROGRAM_EVENT_INDEX = os.environ['PROGRAM_EVENT_INDEX']
-PROGRAM_EVENT_PLUGIN_INDEX = os.environ['PROGRAM_EVENT_PLUGIN_INDEX']
-PARTITION_KEY_CHUNK_NUMBER_INDEX = os.environ['PARTITION_KEY_CHUNK_NUMBER_INDEX']
+PLUGIN_RESULT_TABLE_NAME = os.environ["PLUGIN_RESULT_TABLE_NAME"]
+EB_EVENT_BUS_NAME = os.environ["EB_EVENT_BUS_NAME"]
+PROGRAM_EVENT_INDEX = os.environ["PROGRAM_EVENT_INDEX"]
+PROGRAM_EVENT_PLUGIN_INDEX = os.environ["PROGRAM_EVENT_PLUGIN_INDEX"]
+PARTITION_KEY_CHUNK_NUMBER_INDEX = os.environ["PARTITION_KEY_CHUNK_NUMBER_INDEX"]
+OPENSEARCH_ENDPOINT = os.getenv("OS_VECTORSEARCH_COLLECTION_EP")
+OPENSEARCH_INDEX = os.getenv("AOSS_KNN_INDEX_NAME", "mre_knn_index")
+BEDROCK_EMBEDDINGS_MODEL_ID = os.getenv(
+    "BEDROCK_EMBEDDINGS_MODEL_ID", "amazon.titan-embed-text-v2:0"
+)
+
+logger = Logger(service="aws-mre-dataplane-api")
 
 authorizer = IAMAuthorizer()
 ddb_resource = boto3.resource("dynamodb")
-s3_client = boto3.client("s3")
 eb_client = boto3.client("events")
+if OPENSEARCH_ENDPOINT:
+    credentials = boto3.Session().get_credentials()
+    http_auth = AWSV4SignerAuth(
+        credentials, os.getenv("AWS_REGION", "us-east-1"), "aoss"
+    )
+    aoss_client = OpenSearch(
+        hosts=[{"host": OPENSEARCH_ENDPOINT.replace("https://", "", 1), "port": 443}],
+        http_auth=http_auth,
+        use_ssl=True,
+        verify_certs=True,
+        connection_class=RequestsHttpConnection,
+        pool_maxsize=20,
+    )
+    bedrock_client = boto3.client(service_name="bedrock-runtime")
 
 API_SCHEMA = load_api_schema()
 
 plugin_api = Blueprint(__name__)
 
-@plugin_api.route('/plugin/result', cors=True, methods=['POST'], authorizer=authorizer)
+
+def generate_embeddings(body, model_id):
+    response = bedrock_client.invoke_model(
+        body=body,
+        modelId=model_id,
+        accept="application/json",
+        contentType="application/json",
+    )
+
+    response_body = json.loads(response.get("body").read())
+
+    return response_body
+
+
+def add_to_opensearch_index(program, event, plugin_name, results):
+    try:
+        logger.info(f"Indexing {len(results)} results into OpenSearch")
+
+        # Iterate through the plugin results and index into OpenSearch
+        for i, item in enumerate(results):
+            logger.info(f"Indexing item: {item}")
+            start = round(item["Start"], 3)
+            end = round(item["End"], 3) if "End" in item else start
+            text_record = io.StringIO()
+            text_record.write(f"Start:{start}\nEnd:{end}\n")
+
+            # Convert each item in the results to XML format
+            for k, v in item.items():
+                if k != "Start" and k != "End":
+                    text_record.write(f"{k}:{v}\n")
+
+            text_record = text_record.getvalue()
+
+            record = f"<Record>\n{text_record}</Record>"
+
+            logger.info("Generating embeddings for text record:", text_record)
+
+            body = json.dumps(
+                {"inputText": text_record, "dimensions": 1024, "normalize": True}
+            )
+
+            # Generate embeddings for the item
+            response = generate_embeddings(body, BEDROCK_EMBEDDINGS_MODEL_ID)
+
+            doc = {
+                "embedding": response["embedding"],
+                "content": record,
+                "Program": program,
+                "Event": event,
+                "PluginName": plugin_name,
+                "Start": start,
+                "End": end,
+            }
+
+            logger.info(f"Indexing item with {start=} and {end=}")
+
+            i_response = aoss_client.index(
+                index=OPENSEARCH_INDEX,
+                body=doc,
+            )
+
+            results[i]["aoss_doc_id"] = i_response["_id"]
+
+    except Exception as e:
+        logger.info(f"Error while indexing into OpenSearch: {str(e)}")
+        traceback.print_stack()
+        raise e
+
+
+@plugin_api.route("/plugin/result", cors=True, methods=["POST"], authorizer=authorizer)
 def store_plugin_result():
     """
     Store the result of a plugin in a DynamoDB table.
@@ -71,7 +163,7 @@ def store_plugin_result():
 
         validate(instance=result, schema=API_SCHEMA["store_plugin_result"])
 
-        print("Got a valid plugin result schema")
+        logger.info("Got a valid plugin result schema")
 
         program = result["Program"]
         event = result["Event"]
@@ -80,9 +172,10 @@ def store_plugin_result():
         audio_track = str(result["AudioTrack"]) if "AudioTrack" in result else None
         results = result["Results"]
 
-        print(
-            f"Storing the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}'")
-        print(f"Number of items to store: {len(results)}")
+        logger.info(
+            f"Storing the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}'"
+        )
+        logger.info(f"Number of items to store: {len(results)}")
 
         plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
 
@@ -142,7 +235,9 @@ def store_plugin_result():
                             expression_attribute_values[":OptoEndDetectorResults"] = item["OptoEndDetectorResults"]
 
                 if is_update_required:
-                    print(f"Updating existing segment having Start={item['Start']} with the Optimizer plugin result")
+                    logger.info(
+                        f"Updating existing segment having Start={item['Start']} with the Optimizer plugin result"
+                    )
 
                     plugin_result_table.update_item(
                         Key={
@@ -191,7 +286,9 @@ def store_plugin_result():
                                 expression_attribute_names[f"#OutAttr{index}"] = output_attribute
                                 expression_attribute_values[f":OutAttr{index}"] = item[output_attribute]
 
-                    print(f"Updating existing segment having Start={item['Start']} with the Labeler plugin result")
+                    logger.info(
+                        f"Updating existing segment having Start={item['Start']} with the Labeler plugin result"
+                    )
 
                     plugin_result_table.update_item(
                         Key={
@@ -204,6 +301,10 @@ def store_plugin_result():
                     )
 
         else:
+            # Index the results into OpenSearch for enabling GenAI search
+            if plugin_class == "Classifier" and OPENSEARCH_ENDPOINT:
+                add_to_opensearch_index(program, event, plugin_name, results)
+
             with plugin_result_table.batch_writer() as batch:
                 if audio_track is not None:
                     pk = f"{program}#{event}#{plugin_name}#{audio_track}"
@@ -263,20 +364,26 @@ def store_plugin_result():
                         put_events_to_event_bridge(plugin_class, item)
 
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
+    except BulkIndexError as e:
+        logger.info(f"Got OpenSearch BulkIndexError: {str(e)}")
+        raise ChaliceViewError(e.message)
+
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
-        error = e.response['Error']['Message']
-        print(
-            f"Unable to store the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}': {str(error)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
+        error = e.response["Error"]["Message"]
+        logger.info(
+            f"Unable to store the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}': {str(error)}"
+        )
         raise ChaliceViewError(
             f"Unable to store the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}': {str(error)}")
 
     except Exception as e:
-        print(
-            f"Unable to store the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}': {str(e)}")
+        logger.info(
+            f"Unable to store the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}': {str(e)}"
+        )
         raise ChaliceViewError(
             f"Unable to store the result of program '{program}', event '{event}', plugin '{plugin_name}' in the DynamoDB table '{PLUGIN_RESULT_TABLE_NAME}': {str(e)}")
 
@@ -313,7 +420,7 @@ def get_dependent_plugins_output():
 
         validate(instance=request, schema=API_SCHEMA["get_dependent_plugins_output"])
 
-        print("Got a valid schema")
+        logger.info("Got a valid schema")
 
         program = request["Program"]
         event = request["Event"]
@@ -334,8 +441,9 @@ def get_dependent_plugins_output():
             if last_evaluated_keys and d_plugin_name not in last_evaluated_keys:
                 continue
 
-            print(
-                f"Getting the output of dependent plugin '{d_plugin_name}' for program '{program}', event '{event}' and chunk number '{chunk_number}'")
+            logger.info(
+                f"Getting the output of dependent plugin '{d_plugin_name}' for program '{program}', event '{event}' and chunk number '{chunk_number}'"
+            )
 
             if d_plugin_media_type == "Audio":
                 if audio_track is None:
@@ -352,8 +460,8 @@ def get_dependent_plugins_output():
             }
 
             if d_plugin_name in last_evaluated_keys:
-                print(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin_name]}'")
-                query_params["ExclusiveStartKey"]=last_evaluated_keys[d_plugin_name]
+                logger.info(f"Using LastEvaluatedKey '{last_evaluated_keys[d_plugin_name]}'")
+                query_params["ExclusiveStartKey"] = last_evaluated_keys[d_plugin_name]
 
             response = plugin_result_table.query(**query_params)
 
@@ -363,16 +471,17 @@ def get_dependent_plugins_output():
                 output[d_plugin_name]['LastEvaluatedKey'] = response["LastEvaluatedKey"]
 
     except BadRequestError as e:
-        print(f"Got chalice BadRequestError: {str(e)}")
+        logger.info(f"Got chalice BadRequestError: {str(e)}")
         raise
     
     except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
         raise BadRequestError(e.message)
 
     except Exception as e:
-        print(
-            f"Unable to get the output of one or more dependent plugins for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
+        logger.info(
+            f"Unable to get the output of one or more dependent plugins for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}"
+        )
         raise ChaliceViewError(
             f"Unable to get the output of one or more dependent plugins for program '{program}', event '{event}' and chunk number '{chunk_number}': {str(e)}")
 
@@ -402,7 +511,9 @@ def put_events_to_event_bridge(plugin_class, segment):
             elif "OptoStart" in segment and segment["OptoStart"]:
                 state = "OPTIMIZED_SEGMENT_START"
 
-        print(f"Sending an event for '{detail_type}' to EventBridge with state '{state}' for the segment '{segment}'")
+        logger.info(
+            f"Sending an event for '{detail_type}' to EventBridge with state '{state}' for the segment '{segment}'"
+        )
 
         detail = {
             "State": state,
@@ -421,12 +532,15 @@ def put_events_to_event_bridge(plugin_class, segment):
         )
 
         if response["FailedEntryCount"] > 0:
-            print(
-                f"Failed to send an event for '{detail_type}' to EventBridge with state '{state}' for the segment '{segment}'. More details below:")
-            print(response["Entries"])
+            logger.info(
+                f"Failed to send an event for '{detail_type}' to EventBridge with state '{state}' for the segment '{segment}'. More details below:"
+            )
+            logger.info(response["Entries"])
 
     except Exception as e:
-        print(f"Unable to send an event to EventBridge for the segment '{segment}': {str(e)}")
+        logger.info(
+            f"Unable to send an event to EventBridge for the segment '{segment}': {str(e)}"
+        )
 
 
 @plugin_api.route('/replay/feature/program/{program}/event/{event}/outputattribute/{pluginattribute}/plugin/{pluginname}',
@@ -570,5 +684,102 @@ def get_segments_for_event(program, event, classifier):
         )
 
         segments.extend(response["Items"])
-
+    
     return replace_decimals(segments)
+
+
+@plugin_api.route(
+    "/program/{program}/event/{event}/start/{start}/end/{end}/plugins/output/attributes",
+    cors=True,
+    methods=["POST"],
+    authorizer=authorizer,
+)
+def get_plugins_output_filtered_by_attributes(program, event, start, end):
+    """
+    Gets all plugins output for an event segment.
+
+    Returns:
+
+        All plugins output for an event segment
+    """
+    try:
+        request = json.loads(plugin_api.current_app.current_request.raw_body.decode())
+
+        ## Make sure our schema is correct (just a plugin_attribute list of strings)
+        validate(instance=request, schema=API_SCHEMA["get_plugin_outputs"])
+
+        logger.info("Got a valid schema")
+
+        ## We pass in event, program, start, & end
+        event = urllib.parse.unquote(event)
+        program = urllib.parse.unquote(program)
+        start = Decimal(urllib.parse.unquote(start))
+        end = Decimal(urllib.parse.unquote(end))
+
+        ## We want to include PluginName & Start as well as all the passed in attributes (we want these from the DB)
+        plugin_output_attributes = ["Start", "PluginName"] + request["pluginAttributes"]
+
+        ## Build key condition expression
+        keyConditionExpression = Key("ProgramEvent").eq(f"{program}#{event}") & Key(
+            "Start"
+        ).between(start, end)
+
+        ## Dynamic Expression Lists (we avoid using any text that is restricted)
+        projection_expression = ", ".join([f"#{i}" for i in plugin_output_attributes])
+        expression_attribute_names = {f"#{i}": i for i in plugin_output_attributes}
+
+        ## Query the DB for all PluginResults for the given event, program, start, & end time.
+        plugin_result_table = ddb_resource.Table(PLUGIN_RESULT_TABLE_NAME)
+        response = plugin_result_table.query(
+            IndexName=PROGRAM_EVENT_INDEX,
+            KeyConditionExpression=keyConditionExpression,
+            ProjectionExpression=projection_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+        )
+        result_items = response["Items"] if "Items" in response else []
+
+        ## Paginate for additional items
+        while "LastEvaluatedKey" in response:
+            response = plugin_result_table.query(
+                IndexName=PROGRAM_EVENT_INDEX,
+                KeyConditionExpression=keyConditionExpression,
+                ProjectionExpression=projection_expression,
+                ExpressionAttributeNames=expression_attribute_names,
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            if "Items" in response:
+                result_items.extend(response["Items"])
+
+        ## We build a dictionary grouped by PluginName and list of corresponding output attributes
+        pluginResultDict = {}
+
+        ## We create a list of attributes we want to return (i.e. we want all except for PluginName)
+        return_attributes = ["Start"] + request["pluginAttributes"]
+
+        ## Iterate to get the proper format
+        for plugin_result in result_items:
+            if plugin_result["PluginName"] in pluginResultDict:
+                ## Include all attributes except plugin name
+                pluginResultDict[plugin_result["PluginName"]].append(
+                    {k: v for k, v in plugin_result.items() if k in return_attributes}
+                )
+                continue
+            pluginResultDict[plugin_result["PluginName"]] = [
+                {k: v for k, v in plugin_result.items() if k in return_attributes}
+            ]
+        output = pluginResultDict
+
+    except BadRequestError as e:
+        logger.info(f"Got chalice BadRequestError: {str(e)}")
+        raise
+
+    except ValidationError as e:
+        logger.info(f"Got jsonschema ValidationError: {str(e)}")
+        raise BadRequestError(e.message)
+
+    except Exception as e:
+        logger.info(f"Unable to get plugin output attributes: {str(e)}")
+        raise ChaliceViewError(f"Unable to get plugin output attributes: {str(e)}")
+
+    else:
+        return replace_decimals(output)

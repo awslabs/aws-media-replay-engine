@@ -83,7 +83,9 @@ export const Login = (props) => {
             }
             
         } catch (e) {
-            alert(e.message);
+            if (e.name === "UserNotFoundException") {
+                alert("Incorrect username or password. Please try again.");
+            }
             setIsLoading(false);
         }
     };

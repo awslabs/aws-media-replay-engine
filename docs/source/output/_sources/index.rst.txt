@@ -35,6 +35,7 @@ API Reference
    ContentGroup <api/controlplane-contentgroup>
    Event <api/controlplane-event>
    Model <api/controlplane-model>
+   PromptCatalog <api/controlplane-promptcatalog>
    Plugin <api/controlplane-plugin>
    Profile <api/controlplane-profile>
    Program <api/controlplane-program>

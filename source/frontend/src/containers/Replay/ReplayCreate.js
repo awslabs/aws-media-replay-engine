@@ -4,10 +4,10 @@
  */
 
 import React from 'react';
-import _ from 'lodash';
-import {useNavigate, useLocation} from "react-router-dom";
+import _, { set } from 'lodash';
+import {useNavigate, useLocation, useSearchParams} from "react-router-dom";
 import {Backdrop, CircularProgress} from "@material-ui/core";
-import {duration, makeStyles} from "@material-ui/core/styles";
+import {makeStyles} from "@material-ui/core/styles";
 import Grid from "@material-ui/core/Grid";
 import Link from "@material-ui/core/Link";
 import {ProgramDropdown} from "../../components/Programs/ProgramDropdown";
@@ -85,6 +85,7 @@ const HlsResolutions = [
 export const ReplayCreate = () => {
     const classes = useStyles();
     const {state} = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const stateParams = state;
 
@@ -99,6 +100,7 @@ export const ReplayCreate = () => {
     const [availableFeatures, setAvailableFeatures] = React.useState([]);
     const [isLoadingAttribValues, setIsLoadingAttribValues] = React.useState(false);
     const [replayDuration, setReplayDuration] = React.useState(60);
+    const [specifiedTimestamps, setSpecifiedTimetamps] = React.useState("");
     const [adInsertDuration, setAdInsertDuration] = React.useState(1);
     const [adPosition, setAdPosition] = React.useState('Beginning')
     const [adInsertionMode, setAdInsertionMode] = React.useState('Minutes')
@@ -116,7 +118,23 @@ export const ReplayCreate = () => {
     const [durationFromToleranceValue, setDurationFromToleranceValue] = React.useState(30);
     
     const {query, isLoading, setIsLoading} = APIHandler();
-
+    
+    React.useEffect(()=>{
+        (async() => {
+            setSelectedProgram(searchParams.get("program") ?? "-NA-")
+            setSelectedEvent(searchParams.get("event") ?? "-NA-")
+            setReplayDescription(searchParams.get("description") ?? "")
+            setSpecifiedTimetamps(searchParams.get("details")?.trim() ?? "")
+            setReplayMode(searchParams.get("replayMode") ?? "Duration")
+            if (searchParams.get("program") && searchParams.get("event")){
+                await fillDataFromEvent(searchParams.get("program"), searchParams.get("event"));
+            }
+            setSelectedAudioTrack(parseInt(searchParams.get("audioTrack")) ?? "-NA-" )
+            setUXlabel(searchParams.get("program") && searchParams.get("event") ? `${searchParams.get("program")} | ${searchParams.get("event")}`: "")
+            setOutputFormat(searchParams.get("outputFormat") ?? "Hls")
+            setResolutionValues(searchParams.get("resolutions")?.split(',') ?? [])
+        })();
+    }, [])
 
     let featuresM = new Map()
     const [checkBoxState, setCheckBoxState] = React.useState({
@@ -163,45 +181,65 @@ export const ReplayCreate = () => {
                 "ToleranceMaxLimitInSecs": parseFloat(durationFromToleranceValue)
             }
         }
+        if (replayMode === "SpecifiedTimestamps") {
+            formValues['SpecifiedTimestamps'] = specifiedTimestamps
+        }
 
         // Get Priority Info
         let clips = []
-        _.forEach(featuresObject, f => {
-
-            let clip = {}
-            let clipinfo = _.split(f[Object.keys(f)[0]], '^')
-            //console.log('clipinfo: ', clipinfo);
-
-            clip['Name'] = Object.keys(f)[0]
-
-            if (replayMode === "Duration") {
-                // Consider features whose Weight is more than Zero , which means they are included in the replay
-                if (parseInt(clipinfo[0]) > 0) {
-                    clip['Weight'] = parseInt(clipinfo[0])
-                    clip['AttribValue'] = clipinfo[3].trim() === "false" ? false : true
-                    clip['AttribName'] = clipinfo[4].trim()
-                    clip['PluginName'] = clipinfo[5].trim()
-
+        if (replayMode === "SpecifiedTimestamps"){
+            //split specifiedtimestamps by new line character
+            let timestampsPairs= _.split(specifiedTimestamps, '\n')
+            timestampsPairs.forEach(pair => {
+                //split the pair by comma
+                let startTime = _.split(pair, ',')[0]
+                let endTime = _.split(pair, ',')[1]
+                let clip = {}
+                clip['Name'] = startTime + ' - ' + endTime
+                clip['StartTime'] = parseFloat(startTime)
+                clip['EndTime'] = parseFloat(endTime)
+                //validate that name start time and end time are all not null
+                clips.push(clip)
+            });
+        }
+        else {
+            _.forEach(featuresObject, f => {
+    
+                let clip = {}
+                let clipinfo = _.split(f[Object.keys(f)[0]], '^')
+                //console.log('clipinfo: ', clipinfo);
+    
+                clip['Name'] = Object.keys(f)[0]
+    
+                if (replayMode === "Duration") {
+                    // Consider features whose Weight is more than Zero , which means they are included in the replay
+                    if (parseInt(clipinfo[0]) > 0) {
+                        clip['Weight'] = parseInt(clipinfo[0])
+                        clip['AttribValue'] = clipinfo[3].trim() === "false" ? false : true
+                        clip['AttribName'] = clipinfo[4].trim()
+                        clip['PluginName'] = clipinfo[5].trim()
+    
+                        clips.push(clip)
+                    }
+                }
+    
+                if (replayMode === "Clips") {
+                    clip['Include'] = clipinfo[1] == "true" ? true : false
+                    // Include all Plugins
+                    _.forEach(pluginNamePlusAttribValues, (feature) => {
+                        const featureValues = feature.split('|')
+                        if (feature === clip['Name']) {
+                            clip['AttribValue'] = featureValues[2].trim() === "false" ? false : true
+                            clip['AttribName'] = featureValues[1].trim()
+                            clip['PluginName'] = featureValues[0].trim()
+                        }
+                    })
+    
                     clips.push(clip)
                 }
-            }
-
-            if (replayMode === "Clips") {
-                clip['Include'] = clipinfo[1] == "true" ? true : false
-                // Include all Plugins
-                _.forEach(pluginNamePlusAttribValues, (feature) => {
-                    const featureValues = feature.split('|')
-                    if (feature === clip['Name']) {
-                        clip['AttribValue'] = featureValues[2].trim() === "false" ? false : true
-                        clip['AttribName'] = featureValues[1].trim()
-                        clip['PluginName'] = featureValues[0].trim()
-                    }
-                })
-
-                clips.push(clip)
-            }
-            //clip['Duration'] = "-"
-        })
+                //clip['Duration'] = "-"
+            })
+        }
         formValues['Priorities'] = {
             "Clips": clips
         }
@@ -231,7 +269,7 @@ export const ReplayCreate = () => {
                 await post({apiName: 'api', path: `replay`, options: {
                     body: getFormValues()
                 }});
-                navigate("/listReplays");
+                setTimeout(() => navigate("/listReplays"), 1000)
             }
             catch (error) {
                 console.log(error);
@@ -262,6 +300,9 @@ export const ReplayCreate = () => {
         }
         else if (e.target.id === 'uxlabel') {
             setUXlabel(e.target.value)
+        }
+        else if (e.target.id === 'SpecifiedTimestamps') {
+            setSpecifiedTimetamps(e.target.value.trim())
         }
 
     }
@@ -300,38 +341,53 @@ export const ReplayCreate = () => {
           );
     }
 
+    const fillDataFromEvent = async (program, event) => {
+        let res = await fetchAudioTracks(`event/${event}/program/${program}`)
+        let resultEvent = res.data;
+        if (res.success) {
+            if (resultEvent.hasOwnProperty('AudioTracks'))
+                setAudioTrackOptions(resultEvent.AudioTracks);
+        }
+        else {
+            setAudioTrackOptions([]);
+            setSelectedAudioTrack("-NA-")
+        }
+
+        // Load features
+        setAvailableFeatures([]);
+
+        try {
+            let res = await query('get', 'api', `replay/program/${program}/event/${event}/features` , {disableLoader: true})
+            console.log("Available Features: ")
+            console.log(res)
+            setAvailableFeatures(res.data);
+        }
+        catch (error) {
+
+        }
+    } 
+
     const handleProgramChange = async (event) => {
         setSelectedProgram(event.target.value);
         setSelectedEvent("-NA-");
         // Only if Program and Event are available , initiate a lookup
         if (selectedEvent !== '-NA-' && event.target.value !== '-NA-') {
-            let res = await fetchAudioTracks(`event/${selectedEvent}/program/${event.target.value}`)
-            let resultEvent = res.data;
-            if (res.success) {
-                if (resultEvent.hasOwnProperty('AudioTracks'))
-                    setAudioTrackOptions(resultEvent.AudioTracks);
-            }
-            else {
-                setAudioTrackOptions([]);
-                setSelectedAudioTrack("-NA-")
-            }
-
-            // Load features
-            setAvailableFeatures([]);
-
-            try {
-                let res = await query('get', 'api', `replay/program/${event.target.value}/event/${selectedEvent}/features` , {disableLoader: true})
-                console.log("Available Features: ")
-                console.log(res)
-                setAvailableFeatures(res.data);
-            }
-            catch (error) {
-
-            }
-
+            await fillDataFromEvent(event.target.value, selectedEvent);
         }
 
         //validateForm()
+    }
+    const handleEventChange = async (event) => {
+        if(event.target.value !== 'Load More') {
+            setSelectedEvent(event.target.value);
+        }
+
+        if (event.target.value !== '-NA-' && selectedProgram !== '-NA-' && event.target.value !== 'Load More') {
+            await fillDataFromEvent(selectedProgram, event.target.value);
+        }
+
+        //validateForm()
+
     }
 
     const handleReplayModeChange = async (event) => {
@@ -344,40 +400,6 @@ export const ReplayCreate = () => {
 
     const handleAdInsertionModeChange = async (event) => {
         setAdInsertionMode(event.target.value);
-    }
-
-    const handleEventChange = async (event) => {
-        if(event.target.value !== 'Load More') {
-            setSelectedEvent(event.target.value);
-        }
-
-        if (event.target.value !== '-NA-' && selectedProgram !== '-NA-' && event.target.value !== 'Load More') {
-            let res = await fetchAudioTracks(`event/${event.target.value}/program/${selectedProgram}`)
-            let resultEvent = res.data;
-            if (res.success && resultEvent !== null) {
-                if (resultEvent.hasOwnProperty('AudioTracks'))
-                    setAudioTrackOptions(resultEvent.AudioTracks);
-            }
-            else {
-                setAudioTrackOptions([]);
-                setSelectedAudioTrack("-NA-")
-            }
-
-            // Load features
-            setAvailableFeatures([]);
-            try {
-                let res = await query('get', 'api', `replay/program/${selectedProgram}/event/${event.target.value}/features` , {disableLoader: true})
-                console.log(res)
-                setAvailableFeatures(res.data);
-            }
-            catch (error) {
-
-            }
-
-        }
-
-        //validateForm()
-
     }
 
     const handleReplayDurationChange = (e) => {
@@ -416,6 +438,14 @@ export const ReplayCreate = () => {
         return true
     }
 
+    const isTimestampsValid = (ts) => {
+        // Using a regular expression to check if the input is a comma delimited list of non-negative floats
+        // each pair being on a new line
+        // Does NOT compare the values in the list
+        const re = /^\s*\d+(\.\d+)?\s*,\s*\d+(\.\d+)?\s*(\r?\n\s*\d+(\.\d+)?\s*,\s*\d+(\.\d+)?\s*)*$/g;
+        return re.test(ts)
+    }
+
     React.useEffect(() => {
         //console.log(replayMode);
         if (selectedProgram === '-NA-' || selectedEvent === '-NA-' || selectedAudioTrack === '-NA-' || replayDescription.trim() === '' || uxlabel.trim() === '')
@@ -435,11 +465,19 @@ export const ReplayCreate = () => {
                 else
                     setFormInvalid(false)
             }
+            else if (replayMode === "SpecifiedTimestamps") {
+                console.log(isTimestampsValid(specifiedTimestamps))
+                if (!isTimestampsValid(specifiedTimestamps)) {
+                    setFormInvalid(true)
+                }
+                else
+                    setFormInvalid(false)
+            }
             else
                 setFormInvalid(false)
         }
 
-    }, [selectedProgram, selectedEvent, selectedAudioTrack, replayDescription, featuresObject, replayMode, resolutionValues, outputFormat, uxlabel]);
+    }, [selectedProgram, selectedEvent, selectedAudioTrack, replayDescription, featuresObject, replayMode, resolutionValues, outputFormat, uxlabel, specifiedTimestamps]);
 
     // Updates the Weight state against the Feature Plugin Name
     // Used for persistence into DDB
@@ -679,7 +717,7 @@ export const ReplayCreate = () => {
                                         </Grid>
                                         <Grid item sm={11}>
                                             <FormLabel
-                                                required={true}>{"Fan experience UX label"}</FormLabel>
+                                                required={true}>{"Label"}</FormLabel>
                                             <TextField
                                                 className={classes.field}
                                                 id="uxlabel"
@@ -861,14 +899,49 @@ export const ReplayCreate = () => {
                                                                 <TableRow className={classes.root}>
                                                                     <TableCell align="left" colSpan={2}
                                                                                style={{borderBlock: "none"}}>
+                                                                        <FormControlLabel value="SpecifiedTimestamps"
+                                                                                          control={<Radio size="small"
+                                                                                                          color="primary"/>}
+                                                                                          label="Specified Timestamps"/>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                                {
+                                                               replayMode === "SpecifiedTimestamps" && 
+                                                               <TableRow className={classes.root}>
+                                                                <TableCell align="left" colSpan={5}>
+                                                                    <FormLabel
+                                                                        className={classes.labelSpace}> {"Clip Start/End Times (Comma Delimited List)"}
+                                                                    </FormLabel>
+                                                                    <Box pt={2}>
+                                                                    <TextField
+                                                                        className={classes.field}
+                                                                        id="SpecifiedTimestamps"
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                        required
+                                                                        fullWidth
+                                                                        value={specifiedTimestamps}
+                                                                        onChange={handleInputChange}
+                                                                        placeholder="0.0,60.0 &#10;90.0,120.0&#10;131.32,140.5"
+                                                                        multiline={true}
+                                                                        error={!isTimestampsValid(specifiedTimestamps)}
+                                                                        helperText={!isTimestampsValid(specifiedTimestamps) && "Must be a comma delimited list of non-negative floating point values"}
+                                                                        rows={3}
+                                                                        rowsMax={4}
+                                                                    />
+                                                                    </Box>
+                                                                    </TableCell>
+                                                                </TableRow>}
+                                                                <TableRow className={classes.root}>
+                                                                    <TableCell align="left" colSpan={2}
+                                                                               style={{borderBlock: "none"}}>
                                                                         <FormControlLabel value="Clips"
                                                                                           control={<Radio size="small"
                                                                                                           color="primary"/>}
                                                                                           label="Clip feature based"/>
                                                                     </TableCell>
                                                                 </TableRow>
-
-                                                                <TableRow>
+                                                               {replayMode !== "SpecifiedTimestamps" && <TableRow>
                                                                     <TableCell align="left" colSpan={5}>
                                                                         <FormControlLabel value="Clips"
                                                                                           control={<Typography
@@ -960,8 +1033,7 @@ export const ReplayCreate = () => {
                                                                             </TableContainer>
                                                                         </Box>
                                                                     </TableCell>
-                                                                </TableRow>
-
+                                                                </TableRow>}
 
                                                             </TableBody>
                                                         </Table>
@@ -970,7 +1042,7 @@ export const ReplayCreate = () => {
                                             </FormControl>
                                         </Grid>
 
-                                        <Grid item sm={8} style={{paddingBottom: "5px", paddingTop: "0px"}}>
+                                        {replayMode !== "SpecifiedTimestamps" && <Grid item sm={8} style={{paddingBottom: "5px", paddingTop: "0px"}}>
                                             <FormControlLabel control={
                                                 <Checkbox
                                                     color="primary"
@@ -980,7 +1052,7 @@ export const ReplayCreate = () => {
                                                     inputProps={{'aria-label': 'uncontrolled-checkbox'}}
                                                 />
                                             } label="Catchup?"/>
-                                        </Grid>
+                                        </Grid>}
 
                                         <Grid item sm={8} style={{paddingBottom: "5px", paddingTop: "0px"}}>
                                             <RadioGroup value={outputFormat} onChange={handleOutputFormatChange}>

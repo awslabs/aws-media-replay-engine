@@ -9,35 +9,47 @@
             "$id": "#/properties/Name",
             "type": "string",
             "title": "The Name Schema",
+            "minLength": 3,
+            "maxLength": 150,
             "pattern": "^(.*)$"
         },
         "Program": {
             "$id": "#/properties/Program",
             "type": "string",
             "title": "The Program Schema",
+            "minLength": 3,
+            "maxLength": 150,
             "pattern": "^(.*)$"
         },
         "Description": {
             "$id": "#/properties/Description",
             "type": "string",
             "title": "The Description Schema",
-            "pattern": "^(.*)$"
+            "pattern": "(?s)^(.*)$",
+            "minLength": 3,
+            "maxLength": 100
         },
         "Channel": {
             "$id": "#/properties/Channel",
             "type": "string",
             "title": "The Channel Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 50
         },
         "ProgramId": {
             "$id": "#/properties/ProgramId",
             "type": "string",
-            "title": "The ProgramId Schema"
+            "title": "The ProgramId Schema",
+            "minLength": 3,
+            "maxLength": 50
         },
         "SourceVideoUrl": {
             "$id": "#/properties/SourceVideoUrl",
             "type": "string",
-            "title": "The SourceVideoUrl Schema"
+            "title": "The SourceVideoUrl Schema",
+            "minLength": 3,
+            "maxLength": 2000
         },
         "SourceVideoAuth": {
             "$id": "#/properties/SourceVideoAuth",
@@ -54,19 +66,25 @@
         "BootstrapTimeInMinutes": {
             "$id": "#/properties/BootstrapTimeInMinutes",
             "type": "integer",
-            "title": "The BootstrapTimeInMinutes Schema"
+            "title": "The BootstrapTimeInMinutes Schema",
+            "minimum": 0,
+            "maximum": 1440
         },
         "Profile": {
             "$id": "#/properties/Profile",
             "type": "string",
             "title": "The Profile Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 150
         },
         "ContentGroup": {
             "$id": "#/properties/ContentGroup",
             "type": "string",
             "title": "The ContentGroup Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 50
         },
         "Start": {
             "$id": "#/properties/Start",
@@ -77,7 +95,9 @@
         "DurationMinutes": {
             "$id": "#/properties/DurationMinutes",
             "type": "integer",
-            "title": "The DurationMinutes Schema"
+            "title": "The DurationMinutes Schema",
+            "minimum": 1,
+            "maximum": 1440
         },
         "Archive": {
             "$id": "#/properties/Archive",
@@ -100,6 +120,16 @@
             "type": "boolean",
             "title": "The GenerateOptoClips Schema"
         },
+        "GenerateOrigThumbNails": {
+            "$id": "#/properties/GenerateOrigThumbNails",
+            "type": "boolean",
+            "title": "The GenerateOrigThumbNails Schema"
+        },
+        "GenerateOptoThumbNails": {
+            "$id": "#/properties/GenerateOptoThumbNails",
+            "type": "boolean",
+            "title": "The GenerateOptoThumbNails Schema"
+        },
         "TimecodeSource": {
             "$id": "#/properties/TimecodeSource",
             "type": "string",
@@ -119,7 +149,6 @@
                 "pattern": "^[A-Za-z][A-Za-z0-9_]{0,29}$"
               },
             "minProperties": 1,
-            "uniqueItems": true,
             "additionalProperties": { "type": "string" }
         }
     },

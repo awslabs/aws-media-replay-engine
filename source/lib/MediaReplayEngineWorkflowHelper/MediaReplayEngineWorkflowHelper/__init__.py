@@ -634,7 +634,7 @@ class ControlPlane:
 
         self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))
 
-    def update_replay_request_with_hls_location(self, hls_location):
+    def update_replay_request_with_hls_location(self, event, program, id, hls_location, thumbnail):
         """
         Updates the Replay request with location of the generated HLS primary Playlist manifest file in S3.
 
@@ -648,8 +648,17 @@ class ControlPlane:
         headers = {
             "Content-Type": "application/json"
         }
+
+        body = {
+            "Name": event,
+            "Program": program,
+            "ReplayRequestId": id,
+            "HlsLocation": hls_location,
+            "Thumbnail": thumbnail,
+        }
+
        
-        self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(hls_location))    
+        self.invoke_controlplane_api(path, method, headers=headers, body=json.dumps(body))  
 
 
 

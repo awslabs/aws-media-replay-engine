@@ -1,0 +1,43 @@
+{
+  "Lambda": {
+    "Handler": "DetectViaPrompt.lambda_handler",
+    "MemorySize": 1024,
+    "TimeoutSecs": 120,
+    "IAMPolicyDocument": [
+      {
+        "Actions": [
+          "bedrock:invokeModel",
+          "bedrock:GetInferenceProfile"
+        ],
+        "Resources": [
+          "*"
+        ]
+      }
+    ],
+   "Layers": [
+      "numpy",
+      "opencv-python"
+    ]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectViaPrompt",
+      "Description": "This plugin uses a prompt to leverage Amazon Bedrock to describe the camera scene.",
+      "Class": "Featurer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": [
+        "All"
+      ],
+      "ExecuteLambdaQualifiedARN": "",
+      "OutputAttributes": {
+        "Label": {
+          "Description": ""
+        },
+        "frameId": {
+          "Description": "used for debug"
+        }
+      }
+    }
+  }
+}

@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
 
 export const PLUGIN_CLASSES = {
     classifier: "Classifier",
@@ -108,6 +107,28 @@ export const MODEL_SUMMARY_FORM = {
         label: "Model Endpoint",
         type: "select",
     },
+};
+export const PROMPT_SUMMARY_FORM = {
+    Name: {
+        name: "Name",
+        label: "Model Name",
+        type: "textField",
+    },
+    Description: {
+        name: "Description",
+        label: "Description",
+        type: "textField",
+    },
+    ContentGroups: {
+        name: "ContentGroups",
+        label: "Content Groups",
+        type: "selectWithChips",
+    },
+    Template: {
+        name: "Template",
+        label: "Prompt Template",
+        type: "textField",
+    }
 };
 
 export const PROFILE_SUMMARY_FORM = {
@@ -277,6 +298,10 @@ export const SIDEBAR_ITEMS = [
     {
         name: "Models",
         url: ["/listModels", "/addModel", "/listModels"]
+    },
+    {
+        name: "Prompts",
+        url: ["/listPrompts", "/addPrompt", "/listPrompts"]
     },
 ];
 

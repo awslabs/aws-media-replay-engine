@@ -16,18 +16,23 @@ import {useNavigate} from "react-router-dom";
 export const EventList = () => {
     const navigate = useNavigate();
     const [contentGroup, setContentGroup] = React.useState("ALL")
-    const [toFilter, setToFilter] = React.useState(undefined);
+    const [program, setProgram] = React.useState("ALL")
+    const [timeFilterStart, setTimeFilterStart] = React.useState(undefined);
+    const [timeFilterEnd, setTimeFilterEnd] = React.useState(undefined);
     const [queryParams, setQueryParams] = React.useState(undefined)
 
     React.useEffect(() => {
-        let tomorrow = moment().startOf('day').add(1, 'days');
+        let today = moment().startOf('year')
+        let twoYr = moment().startOf('day').add(1, 'day');
 
-        setToFilter(tomorrow.toDate());
+        setTimeFilterStart(today.toDate());
+        setTimeFilterEnd(twoYr.toDate());
 
         setQueryParams({
             limit: 25,
             ProjectionExpression: "Name, Start, Channel, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id, BootstrapTimeInMinutes, AudioTracks, DurationMinutes, GenerateOptoClips, GenerateOrigClips, TimecodeSource",
-            toFilter: moment(tomorrow.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
+            timeFilterStart: moment(today.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
+            timeFilterEnd: moment(twoYr.toDate()).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z",
         })
 
     }, []);
@@ -77,10 +82,32 @@ export const EventList = () => {
         setQueryParams(queryParamsCopy);
     }
 
-    const handleTimeChange = (filterName, dateTime) => {
+    const handleProgramChange = (e) => {
+        let selectedProgram = _.get(e, 'target.value');
+        setProgram(selectedProgram);
+        let queryParamsCopy = queryParams;
+
+        if (selectedProgram === "ALL") {
+            delete queryParamsCopy["Program"]
+        }
+        else {
+            queryParamsCopy["Program"] = selectedProgram;
+        }
+
+        setQueryParams(queryParamsCopy);
+    }
+
+    const handleStartTimeChange = (filterName, dateTime) => {
         let queryParamsCopy = _.cloneDeep(queryParams);
         queryParamsCopy[filterName] = moment(dateTime).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z";
-        setToFilter(queryParamsCopy[filterName])
+        setTimeFilterStart(queryParamsCopy[filterName])
+        setQueryParams(queryParamsCopy);
+    };
+
+    const handleEndTimeChange = (filterName, dateTime) => {
+        let queryParamsCopy = _.cloneDeep(queryParams);
+        queryParamsCopy[filterName] = moment(dateTime).utc().format("YYYY-MM-DDTHH:mm:ss") + "Z";
+        setTimeFilterEnd(queryParamsCopy[filterName])
         setQueryParams(queryParamsCopy);
     };
 
@@ -98,8 +125,12 @@ export const EventList = () => {
                 filterHandlers: {
                     onContentGroupChange: handleContentGroupChange,
                     selectedContentGroup: contentGroup,
-                    toFilter: toFilter,
-                    onTimeFilterChange: handleTimeChange
+                    onProgramChange: handleProgramChange,
+                    selectedProgram: program,
+                    timeFilterStart: timeFilterStart,
+                    onStartTimeFilterChange: handleStartTimeChange,
+                    timeFilterEnd: timeFilterEnd,
+                    onEndTimeFilterChange: handleEndTimeChange
                 },
                 hideRemoveFilters: true
             }}
@@ -112,7 +143,7 @@ export const EventList = () => {
                 <TableCell align="left">Status</TableCell>,
                 <TableCell align="left">Actions</TableCell>
             ]}
-            emptyTableMessage={<>You don't have any events schedules yet. <Link href="https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/guides/MRE-Developer-Guide-Events.md" target="_blank">Learn more</Link> about creating an
+            emptyTableMessage={<>You don't have any events scheduled yet. <Link href="https://github.com/awslabs/aws-media-replay-engine/blob/main/docs/guides/MRE-Developer-Guide-Events.md" target="_blank">Learn more</Link> about creating an
                 Event in MRE.</>}
             rows={{
                 actions: {
@@ -137,6 +168,7 @@ export const EventList = () => {
                     }
                 }
             }}
+            searchEnabled={false}
         />
     );
 }

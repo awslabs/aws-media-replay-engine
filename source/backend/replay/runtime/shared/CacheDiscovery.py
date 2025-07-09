@@ -2,8 +2,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import boto3
-from decimal import Decimal
-from datetime import datetime
 
 s3_client = boto3.client('s3')
 

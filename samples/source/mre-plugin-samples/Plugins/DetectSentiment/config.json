@@ -6,8 +6,6 @@
     "IAMPolicyDocument": [
       {
         "Actions": [
-          "transcribe:StartTranscriptionJob",
-          "transcribe:GetTranscriptionJob",
           "comprehend:DetectSentiment"
         ],
         "Resources": [
@@ -19,7 +17,7 @@
   "MRE": {
     "Plugin": {
       "Name": "DetectSentiment",
-      "Description": "Uses Amazon Transribe to detect pauses in speech for the purpose of optimization",
+      "Description": "Uses Amazon Comprehend to detect the sentiment of the transcript",
       "Class": "Featurer",
       "ExecutionType": "Sync",
       "SupportedMediaType": "Video",
@@ -29,8 +27,7 @@
       "ExecuteLambdaQualifiedARN": "",
       "Configuration": {
         "text_attribute": "Transcription",
-        "text_language_code": "en",
-        "TrackNumber": 1
+        "text_language_code": "en"
       },
       "OutputAttributes": {
         "Label": {

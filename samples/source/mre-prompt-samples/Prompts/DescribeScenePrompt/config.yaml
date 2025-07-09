@@ -1,0 +1,6 @@
+Name: DescribeScenePrompt
+Description: Prompt that can be used to describe a scene in a video.
+ContentGroups:
+  - All
+Template:
+    Please describe this scene to the best of your ability with the information given to you

@@ -2,27 +2,22 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import copy
-import decimal
 import json
-import os
-import uuid
-import boto3
 import math
-import urllib3
-from decimal import Decimal
-from datetime import datetime
-from boto3.dynamodb.conditions import Key, Attr
+import os
+import threading
+import uuid
+from collections import namedtuple
+from queue import Queue
+
+import boto3
+from aws_lambda_powertools import Logger
 from botocore.config import Config
-from MediaReplayEngineWorkflowHelper import ControlPlane
 from MediaReplayEnginePluginHelper import DataPlane
+from MediaReplayEngineWorkflowHelper import ControlPlane
 from shared.Mp4JobInitializer import Mp4JobInitializer
 from timecode import Timecode
-import copy
-from queue import Queue
-import threading
-from collections import namedtuple
 
-from aws_lambda_powertools import Logger
 logger = Logger()
 
 OutputResTuple = namedtuple(
@@ -120,7 +115,7 @@ class Mp4Generator:
             tc = Timecode(self.__video_framerate, end_time_code)
             tc.sub_frames(no_of_frames)
             logger.info(f"{self.__video_framerate} fps, Endtime = {end_time_code} -> OverlayStartTime = {tc}")
-        except ValueError as e:
+        except ValueError:
             # Timecode.frames should be a positive integer bigger than zero, not -17
             return "00:00:00:00"
         return str(tc)
@@ -173,7 +168,7 @@ class Mp4Generator:
                                     tc = Timecode(self.__video_framerate, start_time_code)
                                     tc.sub_frames(1)
                                     final_start_time_code = str(tc)
-                                except ValueError as e:
+                                except ValueError:
                                     # Timecode.frames should be a positive integer bigger than zero, not -17
                                     # This happens when StartTimeCode is already at 00:00:00:00
                                     final_start_time_code = "00:00:00:00"
@@ -235,7 +230,7 @@ class Mp4Generator:
                                     tc = Timecode(self.__video_framerate, start_time_code)
                                     tc.sub_frames(1)
                                     final_start_time_code = str(tc)
-                                except ValueError as e:
+                                except ValueError:
                                     # Timecode.frames should be a positive integer bigger than zero, not -17
                                     # This happens when StartTimeCode is already at 00:00:00:00
                                     final_start_time_code = "00:00:00:00"
@@ -276,7 +271,7 @@ class Mp4Generator:
                                                                         image_inserter_for_end_time
                                                                     ]
                                                                 }
-                                    logger.info(f"Segment with a single chunk. Updated ImageInserter")
+                                    logger.info("Segment with a single chunk. Updated ImageInserter")
 
                                 mutated_input_job_settings.append(input_job_setting)
 
@@ -340,20 +335,23 @@ class Mp4Generator:
             if self.replay_request['TransitionName'].lower() != 'none':
                 self.transition_config = self._controlPlane.get_transitions_config(self.replay_request['TransitionName'])
 
-
-        
+        # Create MediaConvert Job settings by assembling event details, segment/clips and using the mp4 Job Initializer.
+        input_job_settings = []
         t1 = threading.Thread(target=self.__get_event_details, args=(
-            self.__eventName, self.__program,))
-        t2 = threading.Thread(target=self.__get_all_segments_for_replay, args=(
-            self.__program, self.__eventName, replay_id,))
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-
+                self.__eventName, self.__program,))
         event_details = None
-        replay_segments = []
 
+        if "SpecifiedTimestamps" in self.__event['ReplayRequest']:
+            t1.start()
+            t1.join()
+        else:
+            t2 = threading.Thread(target=self.__get_all_segments_for_replay, args=(self.__program, self.__eventName, replay_id,))
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+
+        event_details, replay_segments = None, None
         while not self.__queue.empty():
             queue_item = self.__queue.get()
             if 'EventDetails' in queue_item:
@@ -363,21 +361,37 @@ class Mp4Generator:
 
         profile_name = event_details['Profile']
         output_resolutions = self.__event['ReplayRequest']['Resolutions']
-
-        logger.info(f"Replay Segments picked to Create MP4 Job Inputs --{replay_segments}")
         batch_id = f"{str(uuid.uuid4())}"
 
-        # This is a Multi Threaded Process which builds MP4 Input settings for every Segment
-        input_job_settings = []
-        mp4_job_obj = Mp4JobInitializer(replay_segments,
-                                        self._dataplane,
-                                        self.__eventName,
-                                        self.__program,
-                                        profile_name,
-                                        audio_track,
-                                        self.__framerate,
-                                        replay_id)
-        input_job_settings = mp4_job_obj.create_input_settings_for_segments()
+        if "SpecifiedTimestamps" in self.__event['ReplayRequest']:
+            replay_clips = self.__event["ReplayRequest"]["Priorities"]["Clips"]
+            logger.info(f"Replay Clips used to Create MP4 Job Inputs --{replay_clips}")
+            mp4_job_obj = Mp4JobInitializer(
+                replay_clips,
+                self._dataplane,
+                self.__eventName,
+                self.__program,
+                profile_name,
+                audio_track,
+                self.__framerate,
+                replay_id,
+                "CLIP"
+            )
+            input_job_settings = mp4_job_obj.create_input_settings()
+        else:
+            logger.info(f"Replay Segments picked to Create MP4 Job Inputs --{replay_segments}")
+            mp4_job_obj = Mp4JobInitializer(
+                replay_segments,
+                self._dataplane,
+                self.__eventName,
+                self.__program,
+                profile_name,
+                audio_track,
+                self.__framerate,
+                replay_id,
+                "SEGMENT"
+            )
+            input_job_settings = mp4_job_obj.create_input_settings()
 
         logger.info(f'---------------- MP4 BEFORE Mutation input_job_settings = {json.dumps(input_job_settings)}')
 
@@ -426,7 +440,7 @@ class Mp4Generator:
                     '---------------- after __create_mp4_clips -----------------------')
                 logger.info(job)
 
-                if job != None:
+                if job is not None:
                     all_mp4_clip_job_metadata.append({
                         "JobsId": job['Job']['Id'],
                         "OutputDestination": job_output_destination,

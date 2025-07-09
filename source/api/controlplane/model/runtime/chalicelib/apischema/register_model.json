@@ -13,19 +13,26 @@
                 "Model A - Version 1",
                 "Model B - Version 2"
             ],
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 150
         },
         "Description": {
             "$id": "#/properties/Description",
             "type": "string",
             "title": "The Description Schema",
-            "pattern": "^(.*)$"
+            "pattern": "(?s)^(.*)$",
+            "minLength": 3,
+            "maxLength": 250
         },
         "ContentGroups": {
             "$id": "#/properties/ContentGroups",
             "type": "array",
             "items": {
-                "type": "string"
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 50,
+                "pattern": "^(.*)$"
             },
             "minItems": 1,
             "uniqueItems": true,
@@ -41,7 +48,9 @@
             "$id": "#/properties/Endpoint",
             "type": "string",
             "title": "The Endpoint Schema",
-            "pattern": "^(.*)$"
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 250
         },
         "PluginClass": {
             "$id": "#/properties/PluginClass",

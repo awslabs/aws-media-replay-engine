@@ -3,7 +3,7 @@
     "Program": "Regression",
     "Description": "Event scheduled for Regression testing",
     "Channel": "",
-    "ProgramId": "NA",
+    "ProgramId": "NA1",
     "BootstrapTimeInMinutes": 3,
     "Profile": "",
     "ContentGroup": "All",

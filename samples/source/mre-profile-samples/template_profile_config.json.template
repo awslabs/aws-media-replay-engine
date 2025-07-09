@@ -10,7 +10,7 @@
         "ModelEndpoint": {
             "Name": string,
             "Version": string
-        },
+        },        
         "Configuration" : {
             "configuration1": "value1",
             ...
@@ -21,7 +21,7 @@
                 "ModelEndpoint": {
                     "Name": string,
                     "Version": string
-                },
+                },                
                 "Configuration" : {
                     "configuration1": "value1",
                     ...
@@ -35,7 +35,7 @@
         "ModelEndpoint": {
             "Name": string,
             "Version": string
-        },
+        },        
         "Configuration" : {
             "configuration1": "value1",
             ...
@@ -46,7 +46,7 @@
                 "ModelEndpoint": {
                     "Name": string,
                     "Version": string
-                },
+                },                
                 "Configuration" : {
                     "configuration1": "value1",
                     ...
@@ -60,7 +60,7 @@
         "ModelEndpoint": {
             "Name": string,
             "Version": string
-        },
+        },        
         "Configuration" : {
             "configuration1": "value1",
             ...
@@ -71,7 +71,7 @@
                 "ModelEndpoint": {
                     "Name": string,
                     "Version": string
-                },
+                },                
                 "Configuration" : {
                     "configuration1": "value1",
                     ...
@@ -86,7 +86,7 @@
             "ModelEndpoint": {
                 "Name": string,
                 "Version": string
-            },
+            },            
             "Configuration" : {
                 "configuration1": "value1",
                 ...
@@ -97,7 +97,7 @@
                     "ModelEndpoint": {
                         "Name": string,
                         "Version": string
-                    },
+                    },                    
                     "Configuration" : {
                         "configuration1": "value1",
                         ...

@@ -1,0 +1,19 @@
+{
+  "Lambda": {
+    "Handler": "LabelNews.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 30
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "LabelNews",
+      "Description": "Add a useful label for a news clip.",
+      "Class": "Labeler",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": ["News"],
+      "Configuration": {},
+      "ExecuteLambdaQualifiedARN": ""
+    }
+  }
+}

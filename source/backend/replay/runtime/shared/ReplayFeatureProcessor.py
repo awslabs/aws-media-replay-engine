@@ -1,19 +1,14 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from inspect import isclass
-import os
-import json
-import boto3
 import copy
-from botocore.client import ClientError
-from boto3.dynamodb.conditions import Key, Attr
-from decimal import Decimal
+import datetime
+import json
+import os
 import threading
 from queue import Queue
-import datetime
-from time import sleep
-from pathlib import Path
+
+import boto3
 from aws_lambda_powertools import Logger
 from shared.CustomPrioritiesProcessor import CustomPrioritiesProcessor
 

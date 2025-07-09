@@ -180,8 +180,11 @@
     <span class="s2">&quot;SourceVideoBucket&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigThumbNails&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOptoThumbNails&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;StopMediaLiveChannel: boolean</span>
+    <span class="s2">&quot;Variables&quot;</span><span class="p">:</span> <span class="nb">object</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -205,8 +208,11 @@
 <li><p>SourceVideoBucket: S3 Bucket where Live or VOD video chunks would land to trigger the Event.</p></li>
 <li><p>GenerateOrigClips: Generate Original segment clips if true (Default is true).</p></li>
 <li><p>GenerateOptoClips: Generate Optimized segment clips if true (Default is true).</p></li>
+<li><p>GenerateOrigThumbNails: Generate Original segment thumbnail if true (Default is true),</p></li>
+<li><p>GenerateOptoThumbNails: Generate Original segment thumbnail if true (Default is true)</p></li>
 <li><p>TimeCodeSource: Source of the embedded TimeCode in the Event video frames (Default is NOT_EMBEDDED).</p></li>
 <li><p>StopMediaLiveChannel: False by default. When MediaLive is the Video chunk source, setting this attribute to True lets MRE stop the channel when the event ends.</p></li>
+<li><p>Variables: Context Variables (key/value pairs) used to share data across plugin exections</p></li>
 </ul>
 </div></blockquote>
 <p>Returns:</p>
@@ -254,6 +260,8 @@
             <span class="s2">&quot;ContentGroup: string,</span>
             <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
             <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOrigThumbNails: boolean,</span>
+            <span class="s2">&quot;GenerateOptoThumbNails: boolean,</span>
             <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
         <span class="p">},</span>
         <span class="o">...</span>
@@ -323,6 +331,8 @@
             <span class="s2">&quot;ContentGroup: string,</span>
             <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
             <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOrigThumbNails: boolean,</span>
+            <span class="s2">&quot;GenerateOptoThumbNails: boolean,</span>
             <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
         <span class="p">},</span>
         <span class="o">...</span>
@@ -373,6 +383,8 @@
             <span class="s2">&quot;ContentGroup: string,</span>
             <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
             <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+            <span class="s2">&quot;GenerateOrigThumbNails: boolean,</span>
+            <span class="s2">&quot;GenerateOptoThumbNails: boolean,</span>
             <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
         <span class="p">},</span>
         <span class="o">...</span>
@@ -403,6 +415,36 @@
 <span class="p">]</span>
 </pre></div>
 </div>
+</div></blockquote>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
+</dd>
+</dl>
+</section>
+<section class="chalice-route" id="create-medialive-channel">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/medialive/channel/create</span><a class="headerlink" href="#create-medialive-channel" title="Permalink to this heading">¶</a></h2>
+<p>Creates a MediaLive channel with the given S3 source video URI (MP4) as input</p>
+<p>Body:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Program&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;Profile&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+    <span class="s2">&quot;S3Uri&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Name: [REQUIRED] Name of the Event.</p></li>
+<li><p>Program: [REQUIRED] Name of the Program.</p></li>
+<li><p>Profile: [REQUIRED] Name of the MRE Profile to make use of for processing the event.</p></li>
+<li><p>S3Uri: [REQUIRED] URI of the source MP4 video file in S3.</p></li>
+</ul>
+</div></blockquote>
+<p>Returns:</p>
+<blockquote>
+<div><p>None</p>
 </div></blockquote>
 <dl class="simple">
 <dt>Raises:</dt><dd><p>500 - ChaliceViewError</p>
@@ -549,6 +591,18 @@
 </dd>
 </dl>
 </section>
+<section class="chalice-route" id="get-event-hls-stream">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/stream/program/{program}</span><a class="headerlink" href="#get-event-hls-stream" title="Permalink to this heading">¶</a></h2>
+<p>Returns a Cloudfront Signed Url for the main HLS manifest file associated with the event.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;SignedManifestUrl&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
 <section class="chalice-route" id="delete-event">
 <h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span><a class="headerlink" href="#delete-event" title="Permalink to this heading">¶</a></h2>
 <p>Delete an event by name and program.</p>
@@ -592,6 +646,8 @@
     <span class="s2">&quot;Created&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigThumbNails: boolean,</span>
+    <span class="s2">&quot;GenerateOptoThumbNails: boolean,</span>
     <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
 <span class="p">}</span>
 </pre></div>
@@ -622,7 +678,10 @@
     <span class="s2">&quot;Archive&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOrigClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
     <span class="s2">&quot;GenerateOptoClips&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
+    <span class="s2">&quot;GenerateOrigThumbNails: boolean,</span>
+    <span class="s2">&quot;GenerateOptoThumbNails: boolean,</span>
     <span class="s2">&quot;TimecodeSource&quot;</span><span class="p">:</span> <span class="n">string</span>
+    <span class="s2">&quot;Variables&quot;</span><span class="p">:</span> <span class="nb">object</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -796,6 +855,7 @@
 <li><a class="reference internal" href="#list-events-by-program"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/by/{program}</span></a></li>
 <li><a class="reference internal" href="#list-events-by-content-group"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/contentgroup/{content_group}/all</span></a></li>
 <li><a class="reference internal" href="#list-future-events"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/future/all</span></a></li>
+<li><a class="reference internal" href="#create-medialive-channel"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/medialive/channel/create</span></a></li>
 <li><a class="reference internal" href="#store-audio-tracks"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/metadata/track/audio</span></a></li>
 <li><a class="reference internal" href="#delete-processed-events-from-control"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/processed/{id}</span></a></li>
 <li><a class="reference internal" href="#update-edl-for-event"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/event/program/edllocation/update</span></a></li>
@@ -806,6 +866,7 @@
 <li><a class="reference internal" href="#get-edl-by-event"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/edl/program/{program}/track/{audiotrack}</span></a></li>
 <li><a class="reference internal" href="#get-event-export-data"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/export/data/program/{program}</span></a></li>
 <li><a class="reference internal" href="#get-hls-manifest-by-event"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/eventmanifest/program/{program}/track/{audiotrack}</span></a></li>
+<li><a class="reference internal" href="#get-event-hls-stream"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/event/{name}/hls/stream/program/{program}</span></a></li>
 <li><a class="reference internal" href="#delete-event"><span class="chalice-methodlist"><em class="chalice-method delete property">DELETE</em></span> <span class="sig-name descname chalice-path">/event/{name}/program/{program}</span></a></li>
 <li><a class="reference internal" href="#get-event"><p>Duplicate implicit target name: “/event/{name}/program/{program}”.</p>
 </a></li>

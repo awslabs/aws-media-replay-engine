@@ -35,7 +35,7 @@ chmod +x ./deploy.sh
 ./deploy.sh
 ```
 
-### :heavy_exclamation_mark: **Attention!**
+### **Attention!**
  
  `The MRE test suite deployment process creates 8 AWS MediaLive channels to enable parallel test runs. Before triggering the deployment process, ensure that the quota for maximum number of channels (defaulted to 5) that you can create in the current region has been increased by 8. Failing to increase the quota will result in deployment failure. `
 
@@ -53,7 +53,7 @@ Refer to the **Readme** under the **samples** folder for details on deploying an
 
 1. Configure AWS Command Line Interface (AWS CLI) to interact with AWS. This will create a aws profile.
 2. Define values for AWS_REGION and AWS_PROFILE and run the following command to execute all test cases.
-3. Define values of temporary IAM credentials aws_access_key_id, aws_secret_access_key and aws_session_token in the AWS Config file for the AWS profile used.
+3. Define values of temporary IAM credentials aws_access_key_id, aws_secret_access_key and aws_session_token in the AWS Credentials file for the AWS profile used.
 
 Run the following command to execute all tests
 
@@ -61,6 +61,18 @@ Run the following command to execute all tests
 ./test-suite-entry.sh --region AWS_REGION --profile AWS_PROFILE
 ```
 
+## Running security tests locally
+
+1. Configure AWS Command Line Interface (AWS CLI) to interact with AWS. This will create a aws profile.
+2. Define values for AWS_REGION and AWS_PROFILE and run the following command to execute all test cases.
+3. Define values of temporary IAM credentials aws_access_key_id, aws_secret_access_key and aws_session_token in the AWS Config file for the AWS profile use or
+set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN as environment variables.
+
+Run the following command to execute all tests
+
+```bash
+./security-test-suite-entry.sh --region AWS_REGION --profile AWS_PROFILE
+```
 
 ## Test Grouping
 

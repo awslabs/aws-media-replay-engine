@@ -7,6 +7,7 @@ import React from 'react';
 import { FormRenderer } from "../../components/Form/FormRenderer";
 import _ from "lodash";
 import { ProgramCreateModal } from "../../components/Programs/ProgramCreateModal";
+import { ChannelCreateModal } from "../../components/Channels/ChannelCreateModal";
 import { Backdrop, CircularProgress, Tooltip } from "@material-ui/core";
 import { APIHandler } from "../../common/APIHandler/APIHandler";
 import { makeStyles } from "@material-ui/core/styles";
@@ -156,7 +157,9 @@ export const EventCreate = () => {
         GenerateOrigClips: true,
         GenerateOptoClips: true,
         TimecodeSource: timeCodes.NONE,
-        StopMediaLiveChannel: false
+        StopMediaLiveChannel: false,
+        GenerateOrigThumbNails: true,
+        GenerateOptoThumbNails: true
     };
 
     const inputFieldsMap = {
@@ -243,6 +246,11 @@ export const EventCreate = () => {
             condition: (values) => {
                 return values.SourceSelection && values.SourceSelection === sourceTypes.MEDIALIVE;
             },
+            ItemComponent: <ChannelCreateModal
+                    onSuccessFunction={onChannelAdd}
+                    program={program}
+                    event={event}
+                    profile={profile}/>
         },
         StopMediaLiveChannel: {
             name: "StopMediaLiveChannel",
@@ -368,9 +376,19 @@ export const EventCreate = () => {
             label: "Generate Original Segment Clips",
             type: "checkbox",
         },
+        GenerateOrigThumbNails: {
+            name: "GenerateOrigThumbNails",
+            label: "Generate Original Segment Thumbnails",
+            type: "checkbox",
+        },
         GenOptimizedClip: {
             name: "GenerateOptoClips",
             label: "Generate Optimized Segment Clips",
+            type: "checkbox",
+        },
+        GenerateOptoThumbNails: {
+            name: "GenerateOptoThumbNails",
+            label: "Generate Optimized Segment Thumbnails",
             type: "checkbox",
         },
         Variables: {

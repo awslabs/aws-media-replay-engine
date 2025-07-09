@@ -1,20 +1,21 @@
 # Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import json
-import urllib.parse
-import boto3
-from decimal import Decimal
-from datetime import datetime
-from chalice import Blueprint
-from chalice import IAMAuthorizer
-from chalice import ChaliceViewError
-from boto3.dynamodb.conditions import Key, Attr
-from chalicelib import load_api_schema
-from chalicelib.common import populate_segment_data_matching, get_event_segment_metadata
-import time
 import gzip
+import json
+import os
+import time
+import urllib.parse
+from datetime import datetime
+from decimal import Decimal
+
+import boto3
+from boto3.dynamodb.conditions import Attr, Key
+from chalice import Blueprint, ChaliceViewError, IAMAuthorizer
+from chalicelib import load_api_schema
+from chalicelib.common import (get_event_segment_metadata,
+                               populate_segment_data_matching)
+from aws_lambda_powertools import Logger
 
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 REPLAY_RESULT_TABLE_NAME = os.environ['REPLAY_RESULT_TABLE_NAME']
@@ -25,6 +26,7 @@ ddb_resource = boto3.resource("dynamodb")
 API_SCHEMA = load_api_schema()
 
 replay_api = Blueprint(__name__)
+logger = Logger(service="aws-mre-dataplane-api")
 
 class DecimalEncoder(json.JSONEncoder):
   def default(self, obj):
@@ -93,8 +95,8 @@ def get_matching_replay_segments_v2(name, program, classifier, tracknumber, repl
                 "Items": [],
             }
     except Exception as e:
-        print(e)
-        print(f"Unable to match replays for event '{name}' in Program '{program}': {str(e)}")
+        logger.info(e)
+        logger.info(f"Unable to match replays for event '{name}' in Program '{program}': {str(e)}")
         raise ChaliceViewError(f"Unable to match replays for event '{name}' in Program '{program}': {str(e)}")
 
     else:
@@ -146,9 +148,9 @@ def get_matching_replay_segments(name, program, classifier, tracknumber, replayI
 
             tmp_replay_results = json.loads(gzip.decompress(bytes(replay_result['ReplayResults'])).decode('utf-8'))
             for result in tmp_replay_results:
-                # print(f"Replay Start = {type(result['Start'])}")
+                # logger.info(f"Replay Start = {type(result['Start'])}")
                 for segment in segment_metadata['Segments']:
-                    # print(type(segment['StartTime']))
+                    # logger.info(type(segment['StartTime']))
                     if Decimal(str(result['Start'])) == Decimal(str(segment['StartTime'])):
                         replay_clips.append(segment)
                         break
@@ -263,7 +265,7 @@ def update_replay_results():
     """
 
     replay_result = json.loads(replay_api.current_app.current_request.raw_body.decode(), parse_float=Decimal)
-    print(replay_result)
+    logger.info(replay_result)
 
     program = replay_result["Program"]
     event = replay_result["Event"]
@@ -362,7 +364,7 @@ def update_replay_results():
                     ExpressionAttributeValues=expression_attribute_values
                 )
         except ddb_resource.meta.client.exceptions.ConditionalCheckFailedException as e: 
-            print(f'POSSIBLE RACE CONDITION!! Got lastSegmentStartTime={str(lastSegmentStartTime)} ')
+            logger.info(f'POSSIBLE RACE CONDITION!! Got lastSegmentStartTime={str(lastSegmentStartTime)} ')
             return False
 
     return True
@@ -425,6 +427,7 @@ def create_job(job_id):
     job_details["Status"] = "CREATED"
     job_details["ttl"] = int(time.time()) + 18000 # 5 hrs * 3600 = 18000 secs // TTL of 5 Hrs
     job_tracker_table.put_item(Item=job_details)
+    
 
 
 @replay_api.route('/job/update/{job_id}/{status}',cors=True, methods=['POST'], authorizer=authorizer)

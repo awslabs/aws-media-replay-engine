@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "workflow_execution",
+  "type": "object",
+  "required": ["Program", "Event", "ExecutionId", "ChunkNumber", "Filename"],
+  "properties": {
+    "Program": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "Event": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "ExecutionId": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "ChunkNumber": {
+      "type": "integer"
+    },
+    "Filename": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 450
+    }
+  }
+}

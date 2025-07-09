@@ -34,6 +34,8 @@ MRE refers to several elements of the solution using terms that may be familiar.
 
 **Development with MRE involves the following topics:**
 - [Plugin Development](docs/guides/MRE-Developer-Guide-Plugins.md)
+- [Generative AI Development](docs/guides/MRE-Developer-Guide-GenAI.md)
+- [Prompt Catalog](docs/guides/MRE-Developer-Guide-PromptCatalog.md)
 - [ML Model Development](docs/guides/MRE-Developer-Guide-Models.md)
 - [Profile Configuration](docs/guides/MRE-Developer-Guide-Profiles.md)
 - [Event Creation](docs/guides/MRE-Developer-Guide-Events.md)

@@ -56,7 +56,12 @@ function App(props) {
     };
 
     const handleLogout = async () => {
-        await signOut();
+        // Perform global sign out
+        await signOut({ global: true });
+        
+        // Clear any local storage
+        localStorage.clear();
+        sessionStorage.clear();
         userHasAuthenticated(false);
         props.history.push("/login");
     };

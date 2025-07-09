@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "news_segmenter_path_validation",
+  "type": "object",
+  "properties": {
+    "Program": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "Event": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "Plugin": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "Start": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "End": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "StartFrom": {
+      "type": "number",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "Limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}

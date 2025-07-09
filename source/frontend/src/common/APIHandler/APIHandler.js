@@ -5,9 +5,14 @@
 
 import React from 'react';
 import { post, get, del, put } from 'aws-amplify/api';
+import { fetchAuthSession } from 'aws-amplify/auth'
 import {Cache} from 'aws-amplify/utils'
+import { Sha256 } from '@aws-crypto/sha256-js'
+import { HttpRequest } from '@aws-sdk/protocol-http'
+import { SignatureV4 } from '@aws-sdk/signature-v4'
 import {useSessionContext} from "../../contexts/SessionContext";
 import _ from "lodash";
+import config from '../../config';
 
 export const APIHandler = () => {
     const [isLoading, setIsLoading] = React.useState(undefined);
@@ -32,6 +37,46 @@ export const APIHandler = () => {
         }
         return ret
     }
+
+    const streamQuery = async (type, url, requestBody) => { 
+            const { credentials } = await fetchAuthSession()
+            const serializedUrl = new URL(url)
+
+            // set up the HTTP request
+            const request = new HttpRequest({
+                hostname: serializedUrl.hostname,
+                path: serializedUrl.pathname,
+                method: type.toUpperCase(),
+                body: JSON.stringify(requestBody),
+                headers: {
+                    'Content-Type': 'application/json',
+                    host: serializedUrl.hostname
+                },
+            })
+
+            // create a signer object with the credentials, the service name and the region
+            const signer = new SignatureV4({
+                credentials: credentials,
+                service: 'lambda',
+                region: config.lambda.REACT_APP_REGION,
+                sha256: Sha256
+            })
+            
+            // sign the request and extract the signed headers, body and method
+            const { headers, body, method } = await signer.sign(request)
+            // send the signed request and extract the response as JSON
+            const response = await fetch(url, {
+                headers,
+                body,
+                method
+            })
+            // Check if response is OK (status in the range 200-299)
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            return response
+        }
     
     const query = async (type, api, url, options, queryOptions = {}, format = "json") => {
         let retVal;
@@ -111,5 +156,5 @@ export const APIHandler = () => {
         return retVal;
     };
 
-    return {query, isLoading, setIsLoading};
+    return {query, streamQuery, isLoading, setIsLoading};
 }

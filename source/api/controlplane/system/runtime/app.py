@@ -1,22 +1,22 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import os
-import boto3
-from chalice import Chalice
-from chalice import IAMAuthorizer
-from chalice import ChaliceViewError
-import uuid
-import urllib.parse
 import json
+import os
+import urllib.parse
+import uuid
 from decimal import Decimal
-from jsonschema import validate, ValidationError, FormatChecker
-from chalice import ChaliceViewError, BadRequestError, ConflictError, NotFoundError
-from chalicelib import DecimalEncoder
-from chalicelib import load_api_schema, replace_decimals
-    
+
+import boto3
+from aws_lambda_powertools.utilities.validation import (SchemaValidationError,
+                                                        validate)
+from chalice import (BadRequestError, Chalice, ChaliceViewError, ConflictError,
+                     IAMAuthorizer, NotFoundError)
+from chalicelib import DecimalEncoder, load_api_schema, replace_decimals
+from aws_lambda_powertools import Logger
 
 app = Chalice(app_name='aws-mre-controlplane-system-api')
+logger = Logger(service='aws-mre-controlplane-system-api')
 
 API_VERSION = '1.0.0'
 authorizer = IAMAuthorizer()
@@ -31,6 +31,20 @@ SYSTEM_TABLE_NAME = os.environ['SYSTEM_TABLE_NAME']
 REGION = os.getenv("AWS_REGION")
 
 API_SCHEMA = load_api_schema()
+
+
+# Create middleware to inject request context
+@app.middleware('all')
+def inject_request_context(event, get_response):
+    # event is a Chalice Request object
+    request_id = event.context.get('requestId', 'N/A')
+    
+    # Add request ID to persistent logger context
+    logger.append_keys(request_id=request_id)
+    
+    response = get_response(event)
+    return response
+
 
 @app.route('/system/version', cors=True, methods=['GET'], authorizer=authorizer)
 def version():
@@ -80,7 +94,7 @@ def list_medialive_channels():
         500 - ChaliceViewError
     """
     try:
-        print("Listing all the MediaLive channels")
+        logger.info("Listing all the MediaLive channels")
 
         response = medialive_client.list_channels()
 
@@ -94,7 +108,7 @@ def list_medialive_channels():
             channels.extend(response["Channels"])
 
     except Exception as e:
-        print(f"Unable to list all the MediaLive channels: {str(e)}")
+        logger.info(f"Unable to list all the MediaLive channels: {str(e)}")
         raise ChaliceViewError(f"Unable to list all the MediaLive channels: {str(e)}")
 
     else:
@@ -121,7 +135,7 @@ def list_mediatailor_channels():
         500 - ChaliceViewError
     """
     try:
-        print("Listing all the MediaTailor channels")
+        logger.info("Listing all the MediaTailor channels")
 
         response = mediatailor_client.list_channels()
 
@@ -135,7 +149,7 @@ def list_mediatailor_channels():
             channels.extend(response["Items"])
 
     except Exception as e:
-        print(f"Unable to list all the MediaTailor channels: {str(e)}")
+        logger.info(f"Unable to list all the MediaTailor channels: {str(e)}")
         raise ChaliceViewError(f"Unable to list all the MediaTailor channels: {str(e)}")
 
     else:
@@ -156,7 +170,7 @@ def list_mediatailor_playback_configurations():
         500 - ChaliceViewError
     """
     try:
-        print("Listing all the MediaTailor Playback Configurations")
+        logger.info("Listing all the MediaTailor Playback Configurations")
 
         response = mediatailor_client.list_playback_configurations()
 
@@ -170,7 +184,7 @@ def list_mediatailor_playback_configurations():
             configs.extend(response["Items"])
 
     except Exception as e:
-        print(f"Unable to list all the MediaTailor Playback Configurations: {str(e)}")
+        logger.info(f"Unable to list all the MediaTailor Playback Configurations: {str(e)}")
         raise ChaliceViewError(f"Unable to list all the MediaTailor Playback Configurations: {str(e)}")
 
     else:
@@ -217,9 +231,9 @@ def put_system_configuration():
 
         validate(instance=config, schema=API_SCHEMA["put_system_configuration"])
 
-        print("Got a valid system configuration schema")
+        logger.info("Got a valid system configuration schema")
 
-        print(f"Upserting the system configuration parameter: {config}")
+        logger.info(f"Upserting the system configuration parameter: {config}")
 
         if config["Name"] in ["MaxConcurrentWorkflows", "ReplayClipsRetentionPeriod"]:
             if int(config["Value"]) < 1:
@@ -230,15 +244,15 @@ def put_system_configuration():
         system_table.put_item(Item=config)
 
     except BadRequestError as e:
-        print(f"Got chalice BadRequestError: {str(e)}")
+        logger.info(f"Got chalice BadRequestError: {str(e)}")
         raise
 
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")  
 
     except Exception as e:
-        print(f"Unable to upsert the system configuration parameter: {str(e)}")
+        logger.info(f"Unable to upsert the system configuration parameter: {str(e)}")
         raise ChaliceViewError(f"Unable to upsert the system configuration parameter: {str(e)}")
 
     else:
@@ -261,7 +275,9 @@ def get_system_configuration(name):
     try:
         name = urllib.parse.unquote(name)
 
-        print(f"Getting the value of the system configuration parameter '{name}'")
+        validate_path_parameters({"Name": name})
+
+        logger.info(f"Getting the value of the system configuration parameter '{name}'")
 
         system_table = ddb_resource.Table(SYSTEM_TABLE_NAME)
 
@@ -275,12 +291,16 @@ def get_system_configuration(name):
         if "Item" not in response:
             raise NotFoundError(f"System configuration parameter '{name}' not found")
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")  
+    
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to get the value of the system configuration parameter '{name}': {str(e)}")
+        logger.info(f"Unable to get the value of the system configuration parameter '{name}': {str(e)}")
         raise ChaliceViewError(f"Unable to get the value of the system configuration parameter '{name}': {str(e)}")
 
     else:
@@ -307,7 +327,7 @@ def list_system_configurations():
         500 - ChaliceViewError
     """
     try:
-        print("Listing all the system configuration parameters")
+        logger.info("Listing all the system configuration parameters")
 
         system_table = ddb_resource.Table(SYSTEM_TABLE_NAME)
 
@@ -326,7 +346,7 @@ def list_system_configurations():
             configs.extend(response["Items"])
 
     except Exception as e:
-        print(f"Unable to list the system configuration parameters: {str(e)}")
+        logger.info(f"Unable to list the system configuration parameters: {str(e)}")
         raise ChaliceViewError(f"Unable to list the system configuration parameters: {str(e)}")
 
     else:
@@ -353,7 +373,7 @@ def list_s3_buckets():
         500 - ChaliceViewError
     """
     try:
-        print("Listing all the S3 buckets")
+        logger.info("Listing all the S3 buckets")
 
         response = s3_client.list_buckets()
         buckets = response["Buckets"]
@@ -366,5 +386,8 @@ def list_s3_buckets():
         return bucket_list
 
     except Exception as e:
-        print(f"Unable to list all the S3 buckets: {str(e)}")
+        logger.info(f"Unable to list all the S3 buckets: {str(e)}")
         raise ChaliceViewError(f"Unable to list all the S3 buckets: {str(e)}")
+    
+def validate_path_parameters(params: dict):
+    validate(event=params, schema=API_SCHEMA["system_path_validation"])

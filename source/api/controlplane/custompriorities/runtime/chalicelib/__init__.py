@@ -1,11 +1,13 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import os
 import json
-import random
-import string
+import os
 from decimal import Decimal
+
+from aws_lambda_powertools import Logger
+
+logger = Logger()
 
 
 def load_api_schema():
@@ -17,9 +19,10 @@ def load_api_schema():
             schema = json.load(schema_file)
             schema_title = schema["title"]
             api_schema[schema_title] = schema
-            print(f"Loaded schema: {schema_title}")
+            logger.info(f"Loaded schema: {schema_title}")
 
     return api_schema
+
 
 def replace_decimals(obj):
     if isinstance(obj, list):
@@ -31,11 +34,12 @@ def replace_decimals(obj):
     else:
         return obj
 
+
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
             return int(obj) if obj % 1 == 0 else float(obj)
         if isinstance(obj, set):
             return list(obj)
-        
+
         return super(DecimalEncoder, self).default(obj)

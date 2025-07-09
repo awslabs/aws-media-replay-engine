@@ -69,7 +69,7 @@ export const EventList = (props) => {
                 ProjectionExpression: "Name, Start, Program, ContentGroup, Profile, Status, Description, SourceVideoUrl, Created, EdlLocation, HlsMasterManifest, Id"
             }
 
-            let eventsResponse = await query('get', 'api', `event/contentgroup/${props.contentGroup}/all`, queryStringParameters)
+            let eventsResponse = await query('get', 'api', `event/contentgroup/${props.contentGroup}/all`, {queryParams: queryStringParameters})
             setEvents(eventsResponse.data);
         })();
     }, []);

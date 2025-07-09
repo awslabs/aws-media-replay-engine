@@ -1,17 +1,13 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import copy
 import json
 import os
-import uuid
+
 import boto3
-from datetime import datetime
-from botocore.config import Config
+from MediaReplayEngineWorkflowHelper import ControlPlane
 from shared.MreEventDataExporter import EventDataExporter
 from shared.MreReplayDataExporter import ReplayDataExporter
-
-from MediaReplayEngineWorkflowHelper import ControlPlane
 
 EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
 ExportOutputBucket = os.environ['ExportOutputBucket']

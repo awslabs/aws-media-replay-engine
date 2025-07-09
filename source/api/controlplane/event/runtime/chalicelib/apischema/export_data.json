@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "export_data",
+  "description": "Schema for storing event export data",
+  "type": "object",
+  "required": ["Name", "Program", "IsBaseEvent", "ExportDataLocation"],
+  "properties": {
+    "Name": {
+      "type": "string",
+      "description": "Name of the Event",
+      "minLength": 3,
+      "maxLength": 150,
+      "pattern": "^(.*)$"
+    },
+    "Program": {
+      "type": "string",
+      "description": "Name of the Program",
+      "minLength": 3,
+      "maxLength": 150,
+      "pattern": "^(.*)$"
+    },
+    "IsBaseEvent": {
+      "type": "string",
+      "enum": ["Y", "N"],
+      "description": "Flag indicating if this is a base event (Y) or not (N)"
+    },
+    "ExportDataLocation": {
+      "type": "string",
+      "description": "S3 location where the export data is stored",
+      "pattern": "^s3://[a-zA-Z0-9-]+/.*$",
+      "minLength": 3,
+      "maxLength": 2000
+    }
+  },
+  "additionalProperties": false
+}

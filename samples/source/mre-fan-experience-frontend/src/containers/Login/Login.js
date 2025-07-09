@@ -45,6 +45,8 @@ export const Login = (props) => {
     const [changePassword, setChangePassword] = useState(false);
     const [username, setUsername] = useState("");
     const [signInResponse, setSignInResponse] = useState(undefined);
+    const [forgotPassword, setForgotPassword] = useState(false);
+
 
     const {userHasAuthenticated} = useSessionContext();
 
@@ -84,6 +86,9 @@ export const Login = (props) => {
             
         } catch (e) {
             alert(e.message);
+            if (e.name === "UserNotFoundException") {
+                alert("Incorrect username or password. Please try again.");
+            }
             setIsLoading(false);
         }
     };
@@ -116,14 +121,16 @@ export const Login = (props) => {
     }
     
     const handleConfirmResetPassword = async (username, newPassword, confirmationCode) => {
-      try{
+      try {
         const res = await confirmResetPassword({username, newPassword, confirmationCode})    
         console.log(res)
+        // Add success message and reset the form
+        alert("Password successfully changed. Please sign in with your new password.");
+        setForgotPassword(false); // This assumes you add this state variable
       } catch(e) {
         alert(e.message);
         console.log(e)
       }
-      
     }
 
     return (

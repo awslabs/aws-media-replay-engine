@@ -14,6 +14,7 @@ import {SessionContext} from "./contexts/SessionContext";
 import "./App.css";
 import CssBaseline from '@material-ui/core/CssBaseline';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {DemoContainer} from './components/Layouts/DemoContainer';
 import {Header} from "./components/Header/Header";
 import {Footer} from "./components/Footer/Footer";
@@ -30,18 +31,18 @@ import Button from "@material-ui/core/Button";
 
 const useStyles = makeStyles((theme) => ({
     openSidebar: {
-        width: 240,
+        width: 200,
     },
     closedSidebar: {
-        width: 100,
+        width: 200,
     },
     routesWithOpenSidebar: {
-        paddingLeft: 280,
+        paddingLeft: 40,
         paddingRight: 40
 
     },
     routesWithClosedSidebar: {
-        paddingLeft: 100,
+        paddingLeft: 40,
         paddingRight: 40
     },
     alert: {
@@ -55,6 +56,8 @@ const useStyles = makeStyles((theme) => ({
     },
 
 }));
+
+const queryClient = new QueryClient();
 
 const App = (props) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -93,7 +96,13 @@ const App = (props) => {
     };
 
     const handleLogout = async () => {
-        await signOut();
+        //await signOut();
+        // Perform global sign out
+        await signOut({ global: true });
+        
+        // Clear any local storage
+        localStorage.clear();
+        sessionStorage.clear();
         userHasAuthenticated(false);
         navigate("/login");
     };
@@ -116,6 +125,7 @@ const App = (props) => {
 
     return (
         !isAuthenticating && (
+            <QueryClientProvider client={queryClient}>
             <SessionContext.Provider value={{
                 isAuthenticated,
                 userHasAuthenticated,
@@ -139,7 +149,7 @@ const App = (props) => {
                         </Grid>
 
                         <Grid container direction="row">
-                            <Grid item className={clsx({
+                            <Grid item sm={1} className={clsx({
                                 [classes.openSidebar]: isSidebarOpen,
                                 [classes.closedSidebar]: !isSidebarOpen,
                             })}>
@@ -169,6 +179,11 @@ const App = (props) => {
                                             text: 'Models', navigate: () => {
                                                 navigate("/listModels")
                                             }
+                                        },
+                                        {
+                                            text: 'Prompts', navigate: () => {
+                                                navigate("/listPrompts")
+                                            }
                                         }
                                     ]}
                                     open={isSidebarOpen}
@@ -176,7 +191,7 @@ const App = (props) => {
                                     handleDrawerClose={handleDrawerClose}
                                 />
                             </Grid>
-                            <Grid item sm={12}>
+                            <Grid item sm={11}>
                                 <Box py={8}
                                      className={clsx({
                                          height: "100vh",
@@ -200,6 +215,7 @@ const App = (props) => {
                     </Grid>
                 </DemoContainer>
             </SessionContext.Provider>
+            </QueryClientProvider>
         )
     )
 };

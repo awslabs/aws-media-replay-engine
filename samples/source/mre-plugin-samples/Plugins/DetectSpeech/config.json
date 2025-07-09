@@ -1,50 +1,53 @@
 {
   "Lambda": {
     "Handler": "DetectSpeech.lambda_handler",
-    "MemorySize": 512,
+    "MemorySize": 1024,
     "TimeoutSecs": 120,
     "IAMPolicyDocument": [
       {
-        "Actions": [
-          "s3:GetObject",
-          "s3:ListBucket",
-          "s3:PutObject"
-        ],
-        "Resources": [
-          "*"
-        ]
+        "Actions": ["s3:GetObject", "s3:ListBucket", "s3:PutObject"],
+        "Resources": ["AUTO_FILL"]
       },
       {
         "Actions": [
           "transcribe:StartTranscriptionJob",
           "transcribe:GetTranscriptionJob"
         ],
-        "Resources": [
-          "*"
-        ]
+        "Resources": ["*"]
+      },
+      {
+        "Actions": ["sagemaker:InvokeEndpoint"],
+        "Resources": ["arn:aws:sagemaker:region:account-id:endpoint/SpeakerIdentificationModel"]
       }
     ],
-    "Layers": [
-      "ffmpeg"
-    ]
+    "Layers": ["ffmpeg"]
   },
   "MRE": {
     "Plugin": {
       "Name": "DetectSpeech",
       "Description": "Uses Amazon Transribe to detect pauses in speech for the purpose of optimization",
       "Class": "Featurer",
-      "ExecutionType": "Sync",
+      "ExecutionType": "SyncModel",
       "SupportedMediaType": "Video",
-      "ContentGroups": [
-        "All"
+      "ModelEndpoints": [
+        {
+          "Name": "SpeakerIdentificationModel"
+        }
       ],
+      "ContentGroups": ["All"],
       "ExecuteLambdaQualifiedARN": "",
       "Configuration": {
         "TrackNumber": "1",
         "silence_duration_sec": "2",
-        "input_bucket_name": "to be provided",
-        "output_bucket_name": "to be provided",
-        "bias": "safe range"
+        "input_bucket_name": "AUTO_CREATE",
+        "output_bucket_name": "AUTO_CREATE",
+        "training_bucket_name": "AUTO_CREATE",
+        "training_upload_enabled": "False",
+        "speaker_inference_enabled": "False",
+        "show_speaker_labels": "True",
+        "max_speaker_labels": "6",
+        "transcribe_lang_code": "en-US",
+        "transcribe_identify_lang": "False"
       },
       "OutputAttributes": {
         "Label": {
@@ -52,6 +55,9 @@
         },
         "Transcription": {
           "Description": "The raw output of Transcribe"
+        },
+        "Speaker": {
+          "Description": "Name of the speaker outputted by the speaker identification ML model"
         }
       }
     }

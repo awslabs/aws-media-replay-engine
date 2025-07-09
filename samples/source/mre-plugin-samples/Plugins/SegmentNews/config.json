@@ -1,0 +1,73 @@
+{
+  "Lambda": {
+    "Handler": "SegmentNews.lambda_handler",
+    "MemorySize": 256,
+    "TimeoutSecs": 90,
+    "IAMPolicyDocument": [
+      {
+        "Actions": ["bedrock:InvokeModel"],
+        "Resources": [
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+          "arn:aws:bedrock:region:account-id:inference-profile/*.amazon.nova-pro-v1:0"
+        ]
+      },
+      {
+        "Actions": ["bedrock:ListInferenceProfiles"],
+        "Resources": ["arn:aws:bedrock:region:account-id:inference-profile/*"]
+      },
+      {
+        "Actions": ["dynamodb:Query", "dynamodb:DeleteItem"],
+        "Resources": [
+          "MRE_PLUGIN_RESULT_TABLE_ARN",
+          "MRE_PLUGIN_RESULT_TABLE_ARN/index/PK_ChunkNumber-index"
+        ]
+      }
+    ],
+    "Layers": ["boto3"]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "SegmentNews",
+      "Description": "This plugin is used to clip news topics from summarized transcriptions using an LLM.",
+      "Class": "Classifier",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": ["News"],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "min_segment_length": 30,
+        "search_window_seconds": 200,
+        "bedrock_model_id": "amazon.nova-pro-v1:0",
+        "prompt_template_name": "SegmentNewsPrompt"
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": "A summary label"
+        },
+        "Desc": {
+          "Description": "A summary description"
+        },
+        "Summary": {
+          "Description": "A longer text summary of the clip."
+        },
+        "Transcript": {
+          "Description": "The transcript of the clip."
+        },
+        "Celebrities": {
+          "Description": "A list of celebrities seen in the clip."
+        },
+        "Sentiment": {
+          "Description": "The sentiment of the clip."
+        },
+        "Image_Summary": {
+          "Description": "A summary of the image in the clip."
+        }
+      },
+      "DependentPlugins": [
+        "DetectSentiment",
+        "DetectCelebrities",
+        "DetectSceneLabels"
+      ]
+    }
+  }
+}

@@ -1,131 +1,136 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "http://json-schema.org/draft-07/schema#",
-    "title": "register_plugin",
-    "type": "object",
-    "definitions": {},
-    "properties": {
-        "Name": {
-            "$id": "#/properties/Name",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://json-schema.org/draft-07/schema#",
+  "title": "register_plugin",
+  "type": "object",
+  "definitions": {},
+  "properties": {
+    "Name": {
+      "$id": "#/properties/Name",
+      "type": "string",
+      "title": "The Name Schema",
+      "examples": [
+        "silence-detection-ffmpeg-plugin",
+        "scene-detection-rekognition-plugin"
+      ],
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "Description": {
+      "$id": "#/properties/Description",
+      "type": "string",
+      "title": "The Description Schema",
+      "pattern": "(?s)^(.*)$",
+      "minLength": 3,
+      "maxLength": 250
+    },
+    "Class": {
+      "$id": "#/properties/Class",
+      "type": "string",
+      "title": "The Class Schema",
+      "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
+    },
+    "ExecutionType": {
+      "$id": "#/properties/ExecutionType",
+      "type": "string",
+      "title": "The ExecutionType Schema",
+      "enum": ["Sync", "SyncModel"]
+    },
+    "SupportedMediaType": {
+      "$id": "#/properties/SupportedMediaType",
+      "type": "string",
+      "title": "The SupportedMediaType Schema",
+      "enum": ["Video", "Audio"]
+    },
+    "ContentGroups": {
+      "$id": "#/properties/ContentGroups",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 50,
+        "pattern": "^(.*)$"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "title": "The ContentGroups Schema",
+      "examples": [["Tennis", "Soccer"]]
+    },
+    "ExecuteLambdaQualifiedARN": {
+      "$id": "#/properties/ExecuteLambdaQualifiedARN",
+      "type": "string",
+      "title": "The ExecuteLambdaQualifiedARN Schema",
+      "examples": [
+        "arn:aws:lambda:us-east-1:123456789012:function:my-function:$LATEST",
+        "arn:aws:lambda:us-east-1:123456789012:function:my-function:1"
+      ],
+      "pattern": "^arn:aws:lambda:([a-z]{2}-[a-z]+-\\d{1}):\\d{12}:function:[a-zA-Z0-9-_]+:(\\$LATEST|[0-9]+)"
+    },
+    "ModelEndpoints": {
+      "$id": "#/properties/ModelEndpoints",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "$id": "#/properties/ModelEndpoints/properties/Name",
             "type": "string",
             "title": "The Name Schema",
-            "examples": [
-                "silence-detection-ffmpeg-plugin",
-                "scene-detection-rekognition-plugin"
-            ],
-            "pattern": "^(.*)$"
-        },
-        "Description": {
-            "$id": "#/properties/Description",
+            "pattern": "^(.*)$",
+            "minLength": 3,
+            "maxLength": 150
+          },
+          "Version": {
+            "$id": "#/properties/ModelEndpoints/properties/Version",
             "type": "string",
-            "title": "The Description Schema",
-            "pattern": "^(.*)$"
+            "title": "The Version Schema",
+            "pattern": "^(.*)$",
+            "minLength": 1,
+            "maxLength": 5
+          }
         },
-        "Class": {
-            "$id": "#/properties/Class",
-            "type": "string",
-            "title": "The Class Schema",
-            "enum": ["Classifier", "Optimizer", "Featurer", "Labeler"]
-        },
-        "ExecutionType": {
-            "$id": "#/properties/ExecutionType",
-            "type": "string",
-            "title": "The ExecutionType Schema",
-            "enum": ["Sync", "SyncModel"]
-        },
-        "SupportedMediaType": {
-            "$id": "#/properties/SupportedMediaType",
-            "type": "string",
-            "title": "The SupportedMediaType Schema",
-            "enum": ["Video", "Audio"]
-        },
-        "ContentGroups": {
-            "$id": "#/properties/ContentGroups",
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
-            "minItems": 1,
-            "uniqueItems": true,
-            "title": "The ContentGroups Schema",
-            "examples": [
-                [
-                    "Tennis",
-                    "Soccer"
-                ]
-            ]
-        },
-        "ExecuteLambdaQualifiedARN": {
-            "$id": "#/properties/ExecuteLambdaQualifiedARN",
-            "type": "string",
-            "title": "The ExecuteLambdaQualifiedARN Schema",
-            "examples": [
-                "arn:aws:lambda:us-east-1:123456789012:function:my-function:$LATEST",
-                "arn:aws:lambda:us-east-1:123456789012:function:my-function:1"
-            ],
-            "pattern": "^arn:aws:lambda:([a-z]{2}-[a-z]+-\\d{1})?:(\\d{12})?:function:([a-zA-Z0-9-_\\.]+)?:(\\$LATEST|[a-zA-Z0-9-_]+)$"
-        },
-        "ModelEndpoints": {
-            "$id": "#/properties/ModelEndpoints",
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "Name": {
-                        "$id": "#/properties/ModelEndpoints/properties/Name",
-                        "type": "string",
-                        "title": "The Name Schema"
-                    },
-                    "Version": {
-                        "$id": "#/properties/ModelEndpoints/properties/Version",
-                        "type": "string",
-                        "title": "The Version Schema"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "Name",
-                    "Version"
-                ]
-            },
-            "minItems": 1,
-            "uniqueItems": true,
-            "title": "The ModelEndpoints Schema"
-        },
-        "Configuration": {
-            "$id": "#/properties/Configuration",
-            "type": "object",
-            "title": "The Configuration Schema"
-        },
-        "OutputAttributes": {
-            "$id": "#/properties/OutputAttributes",
-            "type": "object",
-            "title": "The OutputAttributes Schema"
-        },
-        "DependentPlugins": {
-            "$id": "#/properties/DependentPlugins",
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
-            "minItems": 1,
-            "uniqueItems": true,
-            "title": "The DependentPlugins Schema",
-            "examples": [
-                [
-                    "Scene-Detection-FFMPEG-Plugin",
-                    "Silence-Detection-FFMPEG-Plugin"
-                ]
-            ]
-        }
+        "additionalProperties": false,
+        "required": ["Name", "Version"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "title": "The ModelEndpoints Schema"
     },
-    "additionalProperties": false,
-    "required": [
-        "Name",
-        "Class",
-        "ExecutionType",
-        "SupportedMediaType",
-        "ContentGroups",
-        "ExecuteLambdaQualifiedARN"
-    ]
+    "Configuration": {
+      "$id": "#/properties/Configuration",
+      "type": "object",
+      "title": "The Configuration Schema"
+    },
+    "OutputAttributes": {
+      "$id": "#/properties/OutputAttributes",
+      "type": "object",
+      "title": "The OutputAttributes Schema"
+    },
+    "DependentPlugins": {
+      "$id": "#/properties/DependentPlugins",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(.*)$",
+        "minLength": 3,
+        "maxLength": 150
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "title": "The DependentPlugins Schema",
+      "examples": [
+        ["Scene-Detection-FFMPEG-Plugin", "Silence-Detection-FFMPEG-Plugin"]
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "Name",
+    "Class",
+    "ExecutionType",
+    "SupportedMediaType",
+    "ContentGroups",
+    "ExecuteLambdaQualifiedARN"
+  ]
 }

@@ -29,37 +29,102 @@ class MreTestSuiteStack(Stack):
         self.create_ddb_table()
         self.create_event_recorder_lambda()
         
+        # MRE Access Log Bucket
+        self.access_log_bucket = s3.Bucket(
+            self,
+            "AwsMreTestSuiteAccessLogsBucket",
+            enforce_ssl=True,
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            versioned=True,  # Enable versioning
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(91),  # Delete current version after 91 days
+                    noncurrent_version_expiration=Duration.days(91),  # Delete old versions after 91 days
+                    enabled=True
+                )
+            ]
+        )
 
         self.medialive_source_bucket = s3.Bucket(
             self,
             'AwsMreTestSuiteMediaLiveSourceBucket',
             enforce_ssl=True,
-            encryption=s3.BucketEncryption.S3_MANAGED
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix="mre-medialive-logs",
+            versioned=True,  # Enable versioning
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(91),  # Delete current version after 91 days
+                    noncurrent_version_expiration=Duration.days(91),  # Delete old versions after 91 days
+                    enabled=True
+                )
+            ]
         )
 
         self.mre_byob_source_bucket1 = s3.Bucket(
             self,
             'AwsMreTestSuite-Byob-Bucket1',
             enforce_ssl=True,
-            encryption=s3.BucketEncryption.S3_MANAGED
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix="mre-byob1-logs",
+            versioned=True,  # Enable versioning
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(91),  # Delete current version after 91 days
+                    noncurrent_version_expiration=Duration.days(91),  # Delete old versions after 91 days
+                    enabled=True
+                )
+            ]
         )
         self.mre_byob_source_bucket2 = s3.Bucket(
             self,
             'AwsMreTestSuite-Byob-Bucket2',
             enforce_ssl=True,
-            encryption=s3.BucketEncryption.S3_MANAGED
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix="mre-byob2-logs",
+            versioned=True,  # Enable versioning
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(91),  # Delete current version after 91 days
+                    noncurrent_version_expiration=Duration.days(91),  # Delete old versions after 91 days
+                    enabled=True
+                )
+            ]
         )
         self.mre_byob_source_bucket3 = s3.Bucket(
             self,
             'AwsMreTestSuite-Byob-Bucket3',
             enforce_ssl=True,
-            encryption=s3.BucketEncryption.S3_MANAGED
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix="mre-byob3-logs",
+            versioned=True,  # Enable versioning
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(91),  # Delete current version after 91 days
+                    noncurrent_version_expiration=Duration.days(91),  # Delete old versions after 91 days
+                    enabled=True
+                )
+            ]
         )
         self.mre_byob_source_bucket4 = s3.Bucket(
             self,
             'AwsMreTestSuite-Byob-Bucket4',
             enforce_ssl=True,
-            encryption=s3.BucketEncryption.S3_MANAGED
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            server_access_logs_bucket=self.access_log_bucket,
+            server_access_logs_prefix="mre-byob4-logs",
+            versioned=True,  # Enable versioning
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(91),  # Delete current version after 91 days
+                    noncurrent_version_expiration=Duration.days(91),  # Delete old versions after 91 days
+                    enabled=True
+                )
+            ]
         )
 
 
@@ -161,6 +226,10 @@ class MreTestSuiteStack(Stack):
                 {
                     "id": "AwsSolutions-S1",
                     "reason": "Logging can be enabled if reqd in higher environments"
+                },
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "The non-container Lambda function does not require latest runtime"
                 },
                 {
                     "id": "AwsSolutions-IAM5",
@@ -308,7 +377,9 @@ class MreTestSuiteStack(Stack):
                     type=ddb.AttributeType.STRING
                 ),
                 billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-                removal_policy=RemovalPolicy.DESTROY
+                removal_policy=RemovalPolicy.DESTROY,
+                encryption=ddb.TableEncryption.AWS_MANAGED,  # Enables server-side encryption with AWS managed key
+                point_in_time_recovery=True  # Enables point-in-time recovery
             )
             
             CfnOutput(self, "mre-TestSuite-EventStateRecorder-Table-output", value=self.table.table_name,

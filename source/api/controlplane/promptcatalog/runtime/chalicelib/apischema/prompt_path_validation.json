@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "prompt_path_validation",
+  "type": "object",
+  "properties": {
+    "Name": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "ContentGroup": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 50,
+      "pattern": "^(.*)$"
+    },
+    "Version": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 5,
+      "pattern": "^(.*)$"
+    }
+  }
+}

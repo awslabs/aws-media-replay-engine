@@ -1,23 +1,24 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import os
 import json
-import uuid
+import os
 import urllib.parse
-import boto3
-from decimal import Decimal
 from datetime import datetime
-from chalice import Chalice
-from chalice import IAMAuthorizer
-from chalice import ChaliceViewError, BadRequestError, NotFoundError
+
+import boto3
+from aws_lambda_powertools.utilities.validation import (SchemaValidationError,
+                                                        validate)
+from boto3.dynamodb.conditions import Attr, Key
 from boto3.dynamodb.types import TypeSerializer
-from boto3.dynamodb.conditions import Key, Attr
 from botocore.client import ClientError
-from jsonschema import validate, ValidationError
+from chalice import (BadRequestError, Chalice, ChaliceViewError, IAMAuthorizer,
+                     NotFoundError)
 from chalicelib import load_api_schema, replace_decimals
+from aws_lambda_powertools import Logger
 
 app = Chalice(app_name='aws-mre-controlplane-model-api')
+logger = Logger(service='aws-mre-controlplane-model-api')
 
 API_VERSION = '1.0.0'
 authorizer = IAMAuthorizer()
@@ -32,6 +33,18 @@ MODEL_VERSION_INDEX = os.environ['MODEL_VERSION_INDEX']
 MODEL_NAME_INDEX = os.environ['MODEL_NAME_INDEX']
 
 API_SCHEMA = load_api_schema()
+
+# Create middleware to inject request context
+@app.middleware('all')
+def inject_request_context(event, get_response):
+    # event is a Chalice Request object
+    request_id = event.context.get('requestId', 'N/A')
+    
+    # Add request ID to persistent logger context
+    logger.append_keys(request_id=request_id)
+    
+    response = get_response(event)
+    return response
 
 @app.route('/model', cors=True, methods=['POST'], authorizer=authorizer)
 def register_model():
@@ -77,11 +90,11 @@ def register_model():
     try:
         model = json.loads(app.current_request.raw_body.decode())
 
-        validate(instance=model, schema=API_SCHEMA["register_model"])
+        validate(event=model, schema=API_SCHEMA["register_model"])
 
-        print("Got a valid model schema")
+        logger.info("Got a valid model schema")
 
-        print("Adding all the Content Group values passed in the request to the 'ContentGroup' DynamoDB table")
+        logger.info("Adding all the Content Group values passed in the request to the 'ContentGroup' DynamoDB table")
 
         ddb_resource.batch_write_item(
             RequestItems={
@@ -102,12 +115,12 @@ def register_model():
         )
 
         if "Item" not in response:
-            print(f"Registering a new model endpoint '{name}'")
+            logger.info(f"Registering a new model endpoint '{name}'")
             latest_version = 0
             higher_version = 1
 
         else:
-            print(f"Publishing a new version of the model endpoint '{name}'")
+            logger.info(f"Publishing a new version of the model endpoint '{name}'")
             latest_version = response["Item"]["Latest"]
             higher_version = int(latest_version) + 1
 
@@ -169,17 +182,17 @@ def register_model():
             ]
         )
 
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
-
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except Exception as e:
-        print(f"Unable to register or publish a new version of the Machine Learning model endpoint: {str(e)}")
+        logger.info(f"Unable to register or publish a new version of the Machine Learning model endpoint: {str(e)}")
         raise ChaliceViewError(
             f"Unable to register or publish a new version of the Machine Learning model endpoint: {str(e)}")
 
     else:
-        print(
+        logger.info(
             f"Successfully registered or published a new version of the Machine Learning model endpoint: {json.dumps(model)}")
 
         return {
@@ -220,7 +233,7 @@ def list_models():
         500 - ChaliceViewError
     """
     try:
-        print("Listing the latest version of all the Machine Learning model endpoints")
+        logger.info("Listing the latest version of all the Machine Learning model endpoints")
 
         query_params = app.current_request.query_params
 
@@ -250,7 +263,7 @@ def list_models():
             models.extend(response["Items"])
 
     except Exception as e:
-        print(f"Unable to list the latest version of all the Machine Learning model endpoints: {str(e)}")
+        logger.info(f"Unable to list the latest version of all the Machine Learning model endpoints: {str(e)}")
         raise ChaliceViewError(
             f"Unable to list the latest version of all the Machine Learning model endpoints: {str(e)}")
 
@@ -292,7 +305,9 @@ def list_models_by_pluginclass(plugin_class):
     try:
         plugin_class = urllib.parse.unquote(plugin_class)
 
-        print(
+        validate_path_parameters({"PluginClass": plugin_class})
+
+        logger.info(
             f"Listing the latest version of all the Machine Learning model endpoints for plugin class '{plugin_class}'")
 
         query_params = app.current_request.query_params
@@ -322,8 +337,12 @@ def list_models_by_pluginclass(plugin_class):
 
             models.extend(response["Items"])
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to list the latest version of all the Machine Learning model endpoints for plugin class '{plugin_class}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to list the latest version of all the Machine Learning model endpoints for plugin class '{plugin_class}': {str(e)}")
@@ -366,7 +385,9 @@ def list_models_by_contentgroup(content_group):
     try:
         content_group = urllib.parse.unquote(content_group)
 
-        print(
+        validate_path_parameters({"ContentGroup": content_group})
+
+        logger.info(
             f"Listing the latest version of all the Machine Learning model endpoints for content group '{content_group}'")
 
         query_params = app.current_request.query_params
@@ -396,8 +417,12 @@ def list_models_by_contentgroup(content_group):
 
             models.extend(response["Items"])
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to list the latest version of all the Machine Learning model endpoints for content group '{content_group}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to list the latest version of all the Machine Learning model endpoints for content group '{content_group}': {str(e)}")
@@ -442,7 +467,9 @@ def list_models_by_pluginclass_and_contentgroup(plugin_class, content_group):
         plugin_class = urllib.parse.unquote(plugin_class)
         content_group = urllib.parse.unquote(content_group)
 
-        print(
+        validate_path_parameters({"PluginClass": plugin_class, "ContentGroup": content_group})
+
+        logger.info(
             f"Listing all the Machine Learning model endpoints for plugin class '{plugin_class}' and content group '{content_group}'")
 
         query_params = app.current_request.query_params
@@ -474,8 +501,12 @@ def list_models_by_pluginclass_and_contentgroup(plugin_class, content_group):
 
             models.extend(response["Items"])
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to list the latest version of all the Machine Learning model endpoints for plugin class '{plugin_class}' and content group '{content_group}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to list the latest version of all the Machine Learning model endpoints for plugin class '{plugin_class}' and content group '{content_group}': {str(e)}")
@@ -511,8 +542,9 @@ def get_model_by_name(name):
     """
     try:
         name = urllib.parse.unquote(name)
+        validate_path_parameters({"Name": name})
 
-        print(f"Getting the latest version of the Machine Learning model endpoint '{name}'")
+        logger.info(f"Getting the latest version of the Machine Learning model endpoint '{name}'")
 
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
@@ -527,12 +559,16 @@ def get_model_by_name(name):
         if "Item" not in response:
             raise NotFoundError(f"Machine Learning model endpoint '{name}' not found")
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to get the latest version of the Machine Learning model endpoint '{name}': {str(e)}")
+        logger.info(f"Unable to get the latest version of the Machine Learning model endpoint '{name}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the latest version of the Machine Learning model endpoint '{name}': {str(e)}")
 
@@ -569,7 +605,7 @@ def get_model_by_name_and_version(name, version):
         name = urllib.parse.unquote(name)
         version = urllib.parse.unquote(version)
 
-        print(f"Getting the Machine Learning model endpoint '{name}' with version '{version}'")
+        logger.info(f"Getting the Machine Learning model endpoint '{name}' with version '{version}'")
 
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
@@ -584,12 +620,16 @@ def get_model_by_name_and_version(name, version):
         if "Item" not in response:
             raise NotFoundError(f"Machine Learning model endpoint '{name}' with version '{version}' not found")
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to get the Machine Learning model endpoint '{name}' with version '{version}': {str(e)}")
+        logger.info(f"Unable to get the Machine Learning model endpoint '{name}' with version '{version}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to get the Machine Learning model endpoint '{name}' with version '{version}': {str(e)}")
 
@@ -628,7 +668,9 @@ def list_model_versions(name):
     try:
         name = urllib.parse.unquote(name)
 
-        print(f"Getting all the versions of the model '{name}'")
+        validate_path_parameters({"Name": name})
+
+        logger.info(f"Getting all the versions of the model '{name}'")
 
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
@@ -657,12 +699,16 @@ def list_model_versions(name):
                 versions.pop(index)
                 break
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+    
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to list the versions of the Machine Learning model '{name}': {str(e)}")
+        logger.info(f"Unable to list the versions of the Machine Learning model '{name}': {str(e)}")
         raise ChaliceViewError(f"Unable to list the versions of the Machine Learning model '{name}': {str(e)}")
 
     else:
@@ -693,13 +739,16 @@ def update_model_status(name):
     """
     try:
         name = urllib.parse.unquote(name)
+
+        validate_path_parameters({"Name": name})
+
         status = json.loads(app.current_request.raw_body.decode())
 
-        validate(instance=status, schema=API_SCHEMA["update_status"])
+        validate(event=status, schema=API_SCHEMA["update_status"])
 
-        print("Got a valid status schema")
+        logger.info("Got a valid status schema")
 
-        print(f"Updating the status of the latest version of Machine Learning model endpoint '{name}'")
+        logger.info(f"Updating the status of the latest version of Machine Learning model endpoint '{name}'")
 
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
@@ -749,12 +798,12 @@ def update_model_status(name):
             }
         )
 
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise NotFoundError(
                 f"Machine Learning model endpoint '{name}' with latest version '{latest_version}' not found")
@@ -762,7 +811,7 @@ def update_model_status(name):
             raise
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to update the status of the latest version of Machine Learning model endpoint '{name}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to update the status of the latest version of Machine Learning model endpoint '{name}': {str(e)}")
@@ -796,13 +845,16 @@ def update_model_version_status(name, version):
     try:
         name = urllib.parse.unquote(name)
         version = urllib.parse.unquote(version)
+
+        validate_path_parameters({"Name": name, "Version": version})
+
         status = json.loads(app.current_request.raw_body.decode())
 
-        validate(instance=status, schema=API_SCHEMA["update_status"])
+        validate(event=status, schema=API_SCHEMA["update_status"])
 
-        print("Got a valid status schema")
+        logger.info("Got a valid status schema")
 
-        print(f"Updating the status of the Machine Learning model endpoint '{name}' with version '{version}'")
+        logger.info(f"Updating the status of the Machine Learning model endpoint '{name}' with version '{version}'")
 
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
@@ -823,19 +875,19 @@ def update_model_version_status(name, version):
             }
         )
 
-    except ValidationError as e:
-        print(f"Got jsonschema ValidationError: {str(e)}")
-        raise BadRequestError(e.message)
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise NotFoundError(f"Machine Learning model endpoint '{name}' with version '{version}' not found")
         else:
             raise
 
     except Exception as e:
-        print(
+        logger.info(
             f"Unable to update the status of the Machine Learning model endpoint '{name}' with version '{version}': {str(e)}")
         raise ChaliceViewError(
             f"Unable to update the status of the Machine Learning model endpoint '{name}' with version '{version}': {str(e)}")
@@ -860,7 +912,9 @@ def delete_model(name):
     try:
         name = urllib.parse.unquote(name)
 
-        print(f"Deleting the Machine Learning model endpoint '{name}' and all its versions")
+        validate_path_parameters({"Name": name})
+
+        logger.info(f"Deleting the Machine Learning model endpoint '{name}' and all its versions")
 
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
@@ -892,17 +946,21 @@ def delete_model(name):
                     }
                 )
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(f"Unable to delete the Machine Learning model endpoint '{name}' and its versions: {str(e)}")
+        logger.info(f"Unable to delete the Machine Learning model endpoint '{name}' and its versions: {str(e)}")
         raise ChaliceViewError(
             f"Unable to delete the Machine Learning model endpoint '{name}' and its versions: {str(e)}")
 
     else:
-        print(f"Deletion of Machine Learning model endpoint '{name}' and its versions successful")
+        logger.info(f"Deletion of Machine Learning model endpoint '{name}' and its versions successful")
         return {}
 
 
@@ -928,6 +986,8 @@ def delete_model_version(name, version):
         name = urllib.parse.unquote(name)
         version = urllib.parse.unquote(version)
 
+        validate_path_parameters({"Name": name, "Version": version})
+
         model_table = ddb_resource.Table(MODEL_TABLE_NAME)
 
         response = model_table.get_item(
@@ -943,7 +1003,7 @@ def delete_model_version(name, version):
 
         latest_version = "v" + str(response["Item"]["Latest"])
 
-        print(f"Deleting version '{version}' of the model '{name}'")
+        logger.info(f"Deleting version '{version}' of the model '{name}'")
 
         response = model_table.delete_item(
             Key={
@@ -964,12 +1024,16 @@ def delete_model_version(name, version):
         if "Attributes" not in response:
             raise NotFoundError(f"Machine Learning model '{name}' with version '{version}' not found")
 
+    except SchemaValidationError as e:
+        logger.info(f"ValidationError: {e.validation_message}")
+        raise BadRequestError(f"ValidationError: {str(e.validation_message)}")
+
     except NotFoundError as e:
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except ClientError as e:
-        print(f"Got DynamoDB ClientError: {str(e)}")
+        logger.info(f"Got DynamoDB ClientError: {str(e)}")
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             if version == "v0":
                 raise BadRequestError("Deletion of version 'v0' of the model is prohibited")
@@ -980,9 +1044,12 @@ def delete_model_version(name, version):
             raise
 
     except Exception as e:
-        print(f"Unable to delete version '{version}' of the Machine Learning model '{name}': {str(e)}")
+        logger.info(f"Unable to delete version '{version}' of the Machine Learning model '{name}': {str(e)}")
         raise ChaliceViewError(f"Unable to delete version '{version}' of the Machine Learning model '{name}': {str(e)}")
 
     else:
-        print(f"Deletion of version '{version}' of the Machine Learning model '{name}' successful")
+        logger.info(f"Deletion of version '{version}' of the Machine Learning model '{name}' successful")
         return {}
+
+def validate_path_parameters(params: dict):
+    validate(event=params, schema=API_SCHEMA["model_path_validation"])

@@ -145,6 +145,8 @@ def lambda_handler(event, context):
     p_event_start = event["Event"]["Start"]
     generate_orig_clips = event["Event"]["GenerateOrigClips"] if "GenerateOrigClips" in event["Event"] else True
     generate_opto_clips = event["Event"]["GenerateOptoClips"] if "GenerateOptoClips" in event["Event"] else True
+    generate_orig_thumbnails = event["Event"]["GenerateOrigThumbNails"]
+    generate_opto_thumbnails = event["Event"]["GenerateOptoThumbNails"]
     audio_tracks = event["Event"]["AudioTracks"] if "AudioTracks" in event["Event"] else []
     execution_id = event["Input"]["ExecutionId"]
     bucket = event["Input"]["Media"]["S3Bucket"]
@@ -249,6 +251,8 @@ def lambda_handler(event, context):
                 "TimecodeSource": timecode_source,
                 "GenerateOrigClips": generate_orig_clips,
                 "GenerateOptoClips": generate_opto_clips,
+                "GenerateOrigThumbNails": generate_orig_thumbnails,
+                "GenerateOptoThumbNails": generate_opto_thumbnails,
                 "AudioTracks": audio_tracks
             },
             "Input": {

@@ -5,10 +5,13 @@
 chalice.out
 **/.chalice/deployments/
 **/.chalice/venv/
+.venv/
 venv/
 .aws-sam
 .idea/
 .vscode
+.python-version
+.tool-versions
 *.DS_Store
 
 node_modules/
@@ -16,7 +19,7 @@ source/frontend/build/
 source/frontend/mre-frontend/
 source/frontend/package-lock.json
 
-.env*
+.env
 *.py-e
 ffmpeg.zip
 ffprobe.zip
@@ -31,6 +34,7 @@ source/lib/*/dist/
 deployment/lambda_layer_factory/*.whl
 deployment/lambda_layer_factory/*.zip
 deployment/lambda_layer_factory/requirements.txt
+build-lambda-layer.log
 
 # Samples directory
 samples/source/*/package/

@@ -7,18 +7,19 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_events as events,
     aws_events_targets as events_targets,
-    lambda_layer_awscli as awscli
+    lambda_layer_awscli as awscli,
 )
 from cdk_nag import NagSuppressions
 
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
-sys.path.append('../../../')
+sys.path.append("../../../")
 
 
 from shared.infrastructure.helpers import common
 
 RUNTIME_SOURCE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), os.pardir, 'runtime')
+    os.path.dirname(os.path.dirname(__file__)), os.pardir, "runtime"
+)
 
 
 class MreDataExporter(Stack):
@@ -31,19 +32,33 @@ class MreDataExporter(Stack):
 
         # Get MediaConvert Bucket Name from SSM
         self.data_export_bucket_name = common.MreCdkCommon.get_data_export_bucket_name()
-        self.segment_cache_bucket_name = common.MreCdkCommon.get_segment_cache_bucket_name(self)
+        self.segment_cache_bucket_name = (
+            common.MreCdkCommon.get_segment_cache_bucket_name(self)
+        )
 
         # Get Layers
-        self.mre_workflow_helper_layer = common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
-        self.mre_plugin_helper_layer = common.MreCdkCommon.get_mre_plugin_helper_layer_from_arn(self)
-
-
+        self.mre_workflow_helper_layer = (
+            common.MreCdkCommon.get_mre_workflow_helper_layer_from_arn(self)
+        )
+        self.mre_plugin_helper_layer = (
+            common.MreCdkCommon.get_mre_plugin_helper_layer_from_arn(self)
+        )
 
         ### START: event-data_export-generator LAMBDA ###
         self.event_data_export_lambda_role = iam.Role(
             self,
             "MREEventDataExportIamRole",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+        )
+
+        self.event_data_export_lambda_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["logs:CreateLogStream", "logs:PutLogEvents"],
+                resources=[
+                    f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:/aws/lambda/{Stack.of(self).stack_name}-Mre-EventDataExportGenerator*",
+                ],
+            )
         )
 
         self.event_data_export_lambda_role.add_to_policy(
@@ -51,49 +66,38 @@ class MreDataExporter(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "logs:CreateLogGroup",
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
                 ],
                 resources=[
                     f"arn:aws:logs:{Stack.of(self).region}:{Stack.of(self).account}:log-group:*"
-                ]
+                ],
             )
         )
 
         self.event_data_export_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "events:DescribeEventBus",
-                    "events:PutEvents"
-                ],
+                actions=["events:DescribeEventBus", "events:PutEvents"],
                 resources=[
                     f"arn:aws:events:{Stack.of(self).region}:{Stack.of(self).account}:event-bus/{self.event_bus.event_bus_name}"
-                ]
+                ],
             )
         )
-
 
         self.event_data_export_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "s3:GetObject",
-                    "s3:PutObject"
-                ],
-                resources=[f"arn:aws:s3:::{self.data_export_bucket_name}/*"]
+                actions=["s3:GetObject", "s3:PutObject"],
+                resources=[f"arn:aws:s3:::{self.data_export_bucket_name}/*"],
             )
         )
 
-        
         self.event_data_export_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "execute-api:Invoke",
-                    "execute-api:ManageConnections"
+                actions=["execute-api:Invoke", "execute-api:ManageConnections"],
+                resources=[
+                    f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"
                 ],
-                resources=[f"arn:aws:execute-api:{Stack.of(self).region}:{Stack.of(self).account}:*"]
             )
         )
 
@@ -103,9 +107,11 @@ class MreDataExporter(Stack):
                 actions=[
                     "ssm:DescribeParameters",
                     "ssm:GetParameter",
-                    "ssm:GetParameters"
+                    "ssm:GetParameters",
                 ],
-                resources=[f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"]
+                resources=[
+                    f"arn:aws:ssm:{Stack.of(self).region}:{Stack.of(self).account}:parameter/MRE*"
+                ],
             )
         )
 
@@ -124,60 +130,85 @@ class MreDataExporter(Stack):
                 "EB_EVENT_BUS_NAME": self.event_bus.event_bus_name,
                 "CACHE_BUCKET_NAME": self.segment_cache_bucket_name,
             },
-            layers=[self.mre_workflow_helper_layer, self.mre_plugin_helper_layer]
+            layers=[self.mre_workflow_helper_layer, self.mre_plugin_helper_layer],
         )
-        self.event_data_export_lambda.add_layers(awscli.AwsCliLayer(self, "AwsCliLayer"))
+        self.event_data_export_lambda.add_layers(
+            awscli.AwsCliLayer(self, "AwsCliLayer")
+        )
 
-
-        
         ### END: event-data_export-generator LAMBDA ###
 
         self.mre_event_data_export_rule = events.Rule(
             self,
             "MREEventDataExportRule",
             description="Rule that captures the MRE Lifecycle Event CLIP_GEN_DONE, CLIP_GEN_DONE_WITH_CLIPS, REPLAY_PROCESSED_WITH_CLIP and REPLAY_PROCESSED - Data Export",
-            enabled=True,
+            enabled=False,
             event_bus=self.event_bus,
             event_pattern=events.EventPattern(
                 source=["awsmre"],
                 detail={
-                    "State":  ["CLIP_GEN_DONE", "REPLAY_PROCESSED", "REPLAY_PROCESSED_WITH_CLIP"]
-                }
+                    "State": [
+                        "CLIP_GEN_DONE",
+                        "REPLAY_PROCESSED",
+                        "REPLAY_PROCESSED_WITH_CLIP",
+                    ]
+                },
             ),
             targets=[
-                events_targets.LambdaFunction(
-                    handler=self.event_data_export_lambda
-                )
-            ]
+                events_targets.LambdaFunction(handler=self.event_data_export_lambda)
+            ],
         )
         self.mre_event_data_export_rule.node.add_dependency(self.event_bus)
-        self.mre_event_data_export_rule.node.add_dependency(self.event_data_export_lambda)
-
+        self.mre_event_data_export_rule.node.add_dependency(
+            self.event_data_export_lambda
+        )
 
         # cdk-nag suppressions
         NagSuppressions.add_stack_suppressions(
             self,
             [
-                
                 {
                     "id": "AwsSolutions-IAM5",
-                    "reason": "Chalice role policy requires wildcard permissions for CloudWatch logging, mediaconvert, eventbus, s3",
+                    "reason": "Lambda logging requires access to CloudWatch log groups",
                     "appliesTo": [
-                        
-                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
-                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*",
-                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus",
-                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*",
+                        f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:/aws/lambda/{Stack.of(self).stack_name}-Mre-EventDataExportGenerator*",
+                        "Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Wildcard permissions required for SSM parameter access",
+                    "appliesTo": [
+                        "Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter/MRE*"
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Wildcard permissions required for EventBridge event bus",
+                    "appliesTo": [
+                        "Resource::arn:aws:events:*:*:event-bus/aws-mre-event-bus"
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Wildcard permissions required for API Gateway execution",
+                    "appliesTo": [
+                        "Resource::arn:aws:execute-api:<AWS::Region>:<AWS::AccountId>:*"
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Wildcard permissions required for S3 bucket access",
+                    "appliesTo": [
                         {
                             "regex": "/^Resource::arn:aws:s3:::mre*\/*/",
                         },
                         {
                             "regex": "/^Resource::arn:aws:s3:::aws-mre-shared*\/*/",
-                        }
-                        
-                    ]
-                }
-            ]
+                        },
+                    ],
+                },
+            ],
         )
 
         NagSuppressions.add_resource_suppressions_by_path(
@@ -186,10 +217,7 @@ class MreDataExporter(Stack):
             [
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "Mre-EventDataExportGenerator is on the appropriate runtime version as determined by the MRE Dev team"
+                    "reason": "Mre-EventDataExportGenerator is on the appropriate runtime version as determined by the MRE Dev team",
                 }
-            ]
+            ],
         )
-
-        
-    

@@ -14,6 +14,7 @@ from requests_aws4auth import AWS4Auth
 from chalice import ChaliceViewError, BadRequestError, NotFoundError, ConflictError
 from chalice import Response
 from enum import Enum
+import time
 
 # from aws_requests_auth.aws_auth import AWSRequestsAuth
 class ApiUrlType(Enum):
@@ -54,16 +55,24 @@ get_endpoint_urls_from_ssm()
 CONTROLPLANE_ENDPOINT = get_controlplane_url()
 DATAPLANE_ENDPOINT = get_dataplane_url()
 
-def get_iam_auth():
-    return AWS4Auth(
-        os.environ['AWS_ACCESS_KEY_ID'],
-        os.environ['AWS_SECRET_ACCESS_KEY'],
-        os.environ['AWS_REGION'],
-        'execute-api',
-        session_token=os.getenv('AWS_SESSION_TOKEN')
-    )
-
-
+def get_iam_auth(valid_auth: bool):
+    if valid_auth:
+        return AWS4Auth(
+            os.environ['AWS_ACCESS_KEY_ID'],
+            os.environ['AWS_SECRET_ACCESS_KEY'],
+            os.environ['AWS_REGION'],
+            'execute-api',
+            session_token=os.getenv('AWS_SESSION_TOKEN')
+        ) 
+    else:
+        return AWS4Auth(
+            os.environ['AWS_ACCESS_KEY_ID'][:-1],
+            os.environ['AWS_SECRET_ACCESS_KEY'],
+            os.environ['AWS_REGION'],
+            'execute-api',
+            session_token=os.getenv('AWS_SESSION_TOKEN')[:-1]
+        )
+    
 # The following functions derive keys for the request. For more information, see
 # http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-python.
 def sign(key, msg):
@@ -89,7 +98,7 @@ def get_error_message(error_response):
     else:
         return error_response
 
-def call_api(path, api_method, api_body=None, api_headers=None, uri_params=None, api_url=ApiUrlType.CONTROL_PLANE):
+def call_api(path, api_method, api_body=None, api_headers=None, uri_params=None, api_url=ApiUrlType.CONTROL_PLANE, valid_auth=True):
     try:
         url = CONTROLPLANE_ENDPOINT + path if api_url == ApiUrlType.CONTROL_PLANE else DATAPLANE_ENDPOINT + path
 
@@ -101,7 +110,7 @@ def call_api(path, api_method, api_body=None, api_headers=None, uri_params=None,
             res = requests.request(
                 method=api_method,
                 url=f"{url}",
-                auth=get_iam_auth()
+                auth=get_iam_auth(valid_auth)
             )
 
             if api_headers:
@@ -119,7 +128,7 @@ def call_api(path, api_method, api_body=None, api_headers=None, uri_params=None,
                 url=f"{url}",
                 headers=api_headers,
                 data=api_body,
-                auth=get_iam_auth()
+                auth=get_iam_auth(valid_auth)
             )
 
         res.raise_for_status()

@@ -15,15 +15,31 @@ from chalicelib.metadata import metadata_api
 from chalicelib.replay import replay_api
 from chalicelib.segment import segment_api
 from chalicelib.workflow import workflow_api
+from chalicelib.chunk import chunk_api
+from aws_lambda_powertools import Logger
 
-
+logger = Logger(service="aws-mre-dataplane-api")
 app = Chalice(app_name='aws-mre-dataplane-api')
+
+# Create middleware to inject request context
+@app.middleware('all')
+def inject_request_context(event, get_response):
+    # event is a Chalice Request object
+    request_id = event.context.get('requestId', 'N/A')
+    
+    # Add request ID to persistent logger context
+    logger.append_keys(request_id=request_id)
+    
+    response = get_response(event)
+    return response
+
 
 app.register_blueprint(plugin_api)
 app.register_blueprint(metadata_api)
 app.register_blueprint(replay_api)
 app.register_blueprint(segment_api)
 app.register_blueprint(workflow_api)
+app.register_blueprint(chunk_api)
 
 API_VERSION = '1.0.0'
 authorizer = IAMAuthorizer()
@@ -67,7 +83,7 @@ def get_manifest_content(bucket, key, version):
     key = urllib.parse.unquote(key)
     version = urllib.parse.unquote(version)
 
-    print(f"Getting the HLS Manifest (.m3u8) file content from bucket={bucket} with key={key} and versionId={version}")
+    logger.info(f"Getting the HLS Manifest (.m3u8) file content from bucket={bucket} with key={key} and versionId={version}")
 
     try:
         response = s3_client.get_object(
@@ -78,11 +94,11 @@ def get_manifest_content(bucket, key, version):
 
     except ClientError as e:
         error = e.response['Error']['Message']
-        print(f"Unable to get the HLS Manifest file content from S3: {str(error)}")
+        logger.info(f"Unable to get the HLS Manifest file content from S3: {str(error)}")
         raise ChaliceViewError(f"Unable to get the HLS Manifest file content from S3: {str(error)}")
 
     except Exception as e:
-        print(f"Unable to get the HLS Manifest file content from S3: {str(e)}")
+        logger.info(f"Unable to get the HLS Manifest file content from S3: {str(e)}")
         raise ChaliceViewError(f"Unable to get the HLS Manifest file content from S3: {str(e)}")
 
     else:
@@ -104,7 +120,7 @@ def get_media_presigned_url(bucket, key):
     bucket = urllib.parse.unquote(bucket)
     key = urllib.parse.unquote(key)
 
-    print(
+    logger.info(
         f"Generating S3 pre-signed URL for downloading the media file content from bucket '{bucket}' with key '{key}'")
 
     s3 = boto3.client('s3', config=Config(signature_version='s3v4', s3={'addressing_style': 'virtual'}))
@@ -120,14 +136,14 @@ def get_media_presigned_url(bucket, key):
         )
 
     except ClientError as e:
-        print(f"Got S3 ClientError: {str(e)}")
+        logger.info(f"Got S3 ClientError: {str(e)}")
         error = e.response['Error']['Message']
-        print(f"Unable to generate S3 pre-signed URL for bucket '{bucket}' with key '{key}': {str(error)}")
+        logger.info(f"Unable to generate S3 pre-signed URL for bucket '{bucket}' with key '{key}': {str(error)}")
         raise ChaliceViewError(
             f"Unable to generate S3 pre-signed URL for bucket '{bucket}' with key '{key}': {str(error)}")
 
     except Exception as e:
-        print(f"Unable to generate S3 pre-signed URL for bucket '{bucket}' with key '{key}': {str(e)}")
+        logger.info(f"Unable to generate S3 pre-signed URL for bucket '{bucket}' with key '{key}': {str(e)}")
         raise ChaliceViewError(f"Unable to generate S3 pre-signed URL for bucket '{bucket}' with key '{key}': {str(e)}")
 
     else:

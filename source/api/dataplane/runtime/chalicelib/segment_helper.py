@@ -1,16 +1,19 @@
 # Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import json
-import urllib.parse
-import boto3
 import decimal
+import json
+import os
+import urllib.parse
 from decimal import Decimal
+
+import boto3
+from boto3.dynamodb.conditions import Attr, Key
 from chalice import ChaliceViewError, NotFoundError
-from boto3.dynamodb.conditions import Key, Attr
 from chalicelib import replace_decimals
-from chalicelib.common import populate_segment_data_matching, create_signed_url
+from chalicelib.common import create_signed_url, populate_segment_data_matching
+from aws_lambda_powertools import Logger
+
 
 PLUGIN_RESULT_TABLE_NAME = os.environ['PLUGIN_RESULT_TABLE_NAME']
 CLIP_PREVIEW_FEEDBACK_TABLE_NAME = os.environ['CLIP_PREVIEW_FEEDBACK_TABLE_NAME']
@@ -18,8 +21,7 @@ CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX = os.environ[
     'CLIP_PREVIEW_FEEDBACK_PROGRAM_EVENT_CLASSIFIER_START_INDEX']
 
 ddb_resource = boto3.resource("dynamodb")
-s3_client = boto3.client("s3")
-
+logger = Logger(service="aws-mre-dataplane-api")
 
 def get_event_segment_metadata_v2(name, program, classifier, tracknumber, segment_api):
     """
@@ -104,13 +106,13 @@ def get_event_segment_metadata_v2(name, program, classifier, tracknumber, segmen
         final_response['Segments'] = clip_info
 
     except NotFoundError as e:
-        print(e)
-        print(f"Got chalice NotFoundError: {str(e)}")
+        logger.info(e)
+        logger.info(f"Got chalice NotFoundError: {str(e)}")
         raise
 
     except Exception as e:
-        print(e)
-        print(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
+        logger.info(e)
+        logger.info(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
         raise ChaliceViewError(f"Unable to get the Event '{name}' in Program '{program}': {str(e)}")
 
     else:
@@ -203,7 +205,7 @@ def get_clip_metadata(name, program, start, duration, tracknumber, classifier, m
 
 
     except Exception as e:
-        print(f"Unable to retrieve Plugin results '{name}' in Program '{program}': {str(e)}")
+        logger.info(f"Unable to retrieve Plugin results '{name}' in Program '{program}': {str(e)}")
         raise ChaliceViewError(e)
 
     else:
@@ -337,15 +339,12 @@ def get_clip_signed_url(startTime, event, program, classifier, audioTrack, mode)
         ScanIndexForward=True
     )
 
-    # print(f"inside get_clip_signed_url - {replace_decimals(plugin_response['Items'])}")
+    # logger.info(f"inside get_clip_signed_url - {replace_decimals(plugin_response['Items'])}")
     for res in replace_decimals(plugin_response['Items']):
-        # if res['Start'] == startTime:
         if mode == 'Original':
-            return create_signed_url(res['OriginalClipLocation'][str(audioTrack)]) if len(
-                res['OriginalClipLocation']) > 0 else ""
+            return create_signed_url(res['OriginalClipLocation'][str(audioTrack)]) if len(res['OriginalClipLocation'][str(audioTrack)]) > 0 else ""
         else:
-            return create_signed_url(res['OptimizedClipLocation'][str(audioTrack)]) if len(
-                res['OptimizedClipLocation']) > 0 else ""
+            return create_signed_url(res['OptimizedClipLocation'][str(audioTrack)]) if len(res['OptimizedClipLocation'][str(audioTrack)]) > 0 else ""
 
     return ""
 

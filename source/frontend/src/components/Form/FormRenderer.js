@@ -13,7 +13,7 @@ import {
     Paper, Radio,
     RadioGroup,
     TextField, Typography,
-    Chip
+    Chip,
 } from "@material-ui/core";
 
 import Grid from "@material-ui/core/Grid";
@@ -35,6 +35,7 @@ import {FormSelect} from "./Components/FormSelect";
 import {ProfilePluginsFormWrapper} from "../../containers/Profile/Forms/ProfilePluginsFormWrapper";
 import {APIHandler} from "../../common/APIHandler/APIHandler";
 import Tooltip from '@material-ui/core/Tooltip';
+import ReactDiffViewer, {DiffMethod} from 'react-diff-viewer';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -55,6 +56,14 @@ const useStyles = makeStyles((theme) => ({
         zIndex: theme.zIndex.drawer + 1,
         color: '#fff',
     },
+    label: {
+        color: "rgba(255, 255, 255, 0.7)",
+        padding: 0,
+        fontSize: "1em",
+        fontFamily: "AmazonEmberMedium",
+        fontWeight: 400,
+        lineHeight: 1,
+      }
 }));
 
 
@@ -101,7 +110,7 @@ export const FormRenderer = (props) => {
         onOutputAttributesRowChange,
         updateTwoStates,
         handleNestedInputValue
-    } = FormHandler({postFunction: query, url: props.name, handleAfterRequestSuccess}, props.initialFormValues, props.inputFieldsMap);
+    } = FormHandler({postFunction: query, url: props.name.toLowerCase(), handleAfterRequestSuccess}, props.initialFormValues, props.inputFieldsMap);
 
     const renderComponent = (componentName, componentParameters) => {
         if (componentName === "ProfilePluginsFormWrapper")
@@ -187,10 +196,65 @@ export const FormRenderer = (props) => {
                                                             })}
                                                         />
                                                     </Grid>
-                                                </Grid> : inputFieldValue.type === "selectWithChips" ?
+                                                </Grid> 
+                                            : inputFieldValue.type === "textFieldWithDiff" ?
+                                                <Grid item container direction="column" key={`head-${index}`}>
+                                                    <Grid item key={`label-${index}`}>
+                                                        <FormLabel
+                                                            required={inputFieldValue.isRequired}>{inputFieldValue.label}</FormLabel>
+                                                        {
+                                                            inputFieldValue.displayHelp && 
+                                                            <Tooltip title={inputFieldValue.helpText} >
+                                                                <InfoIcon 
+                                                                    style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", "marginLeft" : "5px"}}
+                                                                />
+                                                            </Tooltip>
+                                                        }
+                                                    </Grid>
+                                                    <Grid item container direction="column" key={`head-${index}`}>
+                                                        <Grid item sm={inputFieldValue.size || 10} key={`grid-${index}`}>
+                                                            <TextField
+                                                                className={classes.field}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                fullWidth
+                                                                type={inputFieldValue.textFieldType || "text"}
+                                                                value={values[inputFieldValue.name]}
+                                                                onChange={(e) => {
+                                                                    handleInputValue(e, inputFieldValue.textFieldType)
+                                                                    inputFieldValue.onChange?.(e)
+                                                                }}
+                                                                name={inputFieldValue.name}
+                                                                multiline={inputFieldValue.multiline ?? false}
+                                                                rows={inputFieldValue.rows ?? 1}
+                                                                disabled={inputFieldValue.isDisabled}
+                                                                {...(errors[inputFieldValue.name] && {
+                                                                    error: true,
+                                                                    helperText: errors[inputFieldValue.name]
+                                                                })}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item sm={inputFieldValue.size || 10} style={{marginTop: "20px"}} key={`grid-${index}`}>
+                                                            <label className={classes.label}>{inputFieldValue.name} Diff View</label>
+                                                            <ReactDiffViewer 
+                                                                oldValue={inputFieldValue.oldText} 
+                                                                newValue={values[inputFieldValue.name]} 
+                                                                splitView={true} 
+                                                                useDarkTheme={true} 
+                                                                compareMethod={DiffMethod.WORDS}
+                                                                showDiffOnly={true}
+                                                                extraLinesSurroundingDiff={1}
+                                                                hideLineNumbers={true}
+                                                                leftTitle={`Version ${inputFieldValue.previousVersion}`}
+                                                                rightTitle={`Version ${props.version}`}
+                                                            />
+                                                        </Grid>
+                                                    </Grid>
+                                                </Grid> 
+                                            : inputFieldValue.type === "selectWithChips" ?
                                                 <Grid item container key={`${inputFieldValue.type}-${index}`}
-                                                      direction="row" spacing={3}
-                                                      alignItems="center">
+                                                    direction="row" spacing={3}
+                                                    alignItems="center">
                                                     <Grid item sm={12}>
                                                         <MultiSelectWithChips
                                                             label={inputFieldValue.label}
@@ -210,132 +274,138 @@ export const FormRenderer = (props) => {
                                                         />
                                                     </Grid>
 
-                                                </Grid> : inputFieldValue.type === "select" ?
-                                                    <Grid item sm={12} key={`${inputFieldValue.type}-${index}`}
-                                                          direction="row" spacing={3}
-                                                          alignItems="center">
-                                                        <FormSelect details={inputFieldValue}
-                                                                    handleInputValue={handleInputValue}
-                                                                    customOnChange={customOnChange}
-                                                                    values={values}
+                                                </Grid> 
+                                            : inputFieldValue.type === "select" ?
+                                                <Grid item sm={12} key={`${inputFieldValue.type}-${index}`}
+                                                        direction="row" spacing={3}
+                                                        alignItems="center">
+                                                    <FormSelect details={inputFieldValue}
+                                                                handleInputValue={handleInputValue}
+                                                                customOnChange={customOnChange}
+                                                                values={values}
+                                                    />
+                                                </Grid> 
+                                            : inputFieldValue.type === "radio" ?
+                                                <Grid item sm={8} key={`${inputFieldValue.type}-${index}`}>
+                                                    <FormControl>
+                                                        <FormLabel
+                                                            required={inputFieldValue.isRequired}>{inputFieldValue.name}</FormLabel>
+                                                        <RadioGroup name={inputFieldValue.name}
+                                                                    value={values[inputFieldValue.name]}
+                                                                    onChange={handleInputValue}
+                                                                    className={classes.radioGroup}>
+                                                            {
+                                                                _.map(inputFieldValue.options, (option, index) => {
+                                                                    return <FormControlLabel key={index}
+                                                                                                value={option}
+                                                                                                control={<Radio
+                                                                                                    size="small"
+                                                                                                    color="primary"/>}
+                                                                                                label={option}/>
+                                                                })
+                                                            }
+                                                        </RadioGroup>
+                                                    </FormControl>
+                                                </Grid>
+                                            : inputFieldValue.type === "keyValuePairs" ?
+                                                <Grid item sm={10}>
+                                                    <FormLabel
+                                                        className={classes.labelSpace}> {inputFieldValue.label}
+                                                    </FormLabel>
+                                                    <Box pt={2}>
+                                                        <KeysValuesForm
+                                                            versionValues={inputFieldValue.keyValues}
+                                                            onRowChange={onKeyValueRowChange}
+                                                            defaultKey ={inputFieldValue.name}
+                                                            defaultValue={inputFieldValue.isConfigDefault}
+                                                            defaultLocked={inputFieldValue.defaultLocked || false}
+                                                            addButtonLabel={inputFieldValue.addButtonLabel}
                                                         />
-                                                    </Grid> :
-                                                    inputFieldValue.type === "radio" ?
-                                                        <Grid item sm={8} key={`${inputFieldValue.type}-${index}`}>
-                                                            <FormControl>
-                                                                <FormLabel
-                                                                    required={inputFieldValue.isRequired}>{inputFieldValue.name}</FormLabel>
-                                                                <RadioGroup name={inputFieldValue.name}
-                                                                            value={values[inputFieldValue.name]}
-                                                                            onChange={handleInputValue}
-                                                                            className={classes.radioGroup}>
-                                                                    {
-                                                                        _.map(inputFieldValue.options, (option, index) => {
-                                                                            return <FormControlLabel key={index}
-                                                                                                     value={option}
-                                                                                                     control={<Radio
-                                                                                                         size="small"
-                                                                                                         color="primary"/>}
-                                                                                                     label={option}/>
-                                                                        })
+                                                    </Box>
+                                                </Grid>
+                                            : inputFieldValue.type === "timePicker" ?
+                                                <Grid item sm={9} key={`${inputFieldValue.type}-${index}`}>
+                                                    <FormControl>
+                                                        <FormLabel
+                                                            className={classes.labelSpace}> {inputFieldValue.label}
+                                                        </FormLabel>
+                                                        <div>
+                                                            <DateTimePicker
+                                                                onChange={(date) => {
+                                                                    if (!date) {
+                                                                        date = new Date();
                                                                     }
-                                                                </RadioGroup>
-                                                            </FormControl>
-                                                        </Grid> : inputFieldValue.type === "keyValuePairs" ?
-                                                        <Grid item sm={10} key={`${inputFieldValue.type}-${index}`}>
-                                                            <FormLabel
-                                                                className={classes.labelSpace}> {inputFieldValue.label}
-                                                            </FormLabel>
-                                                            <Box pt={2}>
-                                                                <KeysValuesForm
-                                                                    versionValues={inputFieldValue.keyValues}
-                                                                    onRowChange={onKeyValueRowChange}
-                                                                    defaultKey ={inputFieldValue.name}
-                                                                    defaultValue={inputFieldValue.isConfigDefault}
-                                                                    defaultLocked={inputFieldValue.defaultLocked || false}
-                                                                    addButtonLabel={inputFieldValue.addButtonLabel}
+                                                                    handleInputValue({
+                                                                        target: {
+                                                                            name: inputFieldValue.name,
+                                                                            value: date
+                                                                        }
+                                                                    })
+                                                                }}
+                                                                value={values[inputFieldValue.name]}
+                                                                required
+                                                                disableClock
+                                                                disableCalendar
+                                                                format="MM/dd/yyyy h:mm:ss a"
+                                                            />
+                                                        </div>
+                                                    </FormControl>
+                                                </Grid> 
+                                            : inputFieldValue.type === "checkbox" ?
+                                                <Grid item sm={8}
+                                                        key={`${inputFieldValue.type}-${index}`}>
+                                                    <FormControl>
+                                                        <Grid container direction="row"
+                                                                alignItems="center">
+                                                            <Grid item>
+                                                                <Checkbox
+                                                                    color="primary"
+                                                                    checked={values[inputFieldValue.name]}
+                                                                    onChange={(e) => {
+                                                                        handleInputValue({
+                                                                            target: {
+                                                                                name: inputFieldValue.name,
+                                                                                value: e.target.checked
+                                                                            }
+                                                                        })
+                                                                    }}
                                                                 />
-                                                            </Box>
-                                                        </Grid> : inputFieldValue.type === "timePicker" ?
-                                                            <Grid item sm={9} key={`${inputFieldValue.type}-${index}`}>
-                                                                <FormControl>
-                                                                    <FormLabel
-                                                                        className={classes.labelSpace}> {inputFieldValue.label}
-                                                                    </FormLabel>
-                                                                    <div>
-                                                                        <DateTimePicker
-                                                                            onChange={(date) => {
-                                                                                if (!date) {
-                                                                                    date = new Date();
-                                                                                }
-                                                                                handleInputValue({
-                                                                                    target: {
-                                                                                        name: inputFieldValue.name,
-                                                                                        value: date
-                                                                                    }
-                                                                                })
-                                                                            }}
-                                                                            value={values[inputFieldValue.name]}
-                                                                            required
-                                                                            disableClock
-                                                                            disableCalendar
-                                                                            format="MM/dd/yyyy h:mm:ss a"
-                                                                        />
-                                                                    </div>
-                                                                </FormControl>
-                                                            </Grid> : inputFieldValue.type === "checkbox" ?
-                                                                <Grid item sm={8}
-                                                                      key={`${inputFieldValue.type}-${index}`}>
-                                                                    <FormControl>
-                                                                        <Grid container direction="row"
-                                                                              alignItems="center">
-                                                                            <Grid item>
-                                                                                <Checkbox
-                                                                                    color="primary"
-                                                                                    checked={values[inputFieldValue.name]}
-                                                                                    onChange={(e) => {
-                                                                                        handleInputValue({
-                                                                                            target: {
-                                                                                                name: inputFieldValue.name,
-                                                                                                value: e.target.checked
-                                                                                            }
-                                                                                        })
-                                                                                    }}
-                                                                                />
-                                                                                
-                                                                            </Grid>
-                                                                            <Grid item>
-                                                                                {
-                                                                                    inputFieldValue.label
-                                                                                }
-                                                                                {
-                                                                                    inputFieldValue.displayHelp && 
-                                                                                        <Tooltip title={inputFieldValue.helpText} >
-                                                                                            <InfoIcon 
-                                                                                                style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", "marginLeft" : "5px"}}
-                                                                                            />
-                                                                                        </Tooltip>
-                                                                                }
-                                                                            </Grid>
-                                                                        </Grid>
-                                                                    </FormControl>
-                                                                </Grid> : inputFieldValue.type === "outputAttributes" ?
-                                                                    <Grid item sm={10}
-                                                                          key={`${inputFieldValue.type}-${index}`}>
-                                                                        <FormLabel
-                                                                            className={classes.labelSpace}> {inputFieldValue.name}
-                                                                        </FormLabel>
-                                                                        <Box pt={2}>
-                                                                            <OutputAttributesForm
-                                                                                originalOutputAttributes={props.outputAttributes}
-                                                                                onRowChange={onOutputAttributesRowChange}
+                                                                
+                                                            </Grid>
+                                                            <Grid item>
+                                                                {
+                                                                    inputFieldValue.label
+                                                                }
+                                                                {
+                                                                    inputFieldValue.displayHelp && 
+                                                                        <Tooltip title={inputFieldValue.helpText} >
+                                                                            <InfoIcon 
+                                                                                style={{color: "cornflowerblue", verticalAlign: "middle", cursor: "pointer", "marginLeft" : "5px"}}
                                                                             />
-                                                                        </Box>
-                                                                    </Grid> : inputFieldValue.type === "formComponent" &&
-                                                                    <Grid container item
-                                                                          key={`${inputFieldValue.type}-${index}`}>
-                                                                        {renderComponent(inputFieldValue.NestedFormRenderer, inputFieldValue.parameters)}
-                                                                    </Grid>
+                                                                        </Tooltip>
+                                                                }
+                                                            </Grid>
+                                                        </Grid>
+                                                    </FormControl>
+                                                </Grid> 
+                                            : inputFieldValue.type === "outputAttributes" ?
+                                                <Grid item sm={10}
+                                                        key={`${inputFieldValue.type}-${index}`}>
+                                                    <FormLabel
+                                                        className={classes.labelSpace}> {inputFieldValue.name}
+                                                    </FormLabel>
+                                                    <Box pt={2}>
+                                                        <OutputAttributesForm
+                                                            originalOutputAttributes={props.outputAttributes}
+                                                            onRowChange={onOutputAttributesRowChange}
+                                                        />
+                                                    </Box>
+                                                </Grid> 
+                                            : inputFieldValue.type === "formComponent" &&
+                                                <Grid container item
+                                                        key={`${inputFieldValue.type}-${index}`}>
+                                                    {renderComponent(inputFieldValue.NestedFormRenderer, inputFieldValue.parameters)}
+                                                </Grid>
                                         )
                                     }
                                 })}

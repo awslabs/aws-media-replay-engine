@@ -1,0 +1,28 @@
+Name: SegmentNewsPrompt
+Description: Prompt that can be used to generate segments with theme and summary.
+ContentGroups:
+  - News
+Template: |
+  Given the following part of a news transcription within <transcription></transcription> XML tags and the last identified theme for continuity within <last_theme></last_theme> XML tags, answer the question within <question></question> XML tags by following the instructions within <instructions></instructions> XML tags.
+
+  <transcription>{a_transcription}</transcription>
+
+  <last_theme>{a_theme_list}</last_theme>
+
+  <question>What are the key themes in this news transcription?</question>
+
+  <instructions>
+  1. Think step-by-step.
+  2. Answer only in English.
+  3. Return your response strictly in the following JSON format:\n{{"Themes":[{{"Start":0, "End":0, "Theme":"title for the theme which can be up to 10 words long", "Summary":"summary for the theme written like a newspaper story which can be up to 100 words long"}}]}}
+  4. Each theme should be an item in the "Themes" list.
+  5. The start time is provided in brackets for each part of the transcription as the number of seconds.
+  6. Include the start and end timings for each theme using the time data in brackets.
+  7. All themes should have an End time that is greater than the Start time.
+  8. JSON encode the text content for "Theme" and "Summary".
+  9. Examples are provided within <example1></example1> and <example2></example2> XML tags that show the expected JSON response.
+  10. Provide the answer only in JSON format and do not include any plain text, preamble or XML tags in the answer.
+  </instructions>
+
+  <example1>{{"Themes":[{{"Start":2.341, "End":6.231, "Theme":"Economic Recovery of the United States", "Summary":"The president noted the importance of controlling spending and tax increases to address the situation. If you\\'re going to spend we need to raise taxes."}}]}}</example1>
+  <example2>{{"Themes":[{{"Start":2001.009, "End":2026.5, "Theme":"Supreme Court Nomination Debate", "Summary":"The debate focused on the nomination of Amy Coney Barrett to the Supreme Court by President Trump to fill the vacancy left by the passing of Ruth Bader Ginsburg."}}]}}</example2>

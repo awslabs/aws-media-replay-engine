@@ -15,81 +15,81 @@ As a strategy, it is advised to design plugins with reuse in mind.
 
 **Sample payload event:**
 
-```
+```json
 {
-	'Plugin': {
-		'Name': 'TennisSceneClassification',
-		'Class': 'Featurer',
-		'ExecutionType': 'SyncModel',
-		'ModelEndpoint': 'arn:aws:rekognition:us-east-1:99999999999999:project/Tennis-Segmentation/version/Tennis-Segmentation.2021-10-26T16.39.56/1635284396508',
-		'DependentPlugins': [],
-		'Configuration': {
-			'minimum_confidence': '30'
+	"Plugin": {
+		"Name": "TennisSceneClassification",
+		"Class": "Featurer",
+		"ExecutionType": "SyncModel",
+		"ModelEndpoint": "arn:aws:rekognition:us-east-1:99999999999999:project/Tennis-Segmentation/version/Tennis-Segmentation.2021-10-26T16.39.56/1635284396508",
+		"DependentPlugins": [],
+		"Configuration": {
+			"minimum_confidence": "30"
 		},
-		'OutputAttributes': {
-			'Label': {
-				'Description': 'output'
+		"OutputAttributes": {
+			"Label": {
+				"Description": "output"
 			}
 		}
 	},
-	'Profile': {
-		'Name': 'TennisProfile',
-		'ChunkSize': 20,
-		'MaxSegmentLengthSeconds': 120,
-		'ProcessingFrameRate': 5,
-		'Classifier': {
-			'Name': 'Tennis-Segmentation',
-			'Configuration': {
-				'start_seq': "[['near','far'],['topview','far']]",
-				'padding_seconds': '1',
-				'end_seq': "[['far','near'],['far','topview']]"
+	"Profile": {
+		"Name": "TennisProfile",
+		"ChunkSize": 20,
+		"MaxSegmentLengthSeconds": 120,
+		"ProcessingFrameRate": 5,
+		"Classifier": {
+			"Name": "Tennis-Segmentation",
+			"Configuration": {
+				"start_seq": "[['near','far'],['topview','far']",
+				"padding_seconds": "1",
+				"end_seq": "[['far','near'],['far','topview']]"
 			},
-			'DependentPlugins': [{
-				'Name': 'TennisSceneClassification',
-				'Configuration': {
-					'minimum_confidence': '30'
+			"DependentPlugins": [{
+				"Name": "TennisSceneClassification",
+				"Configuration": {
+					"minimum_confidence": "30"
 				},
-				'DependentFor': ['Tennis-Segmentation'],
-				'Level': 1,
-				'SupportedMediaType': 'Video'
+				"DependentFor": ["Tennis-Segmentation"],
+				"Level": 1,
+				"SupportedMediaType": "Video"
 			}]
 		},
-		'Labeler': {
-			'Name': 'Tennis-Score-Extraction',
-			'Configuration': {},
-			'DependentPlugins': [{
-				'Name': 'Tennis-ScoreBox-Detection',
-				'Configuration': {
-					'Minimum-Confidence': '0.6'
+		"Labeler": {
+			"Name": "Tennis-Score-Extraction",
+			"Configuration": {},
+			"DependentPlugins": [{
+				"Name": "Tennis-ScoreBox-Detection",
+				"Configuration": {
+					"Minimum-Confidence": "0.6"
 				},
-				'DependentFor': ['Tennis-Score-Extraction'],
-				'Level': 1,
-				'SupportedMediaType': 'Video'
+				"DependentFor": ["Tennis-Score-Extraction"],
+				"Level": 1,
+				"SupportedMediaType": "Video"
 			}]
 		}
 	},
-	'Input': {
-		'ExecutionId': '350c6153-33b7-4ec2-9062-7cad5a574c88',
-		'Media': {
-			'S3Bucket': 'aws-mre-controlplane-medialivedestinationbucket13-99999999',
-			'S3Key': '9999999/TennisProfile/a_tennis_match_00007.ts'
+	"Input": {
+		"ExecutionId": "350c6153-33b7-4ec2-9062-7cad5a574c88",
+		"Media": {
+			"S3Bucket": "aws-mre-controlplane-medialivedestinationbucket13-99999999",
+			"S3Key": "9999999/TennisProfile/a_tennis_match_00007.ts"
 		},
-		'Metadata': {
-			'HLSSegment': {
-				'StartTime': 120.12,
-				'StartTimeUtc': '00:02:00.120',
-				'StartPtsTime': 122.42,
-				'StartPtsTimeUtc': '00:02:02.420',
-				'Duration': 20.02,
-				'FrameRate': 60
+		"Metadata": {
+			"HLSSegment": {
+				"StartTime": 120.12,
+				"StartTimeUtc": "00:02:00.120",
+				"StartPtsTime": 122.42,
+				"StartPtsTimeUtc": "00:02:02.420",
+				"Duration": 20.02,
+				"FrameRate": 60
 			}
 		}
 	},
-	'Event': {
-		'Name': 'SampleTennisMatchEvent',
-		'Program': 'Some Big Tennis Tournament',
-		'Start': '2021-11-03T16:32:57Z',
-		'AudioTracks': [1]
+	"Event": {
+		"Name": "SampleTennisMatchEvent",
+		"Program": "Some Big Tennis Tournament",
+		"Start": "2021-11-03T16:32:57Z",
+		"AudioTracks": [1]
 	}
 }
 ```

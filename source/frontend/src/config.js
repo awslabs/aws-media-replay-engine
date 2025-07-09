@@ -4,7 +4,7 @@
  */
 
 export default {
-    "APP_TITLE": "MRE",
+    "APP_TITLE": "Media Replay Engine",
     "s3": {
         "REACT_APP_REGION": process.env.REACT_APP_REGION,
         "BUCKET": ""
@@ -22,5 +22,9 @@ export default {
     },
     "cloudfront":{
         "REACT_APP_CLOUDFRONT_DOMAIN_NAME": process.env.REACT_APP_CLOUDFRONT_DOMAIN_NAME
+    },
+    "lambda": {
+        "REACT_APP_REGION": process.env.REACT_APP_REGION,
+        "REACT_APP_SEARCH_LAMBDA_URL": process.env.REACT_APP_SEARCH_LAMBDA_URL
     }
 };

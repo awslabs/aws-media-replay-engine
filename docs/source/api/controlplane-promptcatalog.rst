@@ -1,0 +1,1 @@
+.. chalice:project:: ../../source/api/controlplane/promptcatalog/runtime

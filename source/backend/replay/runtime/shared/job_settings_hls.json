@@ -74,7 +74,8 @@
                 "MaxCaptures": 1,
                 "Quality": 100
               }
-            }
+            },
+            "ScalingBehavior": "FILL"
           }
         }
       ],

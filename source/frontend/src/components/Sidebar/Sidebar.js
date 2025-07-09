@@ -38,7 +38,7 @@ const useStyles = makeStyles((theme) => ({
         zIndex: 1,
         position: 'absolute',
         height: "100vh",
-        width: 240,
+        width: "auto",
         backgroundColor: theme.palette.secondary.main,
         color: theme.palette.secondary.contrastText,
         '& svg': {
@@ -55,7 +55,8 @@ const useStyles = makeStyles((theme) => ({
     },
     toolbarIcon: {
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        padding: '8px 16px 8px 16px',
     },
     hide: {
         display: "none"
@@ -119,7 +120,7 @@ export const Sidebar = (props) => {
                 >
                     <div className={classes.toolbarIcon}>
                         <Typography variant="subtitle2" noWrap>
-                            Media Replay Engine
+                            MRE
                         </Typography>
                         <IconButton color={"primary"} onClick={props.handleDrawerClose}>
                             <ChevronLeftIcon/>

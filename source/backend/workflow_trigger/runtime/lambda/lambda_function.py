@@ -9,13 +9,12 @@
 #
 ##############################################################################
 
-import os
 import json
-import boto3
-import uuid
 import traceback
 import urllib.parse
+import uuid
 
+import boto3
 from MediaReplayEngineWorkflowHelper import ControlPlane
 
 sfn = boto3.client('stepfunctions')
@@ -52,6 +51,8 @@ def lambda_handler(event, context):
         event_start_time = mre_event["Start"]
         generate_orig_clips = mre_event["GenerateOrigClips"]
         generate_opto_clips = mre_event["GenerateOptoClips"]
+        generate_orig_thumbnails = mre_event["GenerateOrigThumbNails"]
+        generate_opto_thumbnails = mre_event["GenerateOptoThumbNails"]
         sfn_arn = controlplane.get_profile(profile)["StateMachineArn"]
         
         sfn_input = {
@@ -60,7 +61,9 @@ def lambda_handler(event, context):
                 "Program": program,
                 "Start": event_start_time,
                 "GenerateOrigClips": generate_orig_clips,
-                "GenerateOptoClips": generate_opto_clips
+                "GenerateOptoClips": generate_opto_clips,
+                "GenerateOrigThumbNails": generate_orig_thumbnails,
+                "GenerateOptoThumbNails": generate_opto_thumbnails
             },
             "Input": {
                 "ExecutionId": execution_id,

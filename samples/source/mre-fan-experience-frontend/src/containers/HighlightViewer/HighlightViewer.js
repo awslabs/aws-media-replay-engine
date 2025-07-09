@@ -129,18 +129,12 @@ export const HighlightViewer = (props) => {
                 (lastSegment['OptoStart'] || lastSegment['Start'] || 0)
             );
 
-            let hlsLocation = replayResponse.HlsLocation;
-            let mp4Location = replayResponse.PreviewVideoUrl;
-
-            if (hlsLocation !== "-") {
-                let url = hlsLocation.split('/').splice(3, 5).join('/');
-                console.log(`Getting video from: ${url}`)
-                setStreamURL("/" + url);
+            if (replayResponse.HlsLocation !== "-") {
+                setStreamURL(replayResponse.HlsVideoUrl);
             }
-            else if (mp4Location){
-                let url = mp4Location.split('/').splice(3, 5).join('/').split('?')[0];
-                console.log(`Getting video from: ${url}`)
-                setStreamURL("/" + url);
+            else if (replayResponse.Mp4Location){
+                let resolution = Object.keys(replayResponse.Mp4Location)[0]
+                setStreamURL(replayResponse.Mp4Location[resolution].PreviewVideoUrl);
             }
 
             setEventDetails(eventDetails);
@@ -221,7 +215,7 @@ export const HighlightViewer = (props) => {
                     segments?.length > 0 ?
                     <>
                         <Streamer
-                            url={process.env.REACT_APP_CLOUDFRONT_PREFIX + streamURL}
+                            url={streamURL}
                             playing={isPlaying}
                             setIsPlaying={handlePlayPause}
                             playerRef={playerRef}

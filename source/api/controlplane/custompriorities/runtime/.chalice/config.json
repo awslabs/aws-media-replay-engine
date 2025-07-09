@@ -8,8 +8,8 @@
         "api_handler": {
           "environment_variables": {
             "APP_TABLE_NAME": ""
-	  }
-	}
+          }
+        }
       }
     }
   }

@@ -1,0 +1,24 @@
+Name: DetectCelebritiesPrompt
+Description: Prompt that can be used to identify celebrities in an image.
+ContentGroups:
+  - All
+Template: |
+  Please analyze the provided image and identify any celebrities present.
+  Return their full names in a JSON object with a "Celebrities" array, removing any duplicates.
+  Include actors, musicians, politicians, athletes, and other public figures you can recognize.
+  Refer to the following examples for the expected output format when celebrities are found and no celebrities are found respectively.
+
+  <example_1>{"Celebrities":["Brad Pitt", "Jennifer Aniston", "Taylor Swift"]}</example_1>
+  <example_2>{"Celebrities":[]}</example_2>
+
+  <instructions>
+  1. Include only verified celebrities.
+  2. Remove duplicate names.
+  3. Use full names (first and last).
+  4. Return as valid JSON with "Celebrities" array as the only field.
+  5. Don't include descriptions or explanations.
+  6. Don't include fictional characters.
+  7. Use empty array for no celebrities.
+  8. Don't add any other fields to the JSON.
+  9. Don't add any text outside the JSON structure.
+  </instructions>

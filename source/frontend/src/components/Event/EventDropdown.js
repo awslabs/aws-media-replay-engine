@@ -48,7 +48,7 @@ export const EventDropdown = (props) => {
             initQueryParams["LastEvaluatedKey"] = "";
 
         console.log(`event/by/${props.SelectedProgram}`);
-        let response = await query('get', 'api', `event/by/${props.SelectedProgram}`, initQueryParams);
+        let response = await query('get', 'api', `event/by/${props.SelectedProgram}`, {queryParams: initQueryParams});
         let eventNames = _.map(response.data, 'Name');
 
         if (props.initValue) {

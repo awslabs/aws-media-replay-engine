@@ -8,45 +8,44 @@ from MediaReplayEnginePluginHelper import PluginHelper
 from MediaReplayEnginePluginHelper import Status
 from MediaReplayEnginePluginHelper import DataPlane
 
-comp_client = boto3.client('comprehend')
+comp_client = boto3.client("comprehend")
+
 
 def consolidate_comprehend_results(depResult, comprehend_results):
-    results = []
     result = {}
 
-    result['Start'] = depResult['Start']
-    result['End'] = depResult['End']
-    result['Label'] = comprehend_results['Sentiment']
-    result['primary_sentiment'] = result['Label']
-    result['positive_score'] = comprehend_results['SentimentScore']['Positive']
-    result['negative_score'] = comprehend_results['SentimentScore']['Negative']
-    result['neutral_score'] = comprehend_results['SentimentScore']['Neutral']
-    result['mixed_score'] = comprehend_results['SentimentScore']['Mixed']
+    result["Start"] = depResult["Start"]
+    result["End"] = depResult["End"]
+    result["Label"] = comprehend_results["Sentiment"]
+    result["Transcription"] = depResult["Transcription"]
+    result["primary_sentiment"] = result["Label"]
+    result["positive_score"] = comprehend_results["SentimentScore"]["Positive"]
+    result["negative_score"] = comprehend_results["SentimentScore"]["Negative"]
+    result["neutral_score"] = comprehend_results["SentimentScore"]["Neutral"]
+    result["mixed_score"] = comprehend_results["SentimentScore"]["Mixed"]
 
-
-    if result['positive_score'] > 0.75:
-        result['positive_flag'] = True
+    if result["positive_score"] > 0.75:
+        result["positive_flag"] = True
     else:
-        result['positive_flag'] = False
+        result["positive_flag"] = False
 
-    if result['negative_score'] > 0.75:
-        result['negative_flag'] = True
+    if result["negative_score"] > 0.75:
+        result["negative_flag"] = True
     else:
-        result['negative_flag'] = False
+        result["negative_flag"] = False
 
-    if result['neutral_score'] > 0.75:
-        result['neutral_flag'] = True
+    if result["neutral_score"] > 0.75:
+        result["neutral_flag"] = True
     else:
-        result['neutral_flag'] = False
+        result["neutral_flag"] = False
 
-    if result['mixed_score'] > 0.75:
-        result['mixed_flag'] = True
+    if result["mixed_score"] > 0.75:
+        result["mixed_flag"] = True
     else:
-        result['mixed_flag'] = False
+        result["mixed_flag"] = False
 
-    results.append(result)
+    return result
 
-    return results
 
 def lambda_handler(event, context):
 
@@ -59,36 +58,33 @@ def lambda_handler(event, context):
     mre_outputhelper = OutputHelper(event)
     mre_pluginhelper = PluginHelper(event)
 
-    try :
+    try:
 
         # process chunk with ffmpeg using options provided
-        text_attribute = event['Plugin']['Configuration']['text_attribute']
-        text_language_code = event['Plugin']['Configuration']['text_language_code']
-        try:
-            audio_track_num = event['TrackNumber']
-        except KeyError:
-            audio_track_num = event['Plugin']['Configuration']['TrackNumber']
+        text_attribute = event["Plugin"]["Configuration"]["text_attribute"]
+        text_language_code = event["Plugin"]["Configuration"]["text_language_code"]
 
         # this plugin expects the dependent plugin to provide the text data to analyze with Amazon Comprehend
-        dep_plugin = event['Plugin']['DependentPlugins'][0]
-        print('dep_plugin: ' + dep_plugin)
+        dep_plugin = event["Plugin"]["DependentPlugins"][0]
+        print("dep_plugin: " + dep_plugin)
 
-        #get all dependent detector data
+        # get all dependent detector data
         depResults = mre_dataplane.get_dependent_plugins_output()
         print(depResults)
 
-        #execute a comprehend job to detect sentiment for each transciption or whatever the designated text attribute is
+        # execute a comprehend job to detect sentiment for each transciption or whatever the designated text attribute is
         #'Sentiment': 'POSITIVE'|'NEGATIVE'|'NEUTRAL'|'MIXED'
         for depResult in depResults[dep_plugin]:
             response = comp_client.detect_sentiment(
-                Text=depResult[text_attribute],
-                LanguageCode=text_language_code
-                )
+                Text=depResult[text_attribute], LanguageCode=text_language_code
+            )
             print(response)
 
-            #process results
-            results = consolidate_comprehend_results(depResult, response)
-            print(results)
+            # process results
+            result = consolidate_comprehend_results(depResult, response)
+            results.append(result)
+
+        print(f"results: {results}")
 
         # Add the results of the plugin to the payload (required if the plugin status is "complete"; Optional if the plugin has any errors)
         mre_outputhelper.add_results_to_output(results)

@@ -24,7 +24,13 @@ export const ModelList = () => {
 
     const getExpandableRow = (version) => {
         return [
-            <TableCell align="left" style={{minWidth: 150}}>{version.Version}</TableCell>,
+            <TableCell align="left" style={{minWidth: 150}}>
+                <Button color={"primary"} onClick={() => {
+                    handleDetailsView(version)
+                }}>
+                    {version.Version}
+                </Button>
+            </TableCell>,,
             <TableCell align="left">{version.Description}</TableCell>,
             <TableCell align="left">{version.Endpoint}</TableCell>,
             <TableCell align="left" style={{minWidth: 150}}>{version.PluginClass}</TableCell>

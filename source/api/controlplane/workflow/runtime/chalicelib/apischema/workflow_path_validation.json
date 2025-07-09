@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "workflow_path_validation",
+  "type": "object",
+  "properties": {
+    "Program": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "Event": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "ChunkNumber": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "Status": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "PluginName": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    }
+  }
+}

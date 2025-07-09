@@ -28,7 +28,7 @@ The payload to the **event** API takes a payload that is described here:
 
 Below are Python code snippets that are useful to perform the  
 
-```
+```python
 def update_event(event_name, program, event_payload):
     path = f"/event/{event_name}/program/{program}"
     method = "PUT"
@@ -79,7 +79,7 @@ Events can also include **Context Variables**, key/value pairs which provide add
 
 When you create the Event, and select a profile, you will have the option to modify the Profile Context Variable values & add additional Context Variables as well. The Profile Context Variables serve as the template for which future events will be created when selecting the profile.
 
-```
+```json
 {
 	"TimeOffset": 12,
 	"BroadcastId": 12345,

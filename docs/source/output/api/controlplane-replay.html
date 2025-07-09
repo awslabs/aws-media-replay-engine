@@ -175,6 +175,7 @@
         <span class="s2">&quot;EqualDistribution&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
         <span class="s2">&quot;ToleranceMaxLimitInSecs&quot;</span><span class="p">:</span> <span class="n">number</span>
     <span class="p">},</span>
+    <span class="s2">&quot;SpecifiedTimestamps&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
     <span class="s2">&quot;Priorities&quot;</span><span class="p">:{</span>
         <span class="s2">&quot;CustomPrioritiesEngine&quot;</span><span class="p">:</span> <span class="p">{</span>
             <span class="s2">&quot;CustomPrioritiesEngineEnabled&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
@@ -188,6 +189,8 @@
                 <span class="s2">&quot;Weight&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
                 <span class="s2">&quot;Include&quot;</span><span class="p">:</span> <span class="n">boolean</span><span class="p">,</span>
                 <span class="s2">&quot;Duration&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+                <span class="s2">&quot;StartTime&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+                <span class="s2">&quot;EndTime&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
                 <span class="s2">&quot;AttribValue&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
                 <span class="s2">&quot;AttribName&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
                 <span class="s2">&quot;PluginName&quot;</span><span class="p">:</span> <span class="n">string</span>
@@ -219,6 +222,7 @@
 <li><p>Description: Description of the Replay being created</p></li>
 <li><p>Requester: Requester of the Replay</p></li>
 <li><p>DurationbasedSummarization:  A Dict capturing the Duration of the Replay to be created. Duration in Secs. ToleranceMaxLimitInSecs is defaulted to 30 Secs if not specified.</p></li>
+<li><p>SpecifiedTimestamps: A List of clips to be included in the Replay defined by starting and ending timestamps.</p></li>
 <li><p>Priorities.CustomPrioritiesEngine: Details of the Custom Priorities Engine API endpoint, Secret ARN and a dict of path variables and their corresponding values.</p></li>
 <li><p>Priorities.Clips: A List of dict. Each Dict represents the Weight of the Output Attribute which needs to be included in the Replay</p></li>
 <li><p>ClipfeaturebasedSummarization: Set to True if a Duration based replay is not reqd. False, otherwise.</p></li>
@@ -553,6 +557,18 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 <div><p>None</p>
 </div></blockquote>
 </section>
+<section class="chalice-route" id="get-event-hls-stream">
+<h2 class="chalice-routename"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/{event_name}/hls/stream/program/{program}</span><a class="headerlink" href="#get-event-hls-stream" title="Permalink to this heading">¶</a></h2>
+<p>Returns a Cloudfront Signed Url for the main HLS manifest file associated with the event.</p>
+<p>Returns:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;SignedManifestUrl&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
 </section>
 
 
@@ -598,6 +614,7 @@ to make calls to the Cloudfront URLs to stream HLS</p>
 <li><a class="reference internal" href="#list-all-transitions-config"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/transitions/all</span></a></li>
 <li><a class="reference internal" href="#update-hls-for-replay-request"><span class="chalice-methodlist"><em class="chalice-method post property">POST</em></span> <span class="sig-name descname chalice-path">/replay/update/hls/manifest</span></a></li>
 <li><a class="reference internal" href="#update-segments-to-be-ignored"><span class="chalice-methodlist"><em class="chalice-method put property">PUT</em></span> <span class="sig-name descname chalice-path">/replay/update/ignore/segment/cache</span></a></li>
+<li><a class="reference internal" href="#get-event-hls-stream"><span class="chalice-methodlist"><em class="chalice-method get property">GET</em></span> <span class="sig-name descname chalice-path">/replay/{event_name}/hls/stream/program/{program}</span></a></li>
 </ul>
 </li>
 </ul>

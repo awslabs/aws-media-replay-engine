@@ -1,46 +1,40 @@
 #  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from shared.ReplayEngine import ReplayEngine
-from shared.HlsGenerator import HlsGenerator 
-from shared.Mp4Generator import Mp4Generator 
-import boto3
-import os
-import json
-import uuid
 import datetime
-from botocore.config import Config
-import subprocess
-from queue import Queue
-import threading
-from shared.CacheSyncManager import CacheSyncManager
-from random import randint
+import json
+import os
+import uuid
 
-from subprocess import Popen
+import boto3
 from MediaReplayEngineWorkflowHelper import ControlPlane
+from shared.HlsGenerator import HlsGenerator
+from shared.Mp4Generator import Mp4Generator
+from shared.ReplayEngine import ReplayEngine
+
 controlplane = ControlPlane()
-from MediaReplayEnginePluginHelper import DataPlane
 from aws_lambda_powertools import Logger
-from aws_lambda_powertools.utilities.typing import LambdaContext
+from MediaReplayEnginePluginHelper import DataPlane
 
 logger = Logger()
 
 
 s3_client = boto3.client("s3")
-ssm = boto3.client('ssm')
+ssm = boto3.client("ssm")
 
 EFS_PATH = "/mnt/efs"
 
-OUTPUT_BUCKET = os.environ['OutputBucket']
-EB_EVENT_BUS_NAME = os.environ['EB_EVENT_BUS_NAME']
+OUTPUT_BUCKET = os.environ["OutputBucket"]
+EB_EVENT_BUS_NAME = os.environ["EB_EVENT_BUS_NAME"]
 eb_client = boto3.client("events")
+
 
 @logger.inject_lambda_context
 def CreateReplay(event, context):
-    '''
-        This is the entry point for MRE Replay Creation.
-    '''
-   
+    """
+    This is the entry point for MRE Replay Creation.
+    """
+
     logger.info(f"Event passed to the Replay function = {event}")
     replay: ReplayEngine = None
     try:
@@ -49,45 +43,53 @@ def CreateReplay(event, context):
 
             # Within a Map state, if the EVENT has ended, update the Incoming dict with the AudioTrack
             # passed from the Map State
-            if event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
-                event['detail']['Event']['AudioTrack'] = str(event['ReplayRequest']['AudioTrack'])
-                
+            if (
+                event["detail"]["State"] == "EVENT_END"
+                or event["detail"]["State"] == "REPLAY_CREATED"
+            ):
+                event["detail"]["Event"]["AudioTrack"] = str(
+                    event["ReplayRequest"]["AudioTrack"]
+                )
 
             # If SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK comes in, check if an Optimizer is attached to the Profile.
             # If yes, Do not create a Replay
             if skip_segment_when_optimizer_configured(event):
                 return {
                     "Status": "Replay Not Processed",
-                    "Reason": "Got SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK. Ignoring this run of replay since we expect to process OPTIMIZED_SEGMENT_CACHED as an Opto is Configured"
+                    "Reason": "Got SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK. Ignoring this run of replay since we expect to process OPTIMIZED_SEGMENT_CACHED as an Opto is Configured",
                 }
 
             runId = str(uuid.uuid4())
             start_time = datetime.datetime.now()
-            logger.info(f"------- Starting replay creation run id {runId} ----------------- {start_time}")
+            logger.info(
+                f"------- Starting replay creation run id {runId} ----------------- {start_time}"
+            )
             replay = ReplayEngine(event)
             replay_result = replay._create_replay()
 
             if not replay_result:
-                return {
-                    "Status": "Replay Not Processed",
-                    "RunId": runId
-                }
+                return {"Status": "Replay Not Processed", "RunId": runId}
 
             end_time = datetime.datetime.now()
-            logger.info(f"------- replay metadata creation end run id {runId}----------------- {end_time}")
+            logger.info(
+                f"------- replay metadata creation end run id {runId}----------------- {end_time}"
+            )
 
             # Notify EventBridge when Replay data has been determined and saved
             # Also check if Replay Video is being created, If yes .. do not Publish
             # as the event would be published after Videos have been generated
-            if not event['ReplayRequest']['CreateMp4'] and not event['ReplayRequest']['CreateHls']:
+            if (
+                not event["ReplayRequest"]["CreateMp4"]
+                and not event["ReplayRequest"]["CreateHls"]
+            ):
                 detail = {
                     "State": "REPLAY_PROCESSED",
                     "Event": {
                         "Event": replay._event,
                         "Program": replay._program,
-                        "ReplayId": event['ReplayRequest']['ReplayId'],
-                        "EventType": "REPLAY_GEN_DONE"
-                    }
+                        "ReplayId": event["ReplayRequest"]["ReplayId"],
+                        "EventType": "REPLAY_GEN_DONE",
+                    },
                 }
                 eb_client.put_events(
                     Entries=[
@@ -95,137 +97,140 @@ def CreateReplay(event, context):
                             "Source": "awsmre",
                             "DetailType": "Replay has been processed. Clip was not created as per the configuration.",
                             "Detail": json.dumps(detail),
-                            "EventBusName": EB_EVENT_BUS_NAME
+                            "EventBusName": EB_EVENT_BUS_NAME,
                         }
                     ]
                 )
 
-            return {
-                "Status": "Replay Processed",
-                "RunId": runId
-            }
-            
+            return {"Status": "Replay Processed", "RunId": runId}
+
         else:
             logger.info(msg)
-            return {
-                "Status": "Replay Not Processed",
-                "Reason": msg
-            }
+            return {"Status": "Replay Not Processed", "Reason": msg}
     except Exception as e:
         logger.info(e)
-        
+
         # Only when we are dealing with a Non Catch up replay, we update the Replay Status as Error
-        if replay and not event['ReplayRequest']['Catchup']:
-            mark_replay_error(event['ReplayRequest']['ReplayId'], replay._event, replay._program)
+        if replay and not event["ReplayRequest"]["Catchup"]:
+            mark_replay_error(
+                event["ReplayRequest"]["ReplayId"], replay._event, replay._program
+            )
         raise
 
+
 def skip_segment_when_optimizer_configured(event):
-     # If SEGMENT_CACHED comes in, check if an Optimizer is attached to the Profile.
+    # If SEGMENT_CACHED comes in, check if an Optimizer is attached to the Profile.
     # If yes, Do not create a Replay
-    if event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK']:
+    if event["detail"]["State"] in ["SEGMENT_CACHED", "SEGMENT_CLIP_FEEDBACK"]:
 
         # from MediaReplayEngineWorkflowHelper import ControlPlane
         # controlplane = ControlPlane()
-        response = controlplane.get_profile(event['detail']['Segment']['ProfileName'])
+        response = controlplane.get_profile(event["detail"]["Segment"]["ProfileName"])
 
         # There's an optimizer configured and has values in it, skip replay creation.
         # This is because, replays will get created when Segments are optimized.
-        if 'Optimizer' in response:
-            if len(response['Optimizer']) > 0:
-                logger.info("Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK event.")
+        if "Optimizer" in response:
+            if len(response["Optimizer"]) > 0:
+                logger.info(
+                    "Replay not processed as the Profile has an Optimizer configured. We got a SEGMENT_CACHED/SEGMENT_CLIP_FEEDBACK event."
+                )
                 return True
 
     return False
 
+
 @logger.inject_lambda_context
 def GetEligibleReplays(event, context):
     """
-       Gets all eligible Replay Requests to be processed
+    Gets all eligible Replay Requests to be processed
     """
     # from MediaReplayEngineWorkflowHelper import ControlPlane
     # controlplane = ControlPlane()
-    
+
     logger.info(f"GetEligibleReplays EVENT PAYLOAD = {event}")
 
     # Only if the Event has Completed, then create a replay for the Event
     # Supports use case of Creating Replays for Past/Completed Events
-    if event['detail']['State'] == 'REPLAY_CREATED':
-        event_name = event['detail']['Event']['Name']
-        program_name = event['detail']['Event']['Program']
-        replay_id = event['detail']['Event']['ReplayId']
-        
+    if event["detail"]["State"] == "REPLAY_CREATED":
+        event_name = event["detail"]["Event"]["Name"]
+        program_name = event["detail"]["Event"]["Program"]
+        replay_id = event["detail"]["Event"]["ReplayId"]
+
         all_replays = []
         response = get_event(event_name, program_name)
         # ONLY if the event is COMPLETE, pick up the Replay Request
-        if response['Status'] == "Complete":
-            if 'AudioTracks' not in response:
-                raise (Exception('Event does not have AudioTracks'))
+        if response["Status"] == "Complete":
+            if "AudioTracks" not in response:
+                raise (Exception("Event does not have AudioTracks"))
 
             # Process the newly created Replay Request given that the event is Complete
-            #replay = ReplayEngine.get_replay(event_name, program_name, replay_id)
-            replay = controlplane.get_replay_request(event_name, program_name, replay_id)
+            # replay = ReplayEngine.get_replay(event_name, program_name, replay_id)
+            replay = controlplane.get_replay_request(
+                event_name, program_name, replay_id
+            )
             enhance_replay_with_custom_priorities_engine_data(replay)
 
             all_replays.append(replay)
 
-            # for audioTrack in response['AudioTracks']: 
+            # for audioTrack in response['AudioTracks']:
             #     replays = ReplayEngine.get_all_replay_requests_for_completed_events(event_name, program_name, audioTrack)
             #     all_replays.extend(replays)
-        
-            return { "AllReplays": all_replays }
+
+            return {"AllReplays": all_replays}
         else:
-            return {
-                "AllReplays": []
-            }
+            return {"AllReplays": []}
 
-    # If this needs to be triggered when an Event Ends, we create a Wrapping Dict to be passed to 
+    # If this needs to be triggered when an Event Ends, we create a Wrapping Dict to be passed to
     # Replay Engine.
-    elif event['detail']['State'] == 'EVENT_END':
-        
-        event_name = event['detail']['Event']['Name']
-        program_name = event['detail']['Event']['Program']
+    elif event["detail"]["State"] == "EVENT_END":
 
-        
+        event_name = event["detail"]["Event"]["Name"]
+        program_name = event["detail"]["Event"]["Program"]
+
         all_replays = []
         response = get_event(event_name, program_name)
 
-        #for item in response['Items']:
-        if 'AudioTracks' not in response:
-            raise (Exception('Event does not have AudioTracks'))
+        # for item in response['Items']:
+        if "AudioTracks" not in response:
+            raise (Exception("Event does not have AudioTracks"))
 
-        for audioTrack in response['AudioTracks']: 
-            replays = controlplane.get_all_replay_requests_for_event_opto_segment_end(program_name, event_name, int(audioTrack))
+        for audioTrack in response["AudioTracks"]:
+            replays = controlplane.get_all_replay_requests_for_event_opto_segment_end(
+                program_name, event_name, int(audioTrack)
+            )
             enhance_replay_with_custom_priorities_engine_data(replays)
             all_replays.extend(replays)
 
-        return { "AllReplays": all_replays }
+        return {"AllReplays": all_replays}
 
-    elif event['detail']['State'] in ['OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
+    elif event["detail"]["State"] in [
+        "OPTIMIZED_SEGMENT_CACHED",
+        "OPTIMIZED_SEGMENT_CLIP_FEEDBACK",
+    ]:
 
         replay = ReplayEngine(event)
         replays = replay._get_all_replays_for_opto_segment_end()
         enhance_replay_with_custom_priorities_engine_data(replays)
-    
+
         if len(replays) == 0:
-            logger.info('No Reply requests found for the Program/Event/AudioTrack/Status Combo')
+            logger.info(
+                "No Reply requests found for the Program/Event/AudioTrack/Status Combo"
+            )
 
-        return {
-                "AllReplays": replays
-            }
+        return {"AllReplays": replays}
 
-    elif event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK']:
+    elif event["detail"]["State"] in ["SEGMENT_CACHED", "SEGMENT_CLIP_FEEDBACK"]:
 
-        event_name = event['detail']['Segment']['Event']
-        program_name = event['detail']['Segment']['Program']
+        event_name = event["detail"]["Segment"]["Event"]
+        program_name = event["detail"]["Segment"]["Program"]
         replays = controlplane.get_all_replays_for_segment_end(event_name, program_name)
         enhance_replay_with_custom_priorities_engine_data(replays)
-    
-        if len(replays) == 0:
-            logger.info('No Reply requests found for the Program/Event/Status Combo')
 
-        return {
-                "AllReplays": replays
-        }
+        if len(replays) == 0:
+            logger.info("No Reply requests found for the Program/Event/Status Combo")
+
+        return {"AllReplays": replays}
+
 
 def enhance_replay_with_custom_priorities_engine_data(replay):
     if isinstance(replay, list):
@@ -233,56 +238,72 @@ def enhance_replay_with_custom_priorities_engine_data(replay):
             add_custom_priorities_engine_data(replay_item)
     else:
         add_custom_priorities_engine_data(replay)
-                
+
+
 def add_custom_priorities_engine_data(replay):
-    if 'CustomPrioritiesEngine' in replay['Priorities']:
-        if 'CustomPrioritiesEngineName' not in replay['Priorities']['CustomPrioritiesEngine']:
-            raise (Exception('Custom Priorities configured with no engine name'))
-            
-        name = replay['Priorities']['CustomPrioritiesEngine']['CustomPrioritiesEngineName']
+    if "CustomPrioritiesEngine" in replay["Priorities"]:
+        if (
+            "CustomPrioritiesEngineName"
+            not in replay["Priorities"]["CustomPrioritiesEngine"]
+        ):
+            raise (Exception("Custom Priorities configured with no engine name"))
+
+        name = replay["Priorities"]["CustomPrioritiesEngine"][
+            "CustomPrioritiesEngineName"
+        ]
         custom_priorities_engine = controlplane.get_custom_priorities_engine(name)
-        
-        logger.info(f'Control plane response for Custom Priorities Engine {name}: {custom_priorities_engine}')
-        if custom_priorities_engine is None or not custom_priorities_engine['Enabled']:
-            raise (Exception(f'Error in getting Custom Priorities Engine {name} or is disabled'))
-            
-        replay['Priorities']['CustomPrioritiesEngine'].update(custom_priorities_engine)
+
+        logger.info(
+            f"Control plane response for Custom Priorities Engine {name}: {custom_priorities_engine}"
+        )
+        if custom_priorities_engine is None or not custom_priorities_engine["Enabled"]:
+            raise (
+                Exception(
+                    f"Error in getting Custom Priorities Engine {name} or is disabled"
+                )
+            )
+
+        replay["Priorities"]["CustomPrioritiesEngine"].update(custom_priorities_engine)
+
 
 def get_event(event_name, program_name):
     return controlplane.get_event(event_name, program_name)
 
 
-
-
 def should_replay_be_processed(event):
-    '''
-        Checks if the Current Replay should be Processed 
-    '''
-    
+    """
+    Checks if the Current Replay should be Processed
+    """
+
     # If the Event received is SEGMENT based, we will only create Replay Clips
     # for CatchUp Replay Requests
-    if event['detail']['State'] in ['SEGMENT_CACHED','SEGMENT_CLIP_FEEDBACK', 'OPTIMIZED_SEGMENT_CACHED','OPTIMIZED_SEGMENT_CLIP_FEEDBACK']:
-        if not event['ReplayRequest']['Catchup']:
-            return False, f"Replay not processed as Catchup is Disabled. Got event {event['detail']['State']}"
+    if event["detail"]["State"] in [
+        "SEGMENT_CACHED",
+        "SEGMENT_CLIP_FEEDBACK",
+        "OPTIMIZED_SEGMENT_CACHED",
+        "OPTIMIZED_SEGMENT_CLIP_FEEDBACK",
+    ]:
+        if not event["ReplayRequest"]["Catchup"]:
+            return (
+                False,
+                f"Replay not processed as Catchup is Disabled. Got event {event['detail']['State']}",
+            )
 
-    
-    
     # If an Event has Ended and the ReplayRequest had CatchUp enabled, DO NOT Process it again.
     # The last Segment of the Catchup workflow would have generated the final Replay.
     # Just mark the Replay as Complete
-    if event['detail']['State'] == 'EVENT_END':
-        if event['ReplayRequest']['Catchup']:
+    if event["detail"]["State"] == "EVENT_END":
+        if event["ReplayRequest"]["Catchup"]:
 
-            event_name = event['detail']['Event']['Name']
-            program_name = event['detail']['Event']['Program']
+            event_name = event["detail"]["Event"]["Name"]
+            program_name = event["detail"]["Event"]["Program"]
 
-            
-            #response = get_event(event_name, program_name)
-            #all_replays = []
-            #for item in response['Items']:
-                
+            # response = get_event(event_name, program_name)
+            # all_replays = []
+            # for item in response['Items']:
+
             # if 'AudioTracks' in response:
-            #     for audioTrack in response['AudioTracks']: 
+            #     for audioTrack in response['AudioTracks']:
             #         replays = ReplayEngine._get_all_replays_for_event_end(event_name, program_name, audioTrack)
             #         #DO NOT mark Non Catch Up replays as Complete
             #         for replay in replays:
@@ -294,50 +315,56 @@ def should_replay_be_processed(event):
             #     replays = ReplayEngine._get_all_replays_for_segment_end(event_name, program_name)
             #     all_replays.extend(replays)
 
-            #for replay in all_replays:
-            controlplane.update_replay_request_status(program_name, event_name, event['ReplayRequest']['ReplayId'], "Complete")
-                    
+            # for replay in all_replays:
+            controlplane.update_replay_request_status(
+                program_name, event_name, event["ReplayRequest"]["ReplayId"], "Complete"
+            )
+
             return False, "Marking Replay COMPLETE since EVENT_END was received."
 
     return True, ""
 
+
 @logger.inject_lambda_context
 def mark_replay_complete(event, context):
-    
-    if event['detail']['State'] == 'EVENT_END' or event['detail']['State'] == 'REPLAY_CREATED':
-        event_name = event['detail']['Event']['Name']
-        program_name = event['detail']['Event']['Program']
 
-        for replay in event['ReplayResult']['Payload']['AllReplays']:
-            controlplane.update_replay_request_status(program_name, event_name, replay['ReplayId'], "Complete")
+    if (
+        event["detail"]["State"] == "EVENT_END"
+        or event["detail"]["State"] == "REPLAY_CREATED"
+    ):
+        event_name = event["detail"]["Event"]["Name"]
+        program_name = event["detail"]["Event"]["Program"]
 
+        for replay in event["ReplayResult"]["Payload"]["AllReplays"]:
+            controlplane.update_replay_request_status(
+                program_name, event_name, replay["ReplayId"], "Complete"
+            )
 
-    return event['MapResult'] # Used to generate Maser m3u8 files
+    return event["MapResult"]  # Used to generate Maser m3u8 files
+
 
 def mark_replay_error(replayId, event_name, program):
     controlplane.update_replay_request_status(program, event_name, replayId, "Error")
 
+
 @logger.inject_lambda_context
 def update_replay_with_mp4_location(event, context):
 
-    logger.append_keys(replay_id=str(event['ReplayRequest']['ReplayId']))
+    logger.append_keys(replay_id=str(event["ReplayRequest"]["ReplayId"]))
 
-    event_name = event['ReplayRequest']['Event']
-    program_name = event['ReplayRequest']['Program']
-    replay_request_id = event['ReplayRequest']['ReplayId']
+    event_name = event["ReplayRequest"]["Event"]
+    program_name = event["ReplayRequest"]["Program"]
+    replay_request_id = event["ReplayRequest"]["ReplayId"]
     mp4_location = {}
     mp4_thumbnail_location = {}
 
-    
-    for jobresult in event['CreateMp4JobsResult']['Payload']:
-        resolution = jobresult['Resolution']
+    for jobresult in event["CreateMp4JobsResult"]["Payload"]:
+        resolution = jobresult["Resolution"]
         mp4_locs = []
         mp4_thumb_locs = []
 
-        
-        
-        for jobdata in jobresult['JobMetadata']:
-            s3_path = jobdata['OutputDestination'].split('/')
+        for jobdata in jobresult["JobMetadata"]:
+            s3_path = jobdata["OutputDestination"].split("/")
             keyprefix = f"{s3_path[3]}/{s3_path[4]}/{s3_path[5]}/"
             logger.info(f"keyprefix = {keyprefix}")
             filenames = get_output_filename(keyprefix, "mp4")
@@ -345,12 +372,12 @@ def update_replay_with_mp4_location(event, context):
             if len(filenames) > 0:
                 mp4_locs.append("s3://" + OUTPUT_BUCKET + "/" + filenames[0])
             else:
-                mp4_locs.append(jobdata['OutputDestination'])
-        
+                mp4_locs.append(jobdata["OutputDestination"])
+
         # Store Replay MP4 Thumbnails
-        for jobdata in jobresult['ThumbnailLocations']:
+        for jobdata in jobresult["ThumbnailLocations"]:
             if resolution in jobdata.keys():
-                s3_path = jobdata[resolution].split('/')
+                s3_path = jobdata[resolution].split("/")
                 keyprefix = f"{s3_path[3]}/{s3_path[4]}/{s3_path[5]}/{s3_path[6]}/"
                 logger.info(f"keyprefix = {keyprefix}")
                 filenames = get_output_filename(keyprefix, "jpg")
@@ -359,15 +386,20 @@ def update_replay_with_mp4_location(event, context):
                     mp4_thumb_locs.append("s3://" + OUTPUT_BUCKET + "/" + filenames[0])
                 else:
                     mp4_thumb_locs.append(jobdata[resolution])
-                
 
         # Store Replay MP4 Clips
         mp4_location[resolution] = {}
-        mp4_location[resolution]['ReplayClips'] = mp4_locs
+        mp4_location[resolution]["ReplayClips"] = mp4_locs
         mp4_thumbnail_location[resolution] = {}
-        mp4_thumbnail_location[resolution]['ReplayThumbnails'] = mp4_thumb_locs
-    
-    controlplane.update_replay_request_with_mp4_location(event_name, program_name, replay_request_id, mp4_location, mp4_thumbnail_location)
+        mp4_thumbnail_location[resolution]["ReplayThumbnails"] = mp4_thumb_locs
+
+    controlplane.update_replay_request_with_mp4_location(
+        event_name,
+        program_name,
+        replay_request_id,
+        mp4_location,
+        mp4_thumbnail_location,
+    )
 
     # Update the Event that a replay has been created for the Event
     controlplane.update_event_has_replays(event_name, program_name)
@@ -381,8 +413,8 @@ def update_replay_with_mp4_location(event, context):
             "ReplayId": replay_request_id,
             "ClipLocation": mp4_location,
             "ClipThumbnailLocation": mp4_thumbnail_location,
-            "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
-        }
+            "EventType": "REPLAY_GEN_DONE_WITH_CLIP",
+        },
     }
     logger.info(f"MP4 LOCATION EB PAYLOAD = {json.dumps(detail)}")
 
@@ -392,7 +424,7 @@ def update_replay_with_mp4_location(event, context):
                 "Source": "awsmre",
                 "DetailType": "MP4 Replay Clip Generated",
                 "Detail": json.dumps(detail),
-                "EventBusName": EB_EVENT_BUS_NAME
+                "EventBusName": EB_EVENT_BUS_NAME,
             }
         ]
     )
@@ -401,73 +433,79 @@ def update_replay_with_mp4_location(event, context):
 
 @logger.inject_lambda_context
 def generate_master_playlist(event, context):
-    '''
-        Generates a master Playlist with various Quality levels representing different resolutions
-        #EXTM3U
-        #EXT-X-STREAM-INF:BANDWIDTH=25000000,RESOLUTION=3840x2160
-        4K/TestProgram_AK555_1_00002Part-1.m3u8
-        #EXT-X-STREAM-INF:BANDWIDTH=25000000,RESOLUTION=2560x1440
-        2K/TestProgram_AK555_1_00002Part-1.m3u8
-        #EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION=1920x1080
-        1080p/TestProgram_AK555_1_00002Part-1.m3u8
-        #EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720
-        720p/TestProgram_AK555_1_00002Part-1.m3u8
-    '''
+    """
+    Generates a master Playlist with various Quality levels representing different resolutions
+    #EXTM3U
+    #EXT-X-STREAM-INF:BANDWIDTH=25000000,RESOLUTION=3840x2160
+    4K/TestProgram_AK555_1_00002Part-1.m3u8
+    #EXT-X-STREAM-INF:BANDWIDTH=25000000,RESOLUTION=2560x1440
+    2K/TestProgram_AK555_1_00002Part-1.m3u8
+    #EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION=1920x1080
+    1080p/TestProgram_AK555_1_00002Part-1.m3u8
+    #EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720
+    720p/TestProgram_AK555_1_00002Part-1.m3u8
+    """
 
-    #from MediaReplayEngineWorkflowHelper import ControlPlane
-    #controlplane = ControlPlane()
+    # from MediaReplayEngineWorkflowHelper import ControlPlane
+    # controlplane = ControlPlane()
 
     playlist_content = []
-    playlist_content.append('#EXTM3U')
-    bucket = ''
-    thumbnail_location = '-'
+    playlist_content.append("#EXTM3U")
+    bucket = ""
+    thumbnail_location = "-"
     does_play_list_exist = False
-    for jobResult in event['CreateHlsJobsResult']["Payload"]:
+    for jobResult in event["CreateHlsJobsResult"]["Payload"]:
 
-        resolution = jobResult['Resolution']
+        resolution = jobResult["Resolution"]
 
         res_desc = get_resolution_hls_desc(resolution)
         playlist_content.append(res_desc)
-        if 'JobMetadata' in jobResult:
-            if len(jobResult['JobMetadata']) > 0:
-                s3_path = jobResult['JobMetadata'][0]['OutputDestination'].split('/')
+        if "JobMetadata" in jobResult:
+            if len(jobResult["JobMetadata"]) > 0:
+                s3_path = jobResult["JobMetadata"][0]["OutputDestination"].split("/")
 
-                #['s3', '', 'aws-mre-clip-gen-output', 'HLS', 'ak555-testprogram', '4K', '']
+                # ['s3', '', 'aws-mre-clip-gen-output', 'HLS', 'ak555-testprogram', '4K', '']
                 bucket = s3_path[2]
                 keyprefix = f"{s3_path[3]}/{s3_path[4]}/{s3_path[5]}/"
 
                 manifests = get_all_manifests(bucket, keyprefix)
                 for manifest in manifests:
-                    manifest_path = manifest.split('/')
-                    playlist_content.append(f"{resolution.replace(':', '')}/{manifest_path[3]}")
-                    
-                does_play_list_exist = True #We know at least 1 HLS manifest exists, mark this so we can trigger the creation of the Master Manifest
+                    manifest_path = manifest.split("/")
+                    playlist_content.append(
+                        f"{resolution.replace(':', '')}/{manifest_path[3]}"
+                    )
+
+                does_play_list_exist = True  # We know at least 1 HLS manifest exists, mark this so we can trigger the creation of the Master Manifest
 
         # Get the location of the Thumbnail generated for the Hls stream
         # We pick up the last thumbnail location in the CreateHlsJobsResult list
-        if 'ThumbnailLocations' in jobResult:
-            if len(jobResult['ThumbnailLocations']) > 0:
+        if "ThumbnailLocations" in jobResult:
+            if len(jobResult["ThumbnailLocations"]) > 0:
                 # S3 location of the Thumbnail (without the file name generated by MediaConvert).
-                key_name = list(jobResult['ThumbnailLocations'][0].keys())[0]
-                thumbnail_loc = jobResult['ThumbnailLocations'][0][key_name]
+                key_name = list(jobResult["ThumbnailLocations"][0].keys())[0]
+                thumbnail_loc = jobResult["ThumbnailLocations"][0][key_name]
 
                 # Get the thumbnail file s3 Path
-                tmp_loc = thumbnail_loc.split('/')
-                thumbnail_location_tmp_loc = f"{tmp_loc[3]}/{tmp_loc[4]}/{tmp_loc[5]}/{tmp_loc[6]}/"
+                tmp_loc = thumbnail_loc.split("/")
+                thumbnail_location_tmp_loc = (
+                    f"{tmp_loc[3]}/{tmp_loc[4]}/{tmp_loc[5]}/{tmp_loc[6]}/"
+                )
                 thumbnail_location = get_s3_thumbnail_path(thumbnail_location_tmp_loc)
                 thumbnail_location = f"s3://{OUTPUT_BUCKET}/{thumbnail_location}"
 
-    playlist_location = ''
+    playlist_location = ""
     # If the Playlist content has no manifest file locations of HLS, theres no point in creating a new Master Manifest
     if does_play_list_exist:
         create_manifest_file(playlist_content)
-        
-        event_name = event['ReplayRequest']['Event']
-        program_name = event['ReplayRequest']['Program']
-        replay_request_id = event['ReplayRequest']['ReplayId']
-        batch_id = event['CreateHlsJobsResult']["Payload"][0]['JobMetadata'][0]['BatchId']
 
-        #key_prefix = f"HLS/{event_name.lower()}-{program_name.lower()}-{replay_request_id}/master-playlist.m3u8"
+        event_name = event["ReplayRequest"]["Event"]
+        program_name = event["ReplayRequest"]["Program"]
+        replay_request_id = event["ReplayRequest"]["ReplayId"]
+        batch_id = event["CreateHlsJobsResult"]["Payload"][0]["JobMetadata"][0][
+            "BatchId"
+        ]
+
+        # key_prefix = f"HLS/{event_name.lower()}-{program_name.lower()}-{replay_request_id}/master-playlist.m3u8"
         key_prefix = f"HLS/{batch_id}/master-playlist.m3u8"
 
         # Upload final Manifest File to S3
@@ -476,21 +514,12 @@ def generate_master_playlist(event, context):
 
         playlist_location = f"s3://{bucket}/{key_prefix}"
 
-        payload = {
-            "Event": event_name,
-            "Program": program_name,
-            "ReplayRequestId": replay_request_id,
-            "HlsLocation": playlist_location,
-            "Thumbnail": thumbnail_location
-        }
-
-        controlplane.update_replay_request_with_hls_location(payload)
+        controlplane.update_replay_request_with_hls_location(event_name, program_name, replay_request_id, playlist_location, thumbnail_location)
 
         # Update the Event that a replay has been created for the Event
         controlplane.update_event_has_replays(event_name, program_name)
 
         logger.append_keys(replay_id=str(replay_request_id))
-        logger.info(f"HLS LOCATION EB PAYLOAD = {json.dumps(payload)}")
 
         # Notify EventBridge
         detail = {
@@ -501,8 +530,8 @@ def generate_master_playlist(event, context):
                 "ReplayId": replay_request_id,
                 "ClipLocation": playlist_location,
                 "ClipThumbnail": thumbnail_location,
-                "EventType": "REPLAY_GEN_DONE_WITH_CLIP"
-            }
+                "EventType": "REPLAY_GEN_DONE_WITH_CLIP",
+            },
         }
         res = eb_client.put_events(
             Entries=[
@@ -510,47 +539,56 @@ def generate_master_playlist(event, context):
                     "Source": "awsmre",
                     "DetailType": "HLS Replay Manifest generated",
                     "Detail": json.dumps(detail),
-                    "EventBusName": EB_EVENT_BUS_NAME
+                    "EventBusName": EB_EVENT_BUS_NAME,
                 }
             ]
         )
 
-        runId = 'NA'
-        if 'CurrentReplayResult' in event:
-            if 'RunId' in event['CurrentReplayResult']:
-                runId = event['CurrentReplayResult']['RunId']
-        
-        if runId != 'NA':
+        runId = "NA"
+        if "CurrentReplayResult" in event:
+            if "RunId" in event["CurrentReplayResult"]:
+                runId = event["CurrentReplayResult"]["RunId"]
+
+        if runId != "NA":
             end_time = datetime.datetime.now()
-            logger.info(f"------- Updated HLS Location - RunID - {runId} ----------------- {end_time}")
+            logger.info(
+                f"------- Updated HLS Location - RunID - {runId} ----------------- {end_time}"
+            )
 
     return {
-        "MasterPlaylist": 'No playlist was found. This may not always be an error.' if playlist_location == '' else playlist_location
+        "MasterPlaylist": (
+            "No playlist was found. This may not always be an error."
+            if playlist_location == ""
+            else playlist_location
+        )
     }
 
-def get_s3_thumbnail_path(keyPrefix):
-    
-    s3_paginator = boto3.client('s3').get_paginator('list_objects_v2')
-    for page in s3_paginator.paginate(Bucket=OUTPUT_BUCKET, Prefix=keyPrefix):
-        for content in page.get('Contents', ()):
-            return content['Key']
 
-    return '-'
+def get_s3_thumbnail_path(keyPrefix):
+
+    s3_paginator = boto3.client("s3").get_paginator("list_objects_v2")
+    for page in s3_paginator.paginate(Bucket=OUTPUT_BUCKET, Prefix=keyPrefix):
+        for content in page.get("Contents", ()):
+            return content["Key"]
+
+    return "-"
+
+
 def create_manifest_file(final_manifest_content):
     with open("/tmp/main.m3u8", "w") as output:
         for row in final_manifest_content:
-            output.write(str(row) + '\n')
+            output.write(str(row) + "\n")
 
 
 def get_all_manifests(bucket, keyPrefix):
-    
+
     manifests = []
-    s3_paginator = boto3.client('s3').get_paginator('list_objects_v2')
-    
+    s3_paginator = boto3.client("s3").get_paginator("list_objects_v2")
+
     for page in s3_paginator.paginate(Bucket=bucket, Prefix=keyPrefix):
-        for content in page.get('Contents', ()):
-            if "Part" in content['Key'] and ".m3u8" in content['Key']:
-                manifests.append(content['Key'])
+        for content in page.get("Contents", ()):
+            if "Part" in content["Key"] and ".m3u8" in content["Key"]:
+                manifests.append(content["Key"])
 
     return manifests
 
@@ -575,126 +613,130 @@ def get_resolution_hls_desc(resolution):
     elif resolution.lower() == "360p":
         return "#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=640x360"
 
+
 @logger.inject_lambda_context
 def generate_hls_clips(event, context):
 
-    #1. Get Replay Segments
-    #2. Segment could be Opto or no Opto
-    #3. Create HLS Jobs for every segment by considering Chunk timings
-    #4. Send Job Ids to the next State
+    # 1. Get Replay Segments
+    # 2. Segment could be Opto or no Opto
+    # 3. Create HLS Jobs for every segment by considering Chunk timings
+    # 4. Send Job Ids to the next State
     hls_gen = HlsGenerator(event)
     return hls_gen.generate_hls()
+
 
 @logger.inject_lambda_context
 def generate_mp4_clips(event, context):
 
-    #1. Get Replay Segments
-    #2. Segment could be Opto or no Opto
-    #3. Create MP4 Jobs for every segment by considering Chunk timings
-    #4. Send Job Ids to the next State
+    # 1. Get Replay Segments
+    # 2. Segment could be Opto or no Opto
+    # 3. Create MP4 Jobs for every segment by considering Chunk timings
+    # 4. Send Job Ids to the next State
     mp4_gen = Mp4Generator(event)
     return mp4_gen.generate_mp4()
+
 
 @logger.inject_lambda_context
 def check_mp4_job_status(event, context):
     dataplane = DataPlane({})
     all_jobs_complete = True
-    
-    for jobResult in event['CreateMp4JobsResult']["Payload"]:
-        for jobMetData in jobResult['JobMetadata']:
-            job_id = jobMetData['JobsId']
+
+    for jobResult in event["CreateMp4JobsResult"]["Payload"]:
+        for jobMetData in jobResult["JobMetadata"]:
+            job_id = jobMetData["JobsId"]
             job_detail = dataplane.get_media_convert_job_detail(job_id)
-            logger.info(f'Media Convert Job Detail = {job_detail} ')
+            logger.info(f"Media Convert Job Detail = {job_detail} ")
             if len(job_detail) > 0:
                 job_status = job_detail[0]["Status"]
-                if job_status == 'CREATED':
+                if job_status == "CREATED":
                     all_jobs_complete = False
                     break
             else:
-                logger.info('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
-                all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
+                logger.info("WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!")
+                all_jobs_complete = True  # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
 
-    return { "Status": "Complete" } if all_jobs_complete else { "Status": "InComplete" }
+    return {"Status": "Complete"} if all_jobs_complete else {"Status": "InComplete"}
 
 
 @logger.inject_lambda_context
 def check_Hls_job_status(event, context):
     dataplane = DataPlane({})
     all_jobs_complete = True
-    
-    for jobResult in event['CreateHlsJobsResult']["Payload"]:
-        for jobMetData in jobResult['JobMetadata']:
-            job_id = jobMetData['JobsId']
+
+    for jobResult in event["CreateHlsJobsResult"]["Payload"]:
+        for jobMetData in jobResult["JobMetadata"]:
+            job_id = jobMetData["JobsId"]
             job_detail = dataplane.get_media_convert_job_detail(job_id)
-            logger.info(f'Media Convert Job Detail = {job_detail} ')
+            logger.info(f"Media Convert Job Detail = {job_detail} ")
             if len(job_detail) > 0:
                 job_status = job_detail[0]["Status"]
-                if job_status == 'CREATED':
+                if job_status == "CREATED":
                     all_jobs_complete = False
                     break
             else:
-                logger.info('WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!')
-                all_jobs_complete = True    # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
+                logger.info("WE SHOULD NOT BE HERE !!! TROUBLESHOOT !!!")
+                all_jobs_complete = True  # When No JobId is found in DDB, which should never happen, we set the state to True to avoid SFN loop to go on eternally.
 
-    return { "Status": "Complete" } if all_jobs_complete else { "Status": "InComplete" }
+    return {"Status": "Complete"} if all_jobs_complete else {"Status": "InComplete"}
 
 
 def get_output_filename(keyPrefix, file_extn):
-    
-        manifests = []
-        s3_paginator = boto3.client('s3').get_paginator('list_objects_v2')
-        
-        for page in s3_paginator.paginate(Bucket=OUTPUT_BUCKET, Prefix=keyPrefix):
-            for content in page.get('Contents', ()):
-                if f".{file_extn}" in content['Key']:
-                    manifests.append(content['Key'])
 
-        return manifests
+    manifests = []
+    s3_paginator = boto3.client("s3").get_paginator("list_objects_v2")
+
+    for page in s3_paginator.paginate(Bucket=OUTPUT_BUCKET, Prefix=keyPrefix):
+        for content in page.get("Contents", ()):
+            if f".{file_extn}" in content["Key"]:
+                manifests.append(content["Key"])
+
+    return manifests
+
 
 @logger.inject_lambda_context
 def update_job_status(event, context):
-    '''
-        This Handler is Invoked by EventBridge when MediaConvert Job Status changes to either 'COMPLETE' or 'ERROR'
-        A EventBridge rule configures this Lambda Handler as a Trigger. This Handler will update the Status of the 
-        Job in the DDB Table JobTracker
+    """
+    This Handler is Invoked by EventBridge when MediaConvert Job Status changes to either 'COMPLETE' or 'ERROR'
+    A EventBridge rule configures this Lambda Handler as a Trigger. This Handler will update the Status of the
+    Job in the DDB Table JobTracker
 
-        A Sample Payload passed to this handler is shown below
+    A Sample Payload passed to this handler is shown below
 
-        {
-            "version": "0",
-            "id": "",
-            "detail-type": "MediaConvert Job State Change",
-            "source": "aws.mediaconvert",
-            "account": "",
-            "time": "",
-            "region": "us-east-2",
-            "resources": [
-                "arn:aws:mediaconvert"
-            ],
-            "detail": {
-                "timestamp": ,
-                "accountId": "",
-                "queue": "queue",
-                "jobId": "1662660985490-XXXXXXXXXXXXXXX",
-                "status": "COMPLETE",
-                "userMetadata": {
-                    "BatchId": "62119357-db53-4464-8e1d-0ad66370fbb5"
+    {
+        "version": "0",
+        "id": "",
+        "detail-type": "MediaConvert Job State Change",
+        "source": "aws.mediaconvert",
+        "account": "",
+        "time": "",
+        "region": "us-east-2",
+        "resources": [
+            "arn:aws:mediaconvert"
+        ],
+        "detail": {
+            "timestamp": ,
+            "accountId": "",
+            "queue": "queue",
+            "jobId": "1662660985490-XXXXXXXXXXXXXXX",
+            "status": "COMPLETE",
+            "userMetadata": {
+                "BatchId": "62119357-db53-4464-8e1d-0ad66370fbb5"
+            },
+            "outputGroupDetails": [
+                {
+
                 },
-                "outputGroupDetails": [
-                    {
-                        
-                    },
-                    {
-                        
-                    }
-                ]
-            }
-        }
+                {
 
-    '''
+                }
+            ]
+        }
+    }
+
+    """
 
     dataplane = DataPlane({})
-    job_id = event['detail']['jobId']
+    job_id = event["detail"]["jobId"]
 
     # Updates Job Status to either 'COMPLETE' or 'ERROR'
-    dataplane.update_media_convert_job_status(job_id, event['detail']['status'])
+    dataplane.update_media_convert_job_status(job_id, event["detail"]["status"])

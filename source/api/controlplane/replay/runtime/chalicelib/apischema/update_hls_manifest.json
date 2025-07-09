@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "update_hls_manifest",
+    "type": "object",
+    "required": [
+        "Name",
+        "Program",
+        "ReplayRequestId",
+        "HlsLocation",
+        "Thumbnail"
+    ],
+    "properties": {
+        "Name": {
+            "type": "string",
+            "description": "The name of the event",
+            "minLength": 3,
+            "maxLength": 150,
+            "pattern": "^(.*)$"
+        },
+        "Program": {
+            "type": "string",
+            "description": "The name of the program",
+            "minLength": 3,
+            "maxLength": 150,
+            "pattern": "^(.*)$"
+        },
+        "ReplayRequestId": {
+            "type": "string",
+            "description": "The unique identifier for the replay request",
+            "minLength": 3,
+            "maxLength": 50,
+            "pattern": "^(.*)$"
+        },
+        "HlsLocation": {
+            "type": "string",
+            "description": "The S3 location of the HLS manifest",
+            "pattern": "^(.*)$"
+        },
+        "Thumbnail": {
+            "type": "string",
+            "description": "The S3 location of the thumbnail image",
+            "pattern": "^(.*)$"
+        }
+    },
+    "additionalProperties": false
+}

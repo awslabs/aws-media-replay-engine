@@ -53,6 +53,8 @@ class TestEventGroup():
         event_config['Profile'] = profile_Name #"TestSuite-EventTestPassThroughProfile"
         event_config['GenerateOptoClips'] = True if eventConfig.GenerateOptoClips else False
         event_config['GenerateOrigClips'] = True if eventConfig.GenerateOrigClips else False
+        event_config['GenerateOrigThumbNails'] = True if eventConfig.GenerateOrigThumbNails else False
+        event_config['GenerateOptoThumbNails'] = True if eventConfig.GenerateOptoThumbNails else False
 
 
         call_api(path="event", api_method="POST", api_body=json.dumps(event_config))
@@ -151,7 +153,7 @@ class TestEventGroup():
         event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
         self.assert_events(event_config)
 
-
+    
     @pytest.mark.past_event_media_live_as_source
     def test_past_event_with_passthrough_profile_with_orig_clips(self, get_channel_ids, create_event_dependent_data):
         dep_data = create_event_dependent_data
@@ -166,6 +168,60 @@ class TestEventGroup():
         eventConfig = MediaLiveEventConfig(GenerateOptoClips=True, GenerateOrigClips=False, FutureEvent=False, Channel=get_channel_ids[3], EventName="TestSuite-VodEvent-WithOptoClips")
         event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
         self.assert_events(event_config)
+
+    #===========
+
+    
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_orig_and_opto_clips_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=True, GenerateOrigClips=True, GenerateOptoThumbNails=True, GenerateOrigThumbNails=True, FutureEvent=False, Channel=get_channel_ids[0], EventName="TestSuite-Vod-AllClips-BothThumbnails")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+    
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_no_clips_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=False, GenerateOrigClips=False, GenerateOptoThumbNails=True, GenerateOrigThumbNails=True, FutureEvent=False, Channel=get_channel_ids[1], EventName="TestSuite-Vod-WithNoClips-BothThumbnails")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+    
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_with_orig_clips_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=False, GenerateOrigClips=True, GenerateOptoThumbNails=False, GenerateOrigThumbNails=True, FutureEvent=False, Channel=get_channel_ids[2], EventName="TestSuite-Vod-OrigClips-OrigThumbnails")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+    
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_with_Opto_clips_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=True, GenerateOrigClips=False, GenerateOptoThumbNails=True, GenerateOrigThumbNails=False, FutureEvent=False, Channel=get_channel_ids[3], EventName="TestSuite-Vod-WithOptoClips-OptoThumbnails")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+    
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_with_both_clips_no_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=True, GenerateOrigClips=True, GenerateOptoThumbNails=False, GenerateOrigThumbNails=False, FutureEvent=False, Channel=get_channel_ids[3], EventName="TestSuite-Vod-AllClips-NoThumbnails")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+
+    
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_no_clips_opto_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=False, GenerateOrigClips=False, GenerateOptoThumbNails=True, GenerateOrigThumbNails=False, FutureEvent=False, Channel=get_channel_ids[1], EventName="TestSuite-Vod-WithNoClips-OptoThumbnail")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+
+    @pytest.mark.past_event_media_live_as_source_thumbnails_control
+    def test_past_event_with_passthrough_profile_no_clips_orig_thumbnails(self, get_channel_ids, create_event_dependent_data):
+        dep_data = create_event_dependent_data
+        eventConfig = MediaLiveEventConfig(GenerateOptoClips=False, GenerateOrigClips=False, GenerateOptoThumbNails=False, GenerateOrigThumbNails=True, FutureEvent=False, Channel=get_channel_ids[1], EventName="TestSuite-Vod-WithNoClips-OrigThumbnail")
+        event_config = self.process_event(eventConfig, "TestSuite-EventTestPassThroughProfile")
+        self.assert_events(event_config)
+    
 
 
     @pytest.mark.past_event_media_live_as_source_without_optimizer

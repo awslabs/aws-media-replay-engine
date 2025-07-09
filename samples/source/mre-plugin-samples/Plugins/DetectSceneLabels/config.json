@@ -1,0 +1,42 @@
+{
+  "Lambda": {
+    "Handler": "DetectSceneLabels.lambda_handler",
+    "MemorySize": 1024,
+    "TimeoutSecs": 180,
+    "IAMPolicyDocument": [
+      {
+        "Actions": ["bedrock:InvokeModel"],
+        "Resources": [
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:region:account-id:inference-profile/*.amazon.nova-lite-v1:0"
+        ]
+      },
+      {
+        "Actions": ["bedrock:ListInferenceProfiles"],
+        "Resources": ["arn:aws:bedrock:region:account-id:inference-profile/*"]
+      }
+    ],
+    "Layers": ["av", "pillow"]
+  },
+  "MRE": {
+    "Plugin": {
+      "Name": "DetectSceneLabels",
+      "Description": "A plugin to detect scene labels using GenAI",
+      "Class": "Featurer",
+      "ExecutionType": "Sync",
+      "SupportedMediaType": "Video",
+      "ContentGroups": ["All", "News"],
+      "ExecuteLambdaQualifiedARN": "",
+      "Configuration": {
+        "bedrock_model_id": "amazon.nova-lite-v1:0",
+        "prompt_template_name": "DetectSceneLabelsPrompt",
+        "sampling_seconds": 2
+      },
+      "OutputAttributes": {
+        "Label": {
+          "Description": ""
+        }
+      }
+    }
+  }
+}

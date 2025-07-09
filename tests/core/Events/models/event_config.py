@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 class EventConfig:
     GenerateOrigClips: bool = False
     GenerateOptoClips: bool = False
+    GenerateOrigThumbNails: bool = False
+    GenerateOptoThumbNails: bool = False
     FutureEvent: bool = False
     EventName: str = None
     

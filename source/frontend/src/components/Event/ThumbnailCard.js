@@ -55,12 +55,41 @@ export const ThumbnailCard = (props) => {
       
     const open = Boolean(anchorEl);
 
-   
+    const displaySegmentThumbCards = (props) => {
 
-    return (
-        <>
-            <GridListTile className={classes.cardRoot} key={props.key} onMouseEnter={handlePopoverOpen} onMouseLeave={handlePopoverClose} onClick={handleOnClick} >
-                {
+        if (props.OriginalEventData.hasOwnProperty("GenerateOrigThumbNails") && props.OriginalEventData.hasOwnProperty("GenerateOptoThumbNails")){
+            // If an Event has GenerateOptoThumbNails set to True and isOptimizerConfiguredInProfile == True
+            // always show the Optimized Thumbnail
+            if (props.OriginalEventData.GenerateOptoThumbNails && props.IsOptimizerConfiguredInProfile){
+                return(
+                    <Card style={{backgroundColor: props.highlightCard ? "white" : "black", padding: 5}} >
+                        <CardMedia
+                            style={{ height: "4vw", width: "7vw" }}
+                            image={props.ClipDetail.OptimizedThumbnailLocation}
+                        />
+                    </Card>
+                )
+            }else if (props.OriginalEventData.GenerateOrigThumbNails){
+                return(
+                    <Card style={{backgroundColor: props.highlightCard ? "white" : "black", padding: 5}} >
+                        <CardMedia
+                            style={{ height: "4vw", width: "7vw" }}
+                            image={props.ClipDetail.OriginalThumbnailLocation}
+                        />
+                    </Card>
+                )
+            }else{
+                console.log('fff');
+                return(<Card style={{height: "4vw", width: "7vw", padding: 0}}>
+                    <CardContent style={{textAlign: "left", padding: 10}}>
+                        <Typography variant="caption">
+                            {"Thumbnails disabled"}
+                        </Typography>
+                    </CardContent>
+                </Card>)
+            }
+        }else{
+            return (
                     !props.OriginalEventData.GenerateOrigClips && (!props.IsOptimizerConfiguredInProfile || !props.OriginalEventData.GenerateOptoClips) ? 
                     <Card style={{height: "4vw", width: "7vw", padding: 0}}>
                         <CardContent style={{textAlign: "left", padding: 10}}>
@@ -77,6 +106,31 @@ export const ThumbnailCard = (props) => {
                             image={props.OriginalEventData.GenerateOrigClips ? props.ClipDetail.OriginalThumbnailLocation : props.ClipDetail.OptimizedThumbnailLocation}
                         />
                     </Card>
+            )
+        }
+    }
+
+    return (
+        <>
+            <GridListTile className={classes.cardRoot} key={props.key} onMouseEnter={handlePopoverOpen} onMouseLeave={handlePopoverClose} onClick={handleOnClick} >
+                {
+                    displaySegmentThumbCards(props)
+                    /* !props.OriginalEventData.GenerateOrigClips && (!props.IsOptimizerConfiguredInProfile || !props.OriginalEventData.GenerateOptoClips) ? 
+                    <Card style={{height: "4vw", width: "7vw", padding: 0}}>
+                        <CardContent style={{textAlign: "left", padding: 10}}>
+                            <Typography variant="caption">
+                                {
+                                    !props.IsOptimizerConfiguredInProfile ? "No optimizer set. Original Clip gen disabled" : "All Clip gen disabled"
+                                }
+                            </Typography>
+                        </CardContent>
+                    </Card>   : 
+                    <Card style={{backgroundColor: props.highlightCard ? "white" : "black", padding: 5}} >
+                        <CardMedia
+                            style={{ height: "4vw", width: "7vw" }}
+                            image={props.OriginalEventData.GenerateOrigClips ? props.ClipDetail.OriginalThumbnailLocation : props.ClipDetail.OptimizedThumbnailLocation}
+                        />
+                    </Card> */
                 }
                 <GridListTileBar
                     title={`Starts at ${props.ClipDetail.StartTime} secs`}

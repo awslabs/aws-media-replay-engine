@@ -7,7 +7,7 @@
 #   Build and deploy CloudFormation templates for the Media Replay Engine using AWS CDK.
 #
 # USAGE:
-#  ./build-and-deploy.sh [-h] [-v] [--no-layer] [--disable-ui] [--enable-ssm-high-throughput] --version {VERSION} --region {REGION} --profile {PROFILE}
+#  ./build-and-deploy.sh [-h] [-v] [--no-layer] [--disable-ui] [--enable-ssm-high-throughput] [--enable-generative-ai] --version {VERSION} --region {REGION} --profile {PROFILE}
 #    VERSION should be in a format like 1.0.0
 #    REGION needs to be in a format like us-east-1
 #    PROFILE is optional. It's the profile that you have setup in ~/.aws/credentials
@@ -20,6 +20,7 @@
 #     --no-layer                      Do not build AWS Lambda layers
 #     --disable-ui                    Do not deploy the Frontend
 #     --enable-ssm-high-throughput    Increase SSM Parameter Store throughput
+#     --enable-generative-ai          Enable Generative AI functionality
 #
 ###############################################################################
 
@@ -28,7 +29,7 @@ trap cleanup_and_die SIGINT SIGTERM ERR
 usage() {
   msg "$msg"
   cat <<EOF
-Usage: $(basename "${BASH_SOURCE[0]}") [-h] [-v] [--no-layer] [--disable-ui] [--enable-ssm-high-throughput] [--profile PROFILE] --version VERSION --region REGION
+Usage: $(basename "${BASH_SOURCE[0]}") [-h] [-v] [--no-layer] [--disable-ui] [--enable-ssm-high-throughput] [--enable-generative-ai] [--profile PROFILE] --version VERSION --region REGION
 
 Available options:
 
@@ -37,6 +38,7 @@ Available options:
 --no-layer                      Do not build AWS Lambda layers (optional)
 --disable-ui                    Do not deploy the Frontend (optional)
 --enable-ssm-high-throughput    Increase SSM Parameter Store throughput (optional)
+--enable-generative-ai          Enable Generative AI functionality (optional)
 --version                       Arbitrary string indicating framework version
 --region                        AWS Region, formatted like us-east-1
 --profile                       AWS profile for CLI commands (optional)
@@ -88,6 +90,7 @@ parse_params() {
     --no-layer) NO_LAYER=1 ;;
     --disable-ui) NO_GUI=1 ;;
     --enable-ssm-high-throughput) HIGH_THROUGHPUT=1 ;;
+    --enable-generative-ai) GENERATIVE_AI=1 ;;
     --admin-email)
       ADMIN_EMAIL="${2}"
       shift
@@ -147,7 +150,7 @@ deploy_cdk_app() {
   fi
   echo "Deploying the $stack_name stack"
   cd "$stack_dir"/infrastructure
-  cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi)
+  cdk deploy --require-approval never $(if [ ! -z $profile ]; then echo "--profile $profile"; fi) $(if [ ! -z $GENERATIVE_AI ]; then echo "-c GENERATIVE_AI=true"; fi)
   if [ $? -ne 0 ]; then
       echo "ERROR: Failed to deploy the $stack_name stack."
       exit 1
@@ -164,6 +167,7 @@ msg "- Admin Email: ${ADMIN_EMAIL}"
 msg "- Build AWS Lambda layers? $(if [[ -z $NO_LAYER ]]; then echo 'True'; else echo 'False'; fi)"
 msg "- Deploy Frontend? $(if [[ -z $NO_GUI ]]; then echo 'True'; else echo 'False'; fi)"
 msg "- Enable SSM Parameter Store high throughput setting? $(if [[ ! -z $HIGH_THROUGHPUT ]]; then echo 'True'; else echo 'False'; fi)"
+msg "- Enable Generative AI? $(if [[ ! -z $GENERATIVE_AI ]]; then echo 'True'; else echo 'False'; fi)"
 
 echo ""
 sleep 3
@@ -228,6 +232,22 @@ if [ "$region" != "us-east-1" ] &&
    [ "$region" != "sa-east-1" ]; then
    echo "ERROR: AWS Elemental MediaConvert operations are not supported in $region region"
    exit 1
+fi
+
+if [ ! -z $GENERATIVE_AI ]; then
+  # Check if region is supported by Bedrock
+  if [ "$region" != "us-east-1" ] &&
+     [ "$region" != "us-west-2" ] &&
+     [ "$region" != "eu-west-1" ] &&
+     [ "$region" != "eu-west-3" ] &&
+     [ "$region" != "eu-central-1" ] &&
+     [ "$region" != "ap-south-1" ] &&
+     [ "$region" != "ap-northeast-1" ] &&
+     [ "$region" != "ap-southeast-1" ] &&
+     [ "$region" != "ap-southeast-2" ]; then
+     echo "ERROR: Amazon Bedrock operations are not supported in $region region"
+     exit 1
+  fi
 fi
 
 # Set the AWS_DEFAULT_REGION env variable
@@ -547,6 +567,11 @@ deploy_cdk_app "System" "$api_dir/controlplane/system"
 # Model stack
 deploy_cdk_app "Model" "$api_dir/controlplane/model"
 
+if [ ! -z $GENERATIVE_AI ]; then
+  # PromptCatalog stack
+  deploy_cdk_app "PromptCatalog" "$api_dir/controlplane/promptcatalog"
+fi
+
 # Plugin stack
 deploy_cdk_app "Plugin" "$api_dir/controlplane/plugin"
 
@@ -570,6 +595,11 @@ echo "Dataplane API stack"
 echo "------------------------------------------------------------------------------"
 deploy_cdk_app "Dataplane API" "$api_dir/dataplane" false
 
+if [ ! -z $GENERATIVE_AI ]; then
+  # GenAI Search stack
+  deploy_cdk_app "GenAI Search" "$api_dir/search"
+fi
+
 echo "------------------------------------------------------------------------------"
 echo "Gateway API stack"
 echo "------------------------------------------------------------------------------"
@@ -590,7 +620,7 @@ else
   [ -e cdk.out ] && rm -rf cdk.out
   [ -e cdk/cdk.out ] && rm -rf cdk/cdk.out
   [ -e cdk/cdk-outputs.json ] && rm -rf cdk/cdk-outputs.json
-
+  
   cd "$frontend_dir"/cdk
   echo "Installing Python dependencies"
   pip3 install -U -q -r requirements.txt

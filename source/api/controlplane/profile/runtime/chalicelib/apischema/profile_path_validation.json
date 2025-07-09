@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "title": "profile_path_validation",
+  "properties": {
+    "Name": {
+      "type": "string",
+      "pattern": "^(.*)$",
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "ContentGroup": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 50,
+      "pattern": "^(.*)$"
+    }
+  }
+}

@@ -5,7 +5,7 @@
         "@aws-sdk/client-dynamodb": "3.726.1",
         "@opensearch-project/opensearch": "2.10.0",
         "@langchain/core": "0.2.16",
-        "@langchain/community": "0.2.19",
+        "@langchain/community": "0.3.3",
         "@langchain/aws": "0.0.2"
     },
     "devDependencies": {
@@ -14,7 +14,7 @@
         "@aws-sdk/client-dynamodb": "3.726.1",
         "@opensearch-project/opensearch": "2.10.0",
         "@langchain/core": "0.2.16",
-        "@langchain/community": "0.2.19",
+        "@langchain/community": "0.3.3",
         "@langchain/aws": "0.0.2"
     }
 }

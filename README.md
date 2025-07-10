@@ -96,9 +96,9 @@ To upgrade MRE Frontend to the latest version, follow the below steps. Be sure t
 
  > **NOTE:** The warning message about redeploying the frontend application after running the above command can be ignored as we will be doing that shortly.
 * Run ```python3 create-env-file.py $REGION Update```
-* Run ```npm i --legacy-peer-deps and npm run build``` from **aws-media-replay-engine/source/frontend** folder.
-* Zip the build assets located in **aws-media-replay-engine/source/frontend/build** folder ```zip -r -q -X ./build.zip *```.
-* Run ```python3 init-amplify.py $REGION Update```
+* Run ```npm i --legacy-peer-deps && npm run build``` from **aws-media-replay-engine/source/frontend** folder
+* Navigate to **aws-media-replay-engine/source/frontend/build** folder and zip the build assets using ```zip -r -q -X ./build.zip *```
+* Run ```python3 init-amplify.py $REGION Update``` from **aws-media-replay-engine/source/frontend/cdk** folder
 
 #### Run Frontend Locally
 

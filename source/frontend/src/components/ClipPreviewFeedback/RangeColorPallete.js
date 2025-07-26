@@ -32,7 +32,7 @@ const generateColorPalette = () => {
         {"name": "Stone", "hex": "#d4dada"}
     ];
     
-    colors.push(...awsColors);
+    
     
     // Generate systematic color variations
     for (let h = 0; h < 360; h += 15) { // 24 hues
@@ -46,6 +46,8 @@ const generateColorPalette = () => {
             }
         }
     }
+
+    colors.push(...awsColors);
     
     return colors;
 };

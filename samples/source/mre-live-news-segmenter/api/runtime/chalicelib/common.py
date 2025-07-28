@@ -11,7 +11,20 @@ s3_client = boto3.client("s3")
 
 
 def udf(item):
-    return {k: deserializer.deserialize(value=v) for k, v in item.items()}
+    result = {}
+    for k, v in item.items():
+        if not v:
+            result[k] = v
+        else:
+            try:
+                # Check if value is already deserialized (not in DynamoDB format)
+                if isinstance(v, dict) and len(v) == 1 and list(v.keys())[0] in ['S', 'N', 'B', 'SS', 'NS', 'BS', 'M', 'L', 'NULL', 'BOOL']:
+                    result[k] = deserializer.deserialize(value=v)
+                else:
+                    result[k] = v
+            except (TypeError, ValueError, AttributeError):
+                result[k] = v
+    return result
 
 
 def create_presigned_url(s3_url, expiration=3600):

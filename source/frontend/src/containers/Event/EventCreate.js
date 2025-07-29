@@ -79,7 +79,7 @@ export const EventCreate = () => {
 
     const fetchProfileMetadata = async (profile) => {
         let response = await query('get', 'api', `profile/${profile}/context-variables`, { disableLoader: true }, { ttl: 30000 });
-        return response.data?.data;
+        return response.data;
     }
 
 

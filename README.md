@@ -556,13 +556,6 @@ For cost optimization, MRE disables some data export features out of the Box. To
 
 2. EDL Export - Within Amazon EventBridge, enable the rule named **aws-mre-clip-generation-MREEventEndRule**
 
-
-## Known Issues
-
-- **Issue 1:** The Refresh token provided by Amazon Cognito has an expiration of 10 Hrs. You will see errors in the MRE frontend if the current logged-in session is longer than 10 Hrs. You will need to re-login to start a new session.
-
-
-
 # Contributing
 
 See the [CONTRIBUTING](CONTRIBUTING.md) file for how to contribute.

@@ -27,6 +27,8 @@ import clsx from "clsx";
 import {makeStyles} from "@material-ui/core/styles";
 import {SnackbarContent} from "@material-ui/core";
 import Button from "@material-ui/core/Button";
+import { useTokenExpiration } from "./common/utils/useTokenExpiration";
+import TokenExpirationWarning from "./components/TokenExpirationWarning/TokenExpirationWarning";
 
 
 const useStyles = makeStyles((theme) => ({
@@ -65,6 +67,7 @@ const App = (props) => {
     const [isAuthenticating, setIsAuthenticating] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [errorMessage, setErrorMessage] = useState(undefined);
+    const [tokenExpiration, setTokenExpiration] = useState({ showWarning: false, timeUntilExpiry: 0 });
 
     const navigate = useNavigate();
     const classes = useStyles();
@@ -78,6 +81,13 @@ const App = (props) => {
     useEffect(() => {
         initApp();
     }, []);
+
+    // Token expiration monitoring - only after authentication
+    const { showWarning, timeUntilExpiry, handleReLogin, dismissWarning } = useTokenExpiration(15, 30, isAuthenticated);
+
+    useEffect(() => {
+        setTokenExpiration({ showWarning, timeUntilExpiry });
+    }, [showWarning, timeUntilExpiry]);
     
     const initApp = async () => {
         document.title = config.APP_TITLE;
@@ -203,6 +213,12 @@ const App = (props) => {
                                         <SnackbarContent message={errorMessage} action={handleCloseError}/>}
                                     </Box>
                                     <Routes/>
+                                    <TokenExpirationWarning
+                                        visible={tokenExpiration.showWarning && isAuthenticated}
+                                        timeUntilExpiry={tokenExpiration.timeUntilExpiry}
+                                        onReLogin={handleReLogin}
+                                        onDismiss={dismissWarning}
+                                    />
                                 </Box>
                             </Grid>
                         </Grid>

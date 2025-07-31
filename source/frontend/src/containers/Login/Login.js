@@ -4,7 +4,7 @@
  */
 
 import React, {useState} from "react";
-import {updatePassword, signIn, resetPassword, ResetPasswordOutput, confirmResetPassword, confirmSignIn} from "aws-amplify/auth"
+import {updatePassword, signIn, resetPassword, ResetPasswordOutput, confirmResetPassword, confirmSignIn, fetchAuthSession} from "aws-amplify/auth"
 import {useNavigate, useLocation} from "react-router-dom";
 
 import Avatar from '@material-ui/core/Avatar';
@@ -55,6 +55,10 @@ export const Login = (props) => {
         try{
             const confirmedResponse = await confirmSignIn({challengeResponse: newPassword});
             console.log(confirmedResponse.username)
+            
+            const refreshTokenIssuedAt = Math.floor(Date.now() / 1000);
+            localStorage.setItem('RefreshTokenIssuedAt', refreshTokenIssuedAt.toString());
+            
             userHasAuthenticated(username);
             setSignInResponse(confirmedResponse)
             navigate(state?.from || '/');
@@ -78,6 +82,8 @@ export const Login = (props) => {
                 setSignInResponse(signInResponse)
             }
             else{
+                const refreshTokenIssuedAt = Math.floor(Date.now() / 1000);
+                localStorage.setItem('RefreshTokenIssuedAt', refreshTokenIssuedAt.toString());
                 userHasAuthenticated(username);
                 navigate(state?.from || '/');
             }

@@ -29,28 +29,42 @@ To get a head start in building automated video clipping pipelines using the MRE
 ## Deploying MRE using EC2
 
 Using an Amazon EC2 Instance is the **SUPPORTED and RECOMMENDED** method to install MRE.
->
-> * Use the `env-init.sh` script as User Data when launching your EC2 instance to automatically install all prerequisites. 
-> * Please ensure that you configure your EC2 Instance Profile IAM Role with the correct permissions to support CDK (Cloud Development Kit) operations(see `env-role-permissions.json` for policy statement example.).
-> * Tested configuration:
->   * *Amazon Linux 2023 (AL2023)*
->   * *Architecture: x86_64*
->   * *Instance Type: t3.large*
->   * *EBS Storage: 16 GB gp3 (minimum requirement)*
->
-> * SSH into the EC2 Instance. You will activate the Python virtual environment prior to deployment (see `env-init.sh` for example).
-> * Configure a **AWS profile** using the ```aws configure``` command. Ensure that the AWS profile works.
-> * Follow steps outlined in section **Greenfield Deployment** to start MRE deployment.
+
+1. Use the `env-init.sh` script as User Data when launching your EC2 instance to automatically install all prerequisites. 
+2. Please ensure that you configure your EC2 Instance Profile IAM Role with the correct permissions to support CDK (Cloud Development Kit) operations(see `env-role-permissions.json` for policy statement example.).
+
+:heavy_exclamation_mark: **IMPORTANT:** Replace the values of AWS_REGION and AWS_ACCOUNT_ID before assigning the Policy to the EC2 Instance profile IAM Role.
+
+3. Recommended EC2 Instance configuration:
+   * *Amazon Linux 2023 (AL2023)*
+   * *Architecture: x86_64*
+   * *Instance Type: t3.large*
+   * *EBS Storage: 16 GB gp3 (minimum requirement)*
+
+
 
 :heavy_exclamation_mark: **IMPORTANT:** You are responsible for stopping or terminating your EC2 instance after deployment to avoid unnecessary charges
 
 ## Greenfield Deployment
 
-Greenfield deployment of MRE is suitable for customers who are looking to install from scratch.
+Greenfield MRE deployment is designed for customers implementing new installations from the ground up.
 
-Run the following commands to build and deploy MRE. Be sure to define values for `REGION` and `VERSION` first.
+1. As a first step, please make sure you have launched a new EC2 instance and established a SSH session with it. Follow the steps outlined
+in the section **Deploying MRE using EC2** when launching the EC2 Instance.
 
+2. SSH into the EC2 Instance. Configure a **AWS CLI profile** using the ```aws configure``` command. Ensure that the AWS profile works.
+
+3. Activate the Python virtual environment prior to deployment. Run these commands
+
+```bash
+cd ~
+source ./mredeploy/mredeploy-env/bin/activate
 ```
+
+4. Run the following commands to build and deploy MRE. Be sure to define values for `REGION` and `VERSION` first.
+
+
+```bash
 REGION=[specify the AWS region. For example, us-east-1]
 VERSION=2.10.0
 git clone https://github.com/awslabs/aws-media-replay-engine
@@ -60,7 +74,7 @@ cd deployment
 ```
 
 To deploy MRE with **Generative AI** capabilities, such as natural language clip search, run the following command
-```
+```bash
 ./build-and-deploy.sh --enable-ssm-high-throughput --enable-generative-ai --version $VERSION --region $REGION [--profile <aws-profile> --admin-email <admin-email>]
 ```
 
@@ -70,7 +84,7 @@ To deploy MRE with **Generative AI** capabilities, such as natural language clip
 
 In order to upgrade MRE Backend (StepFunctions, Lambda, API Gateway, EventBridge Rules, etc.), run the following commands. Be sure to define values for `REGION` and `VERSION` first.
 
-```
+```bash
 REGION=[specify the AWS region. For example, us-east-1]
 VERSION=2.10.0
 git clone https://github.com/awslabs/aws-media-replay-engine
@@ -88,7 +102,7 @@ To upgrade MRE Frontend to the latest version, follow the below steps. Be sure t
 * After cloning the repo from GitHub, navigate to **aws-media-replay-engine/source/frontend/cdk** folder.
 * Run the following commands to update the Amplify Environment variables and/or Custom headers.
 
- ```
+ ```bash
  python3 -m venv venv
  source venv/bin/activate
  pip install -r requirements.txt
@@ -108,7 +122,7 @@ If you have the MRE Framework deployed to AWS you can configure and run the MRE 
 * Fill in this env file with the correct information, this can all be found in the outputs of the MRE cloudformation stacks.
 * Once the .env file is filled you can now install and run the MRE frontend from your local machine with the below commands:
 
- ```
+ ```bash
  npm i --legacy-peer-deps
  npm run start
  ```

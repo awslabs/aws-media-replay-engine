@@ -58,7 +58,7 @@ in the section **Deploying MRE using EC2** when launching the EC2 Instance.
 
 ```bash
 cd ~
-source ./mredeploy/mredeploy-env/bin/activate
+source mredeploy/mredeploy-env/bin/activate
 ```
 
 4. Run the following commands to build and deploy MRE. Be sure to define values for `REGION` and `VERSION` first.

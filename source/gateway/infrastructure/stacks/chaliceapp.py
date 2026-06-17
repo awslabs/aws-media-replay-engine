@@ -14,6 +14,7 @@ from cdk_nag import NagSuppressions
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append("../../")
 from shared.infrastructure.helpers import common, api_logging_construct
+from shared.infrastructure.helpers.genai import is_generative_ai_enabled
 
 
 RUNTIME_SOURCE_DIR = os.path.join(
@@ -134,7 +135,6 @@ class ChaliceApp(Stack):
             "environment_variables": {
                 "PLUGIN_URL": Fn.import_value("mre-plugin-api-url"),
                 "MODEL_URL": Fn.import_value("mre-model-api-url"),
-                "PROMPT_CATALOG_URL": Fn.import_value("mre-prompt-catalog-api-url"),
                 "CONTENT_GROUP_URL": Fn.import_value("mre-contentgroup-api-url"),
                 "EVENT_URL": Fn.import_value("mre-event-api-url"),
                 "PROFILE_URL": Fn.import_value("mre-profile-api-url"),
@@ -154,7 +154,7 @@ class ChaliceApp(Stack):
             "layers": [self.powertools_layer.layer_version_arn]
         }
 
-        if self.node.try_get_context("GENERATIVE_AI"):
+        if is_generative_ai_enabled(self.node):
             stage_config["environment_variables"]["PROMPT_CATALOG_URL"] = (
                 Fn.import_value("mre-prompt-catalog-api-url")
             )

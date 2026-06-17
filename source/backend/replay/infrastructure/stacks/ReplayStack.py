@@ -837,6 +837,25 @@ class ReplayStack(Stack):
             self.update_media_convert_job_in_ddb, "AwsSolutions-L1"
         )
 
+        NagSuppressions.add_resource_suppressions_by_path(
+            self,
+            f"aws-mre-replay-handler/AWS679f53fac002430cb0da5b7982bd2287",
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "AwsCustomResource provider Lambda runtime is managed by CDK",
+                },
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "AWS managed policies allowed",
+                    "appliesTo": [
+                        "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    ],
+                },
+            ],
+            True,
+        )
+
     def __add_resource_suppressions_by_construct(self, construct, id: str):
         NagSuppressions.add_resource_suppressions(
             construct,

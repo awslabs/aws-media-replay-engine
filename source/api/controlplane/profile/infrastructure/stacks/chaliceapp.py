@@ -13,6 +13,7 @@ from chalice.cdk import Chalice
 sys.path.append("../../../../")
 
 from shared.infrastructure.helpers import common, constants, api_logging_construct
+from shared.infrastructure.helpers.genai import is_generative_ai_enabled
 
 RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, "runtime"
@@ -24,6 +25,8 @@ class ChaliceApp(Stack):
     def __init__(self, scope, id, **kwargs):
         super().__init__(scope, id, **kwargs)
 
+        self.genai_enabled = is_generative_ai_enabled(self.node)
+
         # Get the Existing MRE EventBus as IEventBus
         self.event_bus = common.MreCdkCommon.get_event_bus(self)
 
@@ -33,10 +36,13 @@ class ChaliceApp(Stack):
         self.profile_table_name = Fn.import_value("mre-profile-table-name")
         self.model_table_arn = Fn.import_value("mre-model-table-arn")
         self.model_table_name = Fn.import_value("mre-model-table-name")
-        self.prompt_catalog_table_arn = Fn.import_value("mre-prompt-catalog-table-arn")
-        self.prompt_catalog_table_name = Fn.import_value(
-            "mre-prompt-catalog-table-name"
-        )
+        if self.genai_enabled:
+            self.prompt_catalog_table_arn = Fn.import_value(
+                "mre-prompt-catalog-table-arn"
+            )
+            self.prompt_catalog_table_name = Fn.import_value(
+                "mre-prompt-catalog-table-name"
+            )
         self.plugin_table_arn = Fn.import_value("mre-plugin-table-arn")
         self.plugin_table_name = Fn.import_value("mre-plugin-table-name")
         self.metadata_table_arn = Fn.import_value("mre-metadata-table-arn")
@@ -411,6 +417,21 @@ class ChaliceApp(Stack):
         )
 
         # Chalice IAM Role: DynamoDB permissions
+        dynamodb_resources = [
+            self.content_group_table_arn,
+            self.plugin_table_arn,
+            f"{self.plugin_table_arn}/index/*",
+            self.profile_table_arn,
+            self.model_table_arn,
+            f"{self.model_table_arn}/index/*",
+            self.metadata_table_arn,
+            f"{self.metadata_table_arn}/index/*",
+        ]
+        if self.genai_enabled:
+            dynamodb_resources.extend([
+                self.prompt_catalog_table_arn,
+                f"{self.prompt_catalog_table_arn}/index/*",
+            ])
         self.chalice_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -427,18 +448,7 @@ class ChaliceApp(Stack):
                     "dynamodb:UpdateItem",
                     "dynamodb:DeleteItem",
                 ],
-                resources=[
-                    self.content_group_table_arn,
-                    self.plugin_table_arn,
-                    f"{self.plugin_table_arn}/index/*",
-                    self.profile_table_arn,
-                    self.model_table_arn,
-                    f"{self.model_table_arn}/index/*",
-                    self.prompt_catalog_table_arn,
-                    f"{self.prompt_catalog_table_arn}/index/*",
-                    self.metadata_table_arn,
-                    f"{self.metadata_table_arn}/index/*",
-                ],
+                resources=dynamodb_resources,
             )
         )
 
@@ -472,27 +482,28 @@ class ChaliceApp(Stack):
             )
         )
 
+        environment_variables = {
+            "SFN_ROLE_ARN": self.sfn_role.role_arn,
+            "CONTENT_GROUP_TABLE_NAME": self.content_group_table_name,
+            "PROFILE_TABLE_NAME": self.profile_table_name,
+            "PROBE_VIDEO_LAMBDA_ARN": self.probe_video_lambda.function_arn,
+            "MULTI_CHUNK_HELPER_LAMBDA_ARN": self.multi_chunk_helper_lambda.function_arn,
+            "PLUGIN_OUTPUT_HANDLER_LAMBDA_ARN": self.plugin_output_handler_lambda.function_arn,
+            "WORKFLOW_ERROR_HANDLER_LAMBDA_ARN": self.workflow_error_handler_lambda.function_arn,
+            "MODEL_TABLE_NAME": self.model_table_name,
+            "PLUGIN_TABLE_NAME": self.plugin_table_name,
+            "CLIP_GENERATION_STATE_MACHINE_ARN": Fn.import_value("mre-clip-gen-arn"),
+            "METADATA_TABLE_NAME": self.metadata_table_name,
+        }
+        if self.genai_enabled:
+            environment_variables["PROMPT_CATALOG_TABLE_NAME"] = self.prompt_catalog_table_name
+
         self.chalice = Chalice(
             self,
             "ChaliceApp",
             source_dir=RUNTIME_SOURCE_DIR,
             stage_config={
-                "environment_variables": {
-                    "SFN_ROLE_ARN": self.sfn_role.role_arn,
-                    "CONTENT_GROUP_TABLE_NAME": self.content_group_table_name,
-                    "PROFILE_TABLE_NAME": self.profile_table_name,
-                    "PROBE_VIDEO_LAMBDA_ARN": self.probe_video_lambda.function_arn,
-                    "MULTI_CHUNK_HELPER_LAMBDA_ARN": self.multi_chunk_helper_lambda.function_arn,
-                    "PLUGIN_OUTPUT_HANDLER_LAMBDA_ARN": self.plugin_output_handler_lambda.function_arn,
-                    "WORKFLOW_ERROR_HANDLER_LAMBDA_ARN": self.workflow_error_handler_lambda.function_arn,
-                    "MODEL_TABLE_NAME": self.model_table_name,
-                    "PROMPT_CATALOG_TABLE_NAME": self.prompt_catalog_table_name,
-                    "PLUGIN_TABLE_NAME": self.plugin_table_name,
-                    "CLIP_GENERATION_STATE_MACHINE_ARN": Fn.import_value(
-                        "mre-clip-gen-arn"
-                    ),
-                    "METADATA_TABLE_NAME": self.metadata_table_name,
-                },
+                "environment_variables": environment_variables,
                 "tags": {"Project": "MRE"},
                 "manage_iam_role": False,
                 "iam_role_arn": self.chalice_role.role_arn,

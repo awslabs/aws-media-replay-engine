@@ -181,28 +181,14 @@ class ChaliceApp(Stack):
                         f"Resource::arn:aws:logs:<AWS::Region>:<AWS::AccountId>:log-group:/aws/lambda/{Stack.of(self).stack_name}-*",
                     ],
                 },
-            ],
-        )
-        NagSuppressions.add_resource_suppressions_by_path(
-            self,
-            "aws-mre-workflow-trigger/TriggerMREWorkflow/Resource",
-            [
-                {
-                    "id": "AwsSolutions-L1",
-                    "reason": "TriggerMREWorkflow lambda function does not require the latest runtime version",
-                }
-            ],
-        )
-        NagSuppressions.add_resource_suppressions_by_path(
-            self,
-            "/aws-mre-workflow-trigger/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/DefaultPolicy/Resource",
-            [
                 {
                     "id": "AwsSolutions-IAM5",
-                    "appliesTo": [
-                        "Resource::*",
-                    ],
-                    "reason": "CDK uses BucketNotificationsHandler to manage S3 bucket notifications which requires broader IAM permissions",
-                }
+                    "reason": "CDK BucketNotificationsHandler manages S3 notifications and requires broader IAM",
+                    "appliesTo": ["Resource::*"],
+                },
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "CDK-managed BucketNotificationsHandler / TriggerMREWorkflow runtime is not controlled by this codebase",
+                },
             ],
         )

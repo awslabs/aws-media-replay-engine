@@ -53,6 +53,6 @@ typing_extensions==4.7.1
 urllib3==2.5.0
 waitress==3.0.1
 wcwidth==0.2.6
-WebOb==1.8.8
+WebOb==1.8.10
 WebTest==3.0.0
 aws-lambda-powertools[all]

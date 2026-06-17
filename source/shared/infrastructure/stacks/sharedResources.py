@@ -28,6 +28,7 @@ from cdk_nag import NagSuppressions
 # Ask Python interpreter to search for modules in the topmost folder. This is required to access the shared.infrastructure.helpers module
 sys.path.append("../../")
 import shared.infrastructure.helpers.constants as constants
+from shared.infrastructure.helpers.genai import is_generative_ai_enabled
 
 LAYERS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, "../layers"
@@ -75,7 +76,7 @@ class MreSharedResources(Stack):
         self.create_api_gateway_logging_role()
 
         # generative AI components
-        if self.node.try_get_context("GENERATIVE_AI"):
+        if is_generative_ai_enabled(self.node):
             self.create_prompt_catalog_table()
             # Add more as required
 

@@ -47,6 +47,7 @@ AOSS_PROGRAM_INDEX_NAME = "mre-program-summary-index"
 sys.path.append("../../../")
 
 from shared.infrastructure.helpers import common, api_logging_construct
+from shared.infrastructure.helpers.genai import is_generative_ai_enabled
 
 RUNTIME_SOURCE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), os.pardir, "runtime"
@@ -600,7 +601,7 @@ class ChaliceApp(Stack):
         # region AOSS
         # Amazon OpenSearch Collection if the --enable-generative-ai flag is set in the build-and-deploy script
 
-        if self.node.try_get_context("GENERATIVE_AI"):
+        if is_generative_ai_enabled(self.node):
             self.vectorsearch_collection_name = "mre-vectorsearch-collection"
             self.summary_collection_name = "mre-summary-collection"
 
@@ -934,7 +935,7 @@ class ChaliceApp(Stack):
         }
 
         ## Determine if we need environment variables related to vector store
-        if self.node.try_get_context("GENERATIVE_AI"):
+        if is_generative_ai_enabled(self.node):
             stage_config["environment_variables"][
                 "OS_SUMMARY_SEARCH_COLLECTION_EP"
             ] = self.summary_search_collection.attr_collection_endpoint
@@ -1082,7 +1083,7 @@ class ChaliceApp(Stack):
             ],
             True,
         )
-        if self.node.try_get_context("GENERATIVE_AI"):
+        if is_generative_ai_enabled(self.node):
             NagSuppressions.add_resource_suppressions(
                 self.custom_resource_provider,
                 [
